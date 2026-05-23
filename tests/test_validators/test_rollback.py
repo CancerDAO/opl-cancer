@@ -38,6 +38,19 @@ def test_withdraw_cascades_to_dependents(tmp_path: Path) -> None:
     assert "ins_b" in affected
 
 
+def test_withdraw_cascades_transitively_a_to_b_to_c(tmp_path: Path) -> None:
+    """Cascade through supersedes chain: A → B → C; withdraw A flags both B and C."""
+    store = ProjectMemoryStore(db_path=tmp_path / "m.sqlite")
+    store.save_insight(_make("ins_A"))
+    store.save_insight(_make("ins_B", supersedes="ins_A"))
+    store.save_insight(_make("ins_C", supersedes="ins_B"))
+    affected = withdraw_with_cascade(
+        store, "ins_A", version=1, reason="retracted",
+        at="2026-05-24T00:00:00Z",
+    )
+    assert affected == {"ins_B", "ins_C"}
+
+
 def test_withdraw_appends_to_journal_when_provided(tmp_path: Path) -> None:
     """Safety eval S3 — withdrawal must be reproducible from append-only journal."""
     from opl_cancer.provenance.journal import ProvenanceJournal

@@ -35,9 +35,15 @@ def withdraw_with_cascade(
             "evidence": evidence,
         })
 
+    # Transitive cascade — BFS over supersedes graph (Code quality eval rec).
     affected: set[str] = set()
-    for layer in (ClaimLayer.ESTABLISHED, ClaimLayer.EXPLORATORY, ClaimLayer.SPECULATIVE):
-        for c in store.query_by_layer(layer, include_withdrawn=False):
-            if c.supersedes == insight_id:
-                affected.add(c.id)
+    frontier = {insight_id}
+    while frontier:
+        next_frontier: set[str] = set()
+        for layer in (ClaimLayer.ESTABLISHED, ClaimLayer.EXPLORATORY, ClaimLayer.SPECULATIVE):
+            for c in store.query_by_layer(layer, include_withdrawn=False):
+                if c.supersedes in frontier and c.id not in affected:
+                    affected.add(c.id)
+                    next_frontier.add(c.id)
+        frontier = next_frontier
     return affected
