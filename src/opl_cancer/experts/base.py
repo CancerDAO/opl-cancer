@@ -23,6 +23,10 @@ class Expert(ABC):
     (planner / executor / reviewer / auditor / integrator / feedback). The
     abstract methods below enforce that grammar — subclasses MUST implement
     all six (or explicitly raise NotImplementedError per subclass with rationale).
+
+    Async: per P1-T25 the 5 LLM-touching primitives (plan/execute/review/
+    audit/integrate) are async — they wrap network LLM + integrator calls.
+    `feedback` stays sync (in-process working-memory write).
     """
 
     profile: ExpertProfile
@@ -32,27 +36,31 @@ class Expert(ABC):
         """Return True if this task is in this expert's portfolio."""
 
     @abstractmethod
-    def plan(self, sub_goal: str, context: dict[str, Any]) -> dict[str, Any]:
+    async def plan(self, sub_goal: str, context: dict[str, Any]) -> dict[str, Any]:
         """Spec §2.2 inner grammar — planner primitive.
         Decompose sub_goal into expert-local task plan (not the global Planner)."""
 
     @abstractmethod
-    def execute(self, task_package: str, plan: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    async def execute(
+        self, task_package: str, plan: dict[str, Any], context: dict[str, Any]
+    ) -> dict[str, Any]:
         """Spec §2.2 inner grammar — executor primitive.
         Run the expert's task package on the given plan + context."""
 
     @abstractmethod
-    def review(self, other_output: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    async def review(
+        self, other_output: dict[str, Any], context: dict[str, Any]
+    ) -> dict[str, Any]:
         """Spec §2.2 inner grammar — reviewer primitive (cross-expert peer review).
         Critique another expert's output using DIFFERENT model than the producer."""
 
     @abstractmethod
-    def audit(self, claim: dict[str, Any]) -> dict[str, Any]:
+    async def audit(self, claim: dict[str, Any]) -> dict[str, Any]:
         """Spec §2.2 inner grammar — auditor primitive (intra-expert pre-audit).
         Catch domain-specific issues before global Henry audit."""
 
     @abstractmethod
-    def integrate(self, family: str, key: str) -> dict[str, Any]:
+    async def integrate(self, family: str, key: str) -> dict[str, Any]:
         """Spec §2.2 inner grammar — integrator primitive.
         Fetch from this expert's preferred integrator family."""
 
