@@ -7,12 +7,20 @@ override the class-default `ttl_seconds` for specific keys/sub-families
 Resolution order at cached_fetch() time:
     1. instance.ttl_seconds_overrides (constructor arg)
     2. cls.default_ttl_seconds_overrides
-    3. cls.ttl_seconds
+    3. instance.ttl_seconds (set by __init__; may come from models.yaml)
+    4. cls.ttl_seconds
+
+Iter 18 (v1.0.10) — `Integrator.__init__` reads the family default from
+`models.yaml.integrator_ttl_seconds[<family_config_key>]` if the subclass
+sets `family_config_key`. Models.yaml is lazy-loaded once per process.
 """
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, ClassVar
+
+import yaml
 
 from .cache import IntegratorCache
 
@@ -27,11 +35,43 @@ class Integrator(ABC):
     family: spec §2.5 F1-F10
     ttl_seconds: default cache TTL (overridable by per-key map or put())
     default_ttl_seconds_overrides: class-level per-key override map
+    family_config_key: optional key into models.yaml.integrator_ttl_seconds
+        for the family's default TTL (e.g. "nccn", "pubmed").
     """
 
     family: str
     ttl_seconds: int = 3600
     default_ttl_seconds_overrides: ClassVar[dict[str, int]] = {}
+    family_config_key: ClassVar[str | None] = None
+
+    _models_yaml_ttls_cache: ClassVar[dict[str, int] | None] = None
+
+    @classmethod
+    def _load_models_yaml_ttls(cls) -> dict[str, int]:
+        """Lazy-load `integrator_ttl_seconds` from repo-root models.yaml.
+
+        Returns {} silently if models.yaml is not discoverable (e.g. in an
+        installed wheel without source layout). Cached per-process.
+        """
+        if cls._models_yaml_ttls_cache is not None:
+            return cls._models_yaml_ttls_cache
+        here = Path(__file__).resolve()
+        for parent in here.parents:
+            candidate = parent / "models.yaml"
+            if candidate.is_file():
+                try:
+                    data = yaml.safe_load(candidate.read_text(encoding="utf-8"))
+                except (yaml.YAMLError, OSError):
+                    Integrator._models_yaml_ttls_cache = {}
+                    return {}
+                ttls = data.get("integrator_ttl_seconds", {}) if isinstance(data, dict) else {}
+                resolved: dict[str, int] = {
+                    str(k): int(v) for k, v in ttls.items() if isinstance(v, (int, float))
+                }
+                Integrator._models_yaml_ttls_cache = resolved
+                return resolved
+        Integrator._models_yaml_ttls_cache = {}
+        return {}
 
     def __init__(
         self,
@@ -40,6 +80,14 @@ class Integrator(ABC):
     ) -> None:
         self.cache = cache
         self.ttl_seconds_overrides: dict[str, int] = dict(ttl_seconds_overrides or {})
+        # Iter 18: if subclass declares a config key, prefer models.yaml value
+        # over the class-level ttl_seconds default. Instance attribute shadows
+        # the class attribute, leaving the class default intact for tests.
+        cfg_key = type(self).family_config_key
+        if cfg_key is not None:
+            ttls = type(self)._load_models_yaml_ttls()
+            if cfg_key in ttls:
+                self.ttl_seconds = ttls[cfg_key]
 
     @abstractmethod
     async def fetch(self, key: str) -> dict[str, Any]:
@@ -48,7 +96,8 @@ class Integrator(ABC):
     def resolve_ttl(self, key: str) -> int:
         """Return the effective TTL (seconds) for `key`.
 
-        Instance overrides beat class overrides; both beat the class default.
+        Instance overrides beat class overrides; both beat the (instance or
+        class) ttl_seconds default.
         """
         if key in self.ttl_seconds_overrides:
             return int(self.ttl_seconds_overrides[key])

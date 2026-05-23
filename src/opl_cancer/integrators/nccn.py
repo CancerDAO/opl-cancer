@@ -21,6 +21,7 @@ def _excerpts_dir() -> Path:
 class NCCNPageIndexIntegrator(Integrator):
     family = "F2"
     ttl_seconds = 30 * 24 * 3600  # spec §17.5 P2: NCCN 30-day TTL
+    family_config_key = "nccn"  # Iter 18: read from models.yaml.integrator_ttl_seconds
 
     async def fetch(self, key: str) -> dict[str, Any]:
         if ":" not in key:

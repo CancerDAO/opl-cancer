@@ -62,3 +62,21 @@ async def test_cached_fetch_uses_resolved_ttl(tmp_path: Path) -> None:
     i = _StubIntegrator(cache=cache, ttl_seconds_overrides={"vip": 7})
     await i.cached_fetch("vip")
     assert captured["ttl"] == 7
+
+
+def test_nccn_integrator_reads_ttl_from_models_yaml() -> None:
+    """Iter 18 (v1.0.10): NCCN integrator picks up 30-day TTL from models.yaml.
+
+    Mechanism: NCCN class declares ``family_config_key = "nccn"`` so
+    Integrator.__init__ resolves the family default from
+    ``models.yaml.integrator_ttl_seconds["nccn"]`` at construction time.
+    """
+    from opl_cancer.integrators.base import Integrator
+    from opl_cancer.integrators.nccn import NCCNPageIndexIntegrator
+
+    Integrator._models_yaml_ttls_cache = None
+    integrator = NCCNPageIndexIntegrator()
+    assert integrator.ttl_seconds == 30 * 24 * 3600
+    assert NCCNPageIndexIntegrator.family_config_key == "nccn"
+    ttls = Integrator._load_models_yaml_ttls()
+    assert ttls.get("nccn") == 30 * 24 * 3600

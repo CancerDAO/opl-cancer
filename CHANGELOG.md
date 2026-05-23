@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.10] — 2026-05-24 — Iter 18 (integrator_ttl_seconds from models.yaml)
+
+### Added — `src/opl_cancer/integrators/base.py`
+- `Integrator` gained `family_config_key: ClassVar[str | None]` and a lazy
+  classmethod `_load_models_yaml_ttls()` that reads the repo-root
+  `models.yaml`'s `integrator_ttl_seconds` block once per process.
+- `Integrator.__init__` now resolves `self.ttl_seconds` from
+  `models.yaml.integrator_ttl_seconds[<family_config_key>]` when the subclass
+  declares one. Class-level default is preserved for fallback.
+
+### Added — `src/opl_cancer/integrators/nccn.py`
+- `NCCNPageIndexIntegrator.family_config_key = "nccn"` — NCCN now sources its
+  30-day TTL from `models.yaml`.
+
+### Tests
+- `tests/test_integrators/test_ttl_config.py::test_nccn_integrator_reads_ttl_from_models_yaml`
+  (new): asserts NCCN integrator reads 30-day TTL from models.yaml.
+
+### Stats
+- 778 tests pass (was 777, +1). ruff clean, mypy --strict clean.
+
 ## [1.0.9] — 2026-05-24 — Iter 17 (run_metadata.json emission)
 
 ### Added — `src/opl_cancer/glue/wave1_runner.py`
