@@ -202,3 +202,40 @@ async def test_wave1_runner_writes_provenance_journal(tmp_path: Path) -> None:
     assert len(lines) >= 1
     assert all("hash" in r for r in lines)
     assert all(r["hash"].startswith("sha256:") for r in lines)
+
+
+async def test_wave1_runner_emits_run_metadata(tmp_path: Path) -> None:
+    """Iter17 (v1.0.9): Wave1Runner.run emits triggers/<run_id>/run_metadata.json."""
+    patient_root = _setup_patient(tmp_path)
+    out_dir = tmp_path / "out"
+    runner = Wave1Runner(
+        patient_root=patient_root,
+        out_dir=out_dir,
+        intent_client=_Stub(['{"intent": "NEW_GOAL", "rationale": "x"}']),
+        planner_client=_Stub([
+            '{"experts": ["bert"], "tasks": [{"id":"t1","expert":"bert",'
+            '"task_package":"molecular_ngs_interpretation","sub_goal":"x"}]}'
+        ]),
+        executor_client=_Stub([
+            '{"variants": [{"gene": "EGFR", "protein_change": "L858R", '
+            '"claim_layer": "established", "evidence": [], "summary": "x"}], "summary": "x"}'
+        ]),
+        reviewer_client=_Stub(['{"verdict": "pass", "challenges": []}']),
+        executor_model_id="claude-opus-4-7",
+        reviewer_model_id="minimax-m2-7",
+        expert_factory=_bert_factory,
+        gates=[],
+    )
+    result = await runner.run(patient_text="ngs?")
+    run_id = result["run_id"]
+    meta_path = out_dir / "triggers" / run_id / "run_metadata.json"
+    assert meta_path.exists()
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    for k in (
+        "run_id", "token_cost", "wall_time_seconds", "claims_produced",
+        "claims_withdrawn", "reviewer_fail_rate", "mechanical_gate_blocks",
+    ):
+        assert k in meta, f"missing key {k}"
+    assert meta["run_id"] == run_id
+    assert meta["claims_produced"] >= 1
+    assert meta["wall_time_seconds"] >= 0.0

@@ -20,6 +20,7 @@ are dispatched once. Recursive ``dispatch_wave`` calls raise.
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -144,6 +145,7 @@ class Wave1Runner:
     # ---- pipeline -------------------------------------------------------
 
     async def run(self, patient_text: str) -> dict[str, Any]:
+        _t0 = time.monotonic()
         ctx = PatientCaseLoader(self.patient_root).load()
         # Always promote profile_json (json-encoded profile) for templates
         ctx["profile_json"] = json.dumps(ctx["profile"], ensure_ascii=False)
@@ -183,6 +185,30 @@ class Wave1Runner:
         delivery_dir = run_dir / "delivery"
         renderer.render_html(render_ctx, delivery_dir / "patient_brief.html")
         renderer.render_md(render_ctx, delivery_dir / "patient_brief.md")
+
+        # Emit run_metadata.json for observability tooling (tools/observe.py)
+        wall_time = time.monotonic() - _t0
+        claims_produced = sum(len(e.get("claims", [])) for e in rendered_experts)
+        mechanical_gate_blocks = sum(
+            1 for c in risk_cards if c.get("level") == 3 and "BLOCKED" not in str(c.get("message", ""))
+        ) + sum(
+            1 for e in rendered_experts for c in e.get("claims", [])
+            if isinstance(c.get("text"), str) and c["text"].startswith("[BLOCKED")
+        )
+        triggers_dir = run_dir / "triggers" / plan.run_id
+        triggers_dir.mkdir(parents=True, exist_ok=True)
+        (triggers_dir / "run_metadata.json").write_text(
+            json.dumps({
+                "run_id": plan.run_id,
+                "token_cost": 0,
+                "wall_time_seconds": round(wall_time, 6),
+                "claims_produced": claims_produced,
+                "claims_withdrawn": 0,
+                "reviewer_fail_rate": 0.0,
+                "mechanical_gate_blocks": mechanical_gate_blocks,
+            }, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
         return {"status": "ok", "run_id": plan.run_id, "out_dir": str(run_dir)}
 

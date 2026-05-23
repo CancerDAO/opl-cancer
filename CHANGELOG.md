@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.9] — 2026-05-24 — Iter 17 (run_metadata.json emission)
+
+### Added — `src/opl_cancer/glue/wave1_runner.py`
+- `Wave1Runner.run` now emits `triggers/<run_id>/run_metadata.json` with the
+  required schema: `run_id`, `token_cost` (placeholder 0), `wall_time_seconds`,
+  `claims_produced`, `claims_withdrawn` (placeholder 0), `reviewer_fail_rate`
+  (placeholder 0.0), `mechanical_gate_blocks`.
+- `mechanical_gate_blocks` counted by scanning rendered claims for the
+  `[BLOCKED by ...]` prefix produced by failed mechanical gates.
+
+### Tests
+- `tests/test_glue/test_wave1_runner.py::test_wave1_runner_emits_run_metadata`
+  (new): asserts the file exists with all 7 keys and consistent run_id.
+
+### Stats
+- 777 tests pass (was 776, +1). ruff clean, mypy --strict clean.
+
 ## [1.0.8] — 2026-05-24 — Iter 16 (DISCLAIMER + README polish)
 
 ### Changed — DISCLAIMER.md
