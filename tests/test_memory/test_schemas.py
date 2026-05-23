@@ -1,6 +1,6 @@
 """Test insight card schema (spec §5.2)."""
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from opl_cancer.memory.schemas import (
     ClaimLayer,
@@ -47,8 +47,11 @@ def test_insight_card_minimum_valid() -> None:
 
 
 def test_claim_layer_must_be_three_tier() -> None:
+    class _Probe(BaseModel):
+        layer: ClaimLayer
+
     with pytest.raises(ValidationError):
-        ClaimLayer("invalid")
+        _Probe(layer="invalid")
 
 
 def test_pmid_evidence_rejects_empty_id() -> None:

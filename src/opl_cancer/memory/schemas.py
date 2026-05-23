@@ -2,40 +2,15 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
-from pydantic_core import InitErrorDetails, PydanticCustomError
-from pydantic_core import ValidationError as _CoreValidationError
 
 
 class ClaimLayer(str, Enum):
     ESTABLISHED = "established"
     EXPLORATORY = "exploratory"
     SPECULATIVE = "speculative"
-
-    @classmethod
-    def _missing_(cls, value: object) -> Any:
-        # Raise pydantic.ValidationError (not bare ValueError) so callers can
-        # catch invalid claim layers uniformly with other schema validation.
-        raise _CoreValidationError.from_exception_data(
-            cls.__name__,
-            [
-                InitErrorDetails(
-                    type=PydanticCustomError(
-                        "enum",
-                        "Input '{input}' is not a valid {cls}; expected one of {allowed}",
-                        {
-                            "input": value,
-                            "cls": cls.__name__,
-                            "allowed": [m.value for m in cls],
-                        },
-                    ),
-                    loc=("claim_layer",),
-                    input=value,
-                )
-            ],
-        )
 
 
 class EvidenceType(str, Enum):
