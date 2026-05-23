@@ -1,0 +1,7 @@
+Repeat tissue NGS + ctDNA (2026-03-28):
+- EGFR L858R (tissue VAF 0.31, ctDNA 0.18)
+- EGFR C797S in cis with L858R (tissue VAF 0.22, ctDNA 0.11) — confirmed by long-read
+- TP53 R175H
+- MET copy number normal (no amplification)
+- No HER2 / KRAS / BRAF / ALK / ROS1 / RET findings
+- TMB 5 mut/Mb. MSS.

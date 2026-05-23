@@ -1,0 +1,3 @@
+Hospital diagnostic letter (synthetic):
+Patient anon_nsclc_001 confirmed metastatic NSCLC adenocarcinoma, EGFR L858R + emergent C797S in cis,
+on osimertinib 1L with documented PD as of 2026-03-20. Eligible for systemic 2L per CSCO/NCCN guidelines.

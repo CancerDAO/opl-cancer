@@ -1,0 +1,6 @@
+NGS panel (FoundationOne CDx) result:
+- CTNNB1 S37F mutation (VAF 0.42)
+- TERT promoter -124C>T (VAF 0.38)
+- TP53 wild-type
+Microsatellite stable. TMB 4 mut/Mb.
+HBV integration detected in chr11 (proximal to CCND1).

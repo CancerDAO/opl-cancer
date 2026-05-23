@@ -1,0 +1,3 @@
+Hospital diagnostic letter (synthetic):
+Patient anon_hcc_001 confirmed HCC, BCLC C, on Atezo+Bev 2L with documented PD as of 2026-04-10.
+Child-Pugh A maintained. Eligible for systemic 3L per BCLC update 2022.

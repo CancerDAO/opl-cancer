@@ -1,0 +1,5 @@
+1L: TACE (cTACE with doxorubicin-lipiodol emulsion), 4 cycles 2024-12-01 → 2025-08-15.
+    Best response: PR (target lesion 9.4 → 6.1 cm).
+2L: Atezolizumab 1200mg q3w + Bevacizumab 15mg/kg q3w, started 2025-09-01.
+    8 cycles delivered. Best response: SD then PD at month 6 (2026-04 imaging).
+    AE: Grade 2 hypertension (managed), no proteinuria, no immune AE.

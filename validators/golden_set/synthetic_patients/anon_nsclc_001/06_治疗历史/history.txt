@@ -1,0 +1,4 @@
+1L: Osimertinib 80mg PO qd, 2024-07-01 → 2026-03-20.
+    Best response: PR at month 3, sustained to month 18.
+    PFS: 20.6 months. No dose reduction. No ILD. No QTc prolongation.
+Palliative RT to L3 vertebra (2026-03-30, 30 Gy / 10 fx) for back pain.

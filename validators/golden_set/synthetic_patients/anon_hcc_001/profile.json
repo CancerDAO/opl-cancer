@@ -1,0 +1,17 @@
+{
+  "patient_code": "anon_hcc_001",
+  "demographics": {"age": 56, "sex": "M", "ethnicity": "Han-Chinese", "weight_kg": 68},
+  "diagnosis": {
+    "primary_site": "liver",
+    "histology": "HCC",
+    "stage_TNM": "T3N0M0",
+    "stage_BCLC": "C",
+    "diagnosis_date": "2024-11-12"
+  },
+  "treatment_history": [
+    {"line": 1, "regimen": "TACE", "start": "2024-12-01", "end": "2025-08-15", "best_response": "PR"},
+    {"line": 2, "regimen": "Atezolizumab+Bevacizumab", "start": "2025-09-01", "end": null, "best_response": "PD"}
+  ],
+  "comorbidities": ["HBV chronic", "Child-Pugh A"],
+  "preferences": {"depth": "technical", "language": "zh-CN"}
+}

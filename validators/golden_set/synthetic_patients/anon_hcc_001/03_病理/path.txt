@@ -1,0 +1,3 @@
+Liver biopsy 2024-11-08: Hepatocellular carcinoma, moderately differentiated (Edmondson-Steiner grade III).
+IHC: HepPar1+, AFP+, GPC3+, CK19-, CD34+ (sinusoidal capillarization).
+Background: Cirrhosis with HBsAg+ ground-glass hepatocytes.
