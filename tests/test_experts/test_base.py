@@ -40,3 +40,10 @@ def test_get_expert_unknown_raises() -> None:
 def test_expert_base_is_abstract() -> None:
     with pytest.raises(TypeError):
         Expert()  # type: ignore[abstract]
+
+
+def test_expert_abc_enforces_6_primitive_grammar_plus_can_handle() -> None:
+    """Spec §2.2 inner grammar: Expert ABC must declare all 6 primitives + can_handle."""
+    required = {"can_handle", "plan", "execute", "review", "audit", "integrate", "feedback"}
+    actual = set(Expert.__abstractmethods__)
+    assert required.issubset(actual), f"missing abstract methods: {required - actual}"
