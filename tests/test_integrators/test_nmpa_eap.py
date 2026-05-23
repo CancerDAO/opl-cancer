@@ -1,9 +1,7 @@
 """Test NMPAEAPIntegrator — 临床急需进口药品 list scrape."""
-import pytest
 import respx
 from httpx import Response
 
-from opl_cancer.integrators.base import IntegratorError
 from opl_cancer.integrators.nmpa_eap import NMPAEAPIntegrator
 
 
