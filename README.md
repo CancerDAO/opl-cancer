@@ -7,9 +7,15 @@
 
 ## Status
 
-**v1.0.2 (Iter 10 patch — MiniMax live integration).**
+**v1.0.8 (Iter 16 — DISCLAIMER + README polish).**
 
-Roster complete (**18/18 experts**). **710 tests + 3 env-gated live**, mypy --strict on touched files + ruff clean.
+Roster complete (**18/18 experts**). **774 tests + 3 env-gated live**, mypy --strict on touched files + ruff clean.
+
+**v1.0.5–v1.0.8** highlights:
+- `ModelRouter.client_for_task()` — per-task model routing (Opus for code/hypothesis reasoning, MiniMax for literature synthesis)
+- `tools/observe.py` — trigger-run observability aggregator (token cost / wall-time / claims / reviewer fail rate / gate blocks)
+- `Integrator` configurable TTL — class + instance overrides, models.yaml family defaults (NCCN 30d / PubMed 7d / CT.gov 1d)
+- `DISCLAIMER.md` v1.x release notice + emergency contacts (120/911/112) + jurisdictional notice
 
 **v1.0.2** highlights (delta from `v1.0.1`):
 - `tests/test_integration/test_minimax_live.py` — MiniMax-M2.7 live calls (`live` marker, env-gated)
@@ -144,6 +150,18 @@ planner → executor (task package) → reviewer (cross-expert peer) → auditor
 | Steve | Nutritionist | Stephen Heber (oncology nutrition) |
 
 Names are first-name homages — archetype personas, not impersonations of real individuals.
+
+## Roadmap
+
+Planned for v1.1+ (no committed dates — community contributions welcome):
+
+- **v1.1 — Full BioLinkX integration.** Deeper coupling with `BioLinkX` for contribution graph / SBT identity, allowing physicians and patient-advocates to sign sections of a brief and have the signature carried through provenance.
+- **v1.2 — Additional cancer types.** Expand the golden-set corpus beyond HCC / NSCLC / CRC / BRCA / PDAC / GBM / ALL / MM to cover head-and-neck, prostate, ovarian, sarcoma, and paediatric solid tumours.
+- **v1.3 — Web UI.** A patient- and clinician-facing web layer for browsing the deliberation brief, acknowledging risk-disclosure cards, and tracking the provenance graph interactively. (Today everything ships through CLI + static HTML.)
+- **v1.4 — Multi-language briefs.** Native Chinese / Japanese / Spanish patient briefs (not machine-translated post-hoc), with locale-aware regulatory pointers (NMPA / PMDA / COFEPRIS in addition to FDA / EMA).
+- **Ongoing — Integrator breadth.** More omics / pharmacology integrators (e.g. cBioPortal study-level pulls, OncoKB level-of-evidence sync, ChEMBL pharmacophore lookups) and continual TTL tuning.
+
+Open issues at https://github.com/CancerDAO/opl-cancer-skill/issues. See `DISCLAIMER.md` — the roadmap does not change the v1.x scope warnings (no warranty, not for emergency use).
 
 ## License
 

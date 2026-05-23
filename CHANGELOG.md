@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.0.8] — 2026-05-24 — Iter 16 (DISCLAIMER + README polish)
+
+### Changed — DISCLAIMER.md
+- Added explicit **v1.x release scope** notice: `WITHOUT WARRANTY OF ANY KIND`,
+  not validated for clinical decision-making, not for oncologic emergencies.
+- Added **emergency-contact** paragraph: 120 (CN), 911 (US/CA), 999 (UK),
+  112 (EU). Software cannot triage emergencies and must never substitute.
+- Added **jurisdictional notice** enumerating all unregistered regulators
+  (FDA / NMPA / EMA / CE / PMDA / MHRA / TGA / Health Canada / IRBs) and
+  declaring no doctor-patient relationship.
+
+### Changed — README.md
+- Refreshed `## Status` block to v1.0.8 (was stale at v1.0.2); 774 tests.
+- Added `## Roadmap` section listing v1.1+ themes: full BioLinkX
+  integration, additional cancer types, web UI, multi-language briefs,
+  ongoing integrator breadth.
+
+### Tests
+- **`tests/test_readme.py`** — added `test_readme_has_roadmap_section`
+  (asserts the 4 themes are present) and
+  `test_disclaimer_has_v1_release_and_emergency_notice` (asserts v1.x,
+  120, 911, WITHOUT WARRANTY, Jurisdictional notice).
+
+### Stats
+- 776 tests pass (was 774, +2). ruff clean, mypy --strict clean.
+
 ## [1.0.7] — 2026-05-24 — Iter 15 (Configurable integrator TTL)
 
 ### Added

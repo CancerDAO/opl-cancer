@@ -1,5 +1,11 @@
 # DISCLAIMER — Read This Before Using OPL for Cancer
 
+> **Release scope notice — v1.x.** This is an early v1 release of OPL for Cancer. It is provided **WITHOUT WARRANTY OF ANY KIND**, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, accuracy, or non-infringement. v1.x is intended for research, deliberation, and second-opinion drafting only; it is **NOT** validated for clinical decision-making and **NOT** for use in any oncologic emergency.
+>
+> **Emergencies.** If you or someone in your care has an oncologic emergency — spinal cord compression, febrile neutropenia, tumour lysis syndrome, brain herniation, massive hemoptysis, anaphylaxis, suicidal ideation, or any other acute medical crisis — **stop reading this software and contact emergency services immediately**: dial **120** (China), **911** (United States / Canada), **999** (United Kingdom), **112** (EU), or your local emergency number. This software cannot triage emergencies and must never be substituted for one.
+>
+> **Jurisdictional notice.** OPL for Cancer is **not** registered, cleared, approved, certified, or licensed by any regulator anywhere in the world — not FDA (US), not NMPA / CFDA (CN), not EMA / CE (EU), not PMDA (JP), not MHRA (UK), not TGA (AU), not Health Canada, not any IRB / ethics committee. It is **not** classified as software-as-a-medical-device (SaMD), in-vitro diagnostic (IVD), clinical decision support (CDS), or any other regulated category. Use of this software does not create a doctor-patient relationship with the authors, CancerDAO, or any contributor. Where local law restricts AI-derived medical content, **you are responsible for complying with that law**; do not use this software where prohibited.
+
 **OPL for Cancer is NOT clinical decision support software. It is NOT a substitute for a qualified physician. It does NOT diagnose, treat, cure, or prevent any disease.**
 
 This project assembles an "AI scientist team" (18 expert archetypes inspired by real clinicians) that drafts **deliberative materials** — literature digests, hypothesis trees, risk cards, evidence-graded options — for **patients and their treating physicians to read together**. Every output is provisional. Every recommendation is conditional. Every claim is hashed back to a primary source.
