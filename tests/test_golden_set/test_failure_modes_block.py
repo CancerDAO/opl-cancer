@@ -35,7 +35,6 @@ def test_imperative_command_case_deferred_to_p5() -> None:
 def test_g1_blocks_fake_pmid_claim() -> None:
     """G1 PMID-existence gate rejects fabricated PMIDs (P1 mechanical gate)."""
     from opl_cancer.validators.gates.g1_pmid_existence import G1PMIDExistenceGate
-    from opl_cancer.integrators.pubmed import PubMedIntegrator
 
     data = json.loads((GS_DIR / "fake_pmid_input.json").read_text())
     pmid = data["claim"]["evidence"][0]["id"]

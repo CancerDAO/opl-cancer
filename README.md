@@ -7,7 +7,16 @@
 
 ## Status
 
-**P0 Skeleton.** Repo scaffold + orchestrator framework + 18-name Expert roster (placeholder personas) + validators framework. No working pipeline yet.
+**v0.1.0-p1 (P1 Expert Batch A complete).** Wave 1 retrieval pipeline end-to-end:
+patient file drop → Sid intent parse → planner → 6 experts (Rosa/Bert/Vince/Rick/Heddy/Hong)
+in parallel → reviewer pairing (Claude executor × MiniMax reviewer) → mechanical gates
+(G1/G2/G3/G9/G11) → patient_brief.html with 3-tier labels + PMID links + provenance.
+
+2 synthetic patients (HCC HBV+ + NSCLC EGFR osi-progressed) ship as golden-set fixtures;
+parametrised E2E covers both with mocked LLM + integrators.
+
+P2-P6 still in flight — hypothesis generation, data analysis, full Henry IRB substitute,
+remaining 12 experts, golden-set expansion, legal review + open-source launch.
 
 ## Quick start
 
