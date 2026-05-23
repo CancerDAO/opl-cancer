@@ -35,6 +35,9 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# When PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 is set (CI / sandbox), explicitly
+# load pytest-asyncio + respx so async LLM/HTTP tests still collect.
+addopts = "-p pytest_asyncio.plugin -p respx"
 
 [project.scripts]
 opl-cancer = "opl_cancer.cli:main"
