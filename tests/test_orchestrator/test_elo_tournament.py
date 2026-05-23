@@ -1,7 +1,6 @@
 """P2-T5: EloTournament — pair rotation, batch update, top-k, convergence."""
 from __future__ import annotations
 
-import pytest
 
 from opl_cancer.orchestrator.tournament import EloRater, EloTournament
 

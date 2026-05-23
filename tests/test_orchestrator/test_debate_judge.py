@@ -1,7 +1,6 @@
 """P2-T6: DebateJudge — LLM-driven pairwise comparison."""
 from __future__ import annotations
 
-from typing import Any
 
 from opl_cancer.llm.base import LLMRequest, LLMResponse
 from opl_cancer.memory.schemas import Hypothesis

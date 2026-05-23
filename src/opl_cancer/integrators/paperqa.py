@@ -41,10 +41,62 @@ class PaperQA2Integrator(Integrator):
             return await self._paperqa_query(text)
         return await self._literag_query(text)
 
-    async def _paperqa_query(self, text: str) -> dict[str, Any]:  # pragma: no cover
-        # Wrap paperqa.Docs; defer detailed integration to P2.
-        # P1 just calls it; if installed but mis-configured -> raise.
-        raise IntegratorError("PaperQA2 wrapper deferred to P2; LiteRAG fallback active")
+    async def _paperqa_query(self, text: str) -> dict[str, Any]:
+        """P2: full PaperQA2 wrapper. Builds Docs over corpus, queries, returns
+        canonical {query, quote, sources, engine} payload.
+
+        We support two paperqa API shapes:
+        - new (paper-qa >= 5): `Docs().aadd(path)` + `Docs().aquery(question)`
+        - older: `Docs().add(path)` + `Docs().query(question)` (sync)
+        Tests monkey-patch the importable ``paperqa`` symbol so this branch is
+        exercised offline.
+        """
+        try:
+            import paperqa  # noqa: I001
+        except ImportError as e:  # pragma: no cover — handled by _HAS_PAPERQA check
+            raise IntegratorError(
+                "PaperQA2: paper-qa package not importable in _paperqa_query path"
+            ) from e
+
+        docs = paperqa.Docs()
+        added = 0
+        for p in self.corpus_dir.rglob("*.txt"):
+            try:
+                aadd = getattr(docs, "aadd", None)
+                if aadd is not None:
+                    await aadd(str(p))
+                else:
+                    docs.add(str(p))
+                added += 1
+            except Exception as e:  # pragma: no cover — corpus quality issue
+                raise IntegratorError(
+                    f"PaperQA2: failed to add {p.name} to Docs: {e}"
+                ) from e
+        if added == 0:
+            raise IntegratorError(
+                f"PaperQA2: corpus dir {self.corpus_dir} contained no .txt files"
+            )
+
+        aquery = getattr(docs, "aquery", None)
+        try:
+            answer = await aquery(text) if aquery is not None else docs.query(text)
+        except Exception as e:  # pragma: no cover — defensive
+            raise IntegratorError(f"PaperQA2: query failed: {e}") from e
+
+        # Answer object exposes .answer (text), .context (snippets w/ source), .contexts (list)
+        contexts = getattr(answer, "contexts", []) or []
+        sources: list[str] = []
+        for c in contexts:
+            src = getattr(c, "name", None) or getattr(c, "doc", None)
+            if src is not None:
+                sources.append(str(src))
+        quote = getattr(answer, "answer", "") or getattr(answer, "context", "") or ""
+        return {
+            "query": text,
+            "quote": str(quote)[:2000],
+            "sources": sources or [str(self.corpus_dir)],
+            "engine": "paperqa2",
+        }
 
     async def _literag_query(self, text: str) -> dict[str, Any]:
         # Tokenise query into content words; score corpus docs by token overlap.
