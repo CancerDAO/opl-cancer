@@ -7,7 +7,7 @@
 
 ## Status
 
-**v0.2.0-p2 (P2 Hypothesis Tournament + Co-Sci Elo + Robin lit-loop complete).**
+**v0.3.0-p3 (P3 Bioinformatics + GEO/ArrayExpress/SRA/DepMap/CCLE + bixbench Docker complete).**
 
 Wave 1 retrieval pipeline (P1) — Sid intent parse → planner → 6 experts
 (Rosa/Bert/Vince/Rick/Heddy/Hong) in parallel → reviewer pairing → mechanical gates
@@ -24,11 +24,20 @@ single-cell archetype) added — portfolio task packages `meta_analysis` /
 `hypothesis_generation` / `pathway_enrichment` / `single_cell_reanalysis` /
 `cross_source_consistency`.
 
-372 tests pass; `ruff check` + `mypy --strict` green.
+Wave 3 data-evidence pipeline (P3) — Aviv (extended portfolio) + **Tyler**
+(new — Wet-Lab Designer, Tyler Jacks archetype) drive `dataset_acquisition` →
+`bioinformatics_data_analysis` → `hypothesis_validation` over Wave-2 hypotheses.
+5 new omics integrators: **GEOIntegrator** + **ArrayExpressIntegrator** +
+**SRAIntegrator** (F6) + **DepMapIntegrator** + **CCLEIntegrator** (F7).
+**bixbench Docker runtime** lifted from `robin/finch/Dockerfile.pinned` —
+`compute/bixbench.Dockerfile` + `BixbenchRunner` (env-gated via
+`OPL_BIXBENCH_LIVE`; dry-run by default for CI safety).
 
-P3-P6 still in flight — bioinformatics data analysis (Finch bixbench), full Henry
-IRB substitute, remaining 9 experts (Mary/Ted/Riad/Jen/Kieren/Mark/Frances/Dennis/Steve),
-golden-set expansion, legal review + open-source launch.
+431 tests pass; `ruff check` + `mypy --strict` green.
+
+P4-P6 still in flight — full Henry IRB substitute, remaining 9 experts
+(Mary/Ted/Riad/Jen/Kieren/Mark/Frances/Dennis/Steve), golden-set expansion,
+legal review + open-source launch.
 
 ## Quick start
 

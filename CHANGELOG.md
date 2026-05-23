@@ -1,5 +1,57 @@
 # Changelog
 
+## [v0.3.0-p3] — 2026-05-24
+
+### Added
+
+- **Expert Batch C extensions:**
+  - `TylerExpert` (Wet-Lab Designer, Tyler Jacks archetype) — portfolio `hypothesis_validation`, `in_silico_experiment_design`; preferred F6/F7
+  - `prompts/experts/tyler/persona.md` (KP/KPC mouse model archetype, falsifiable-experiment-first methodology)
+  - `AvivExpert` portfolio extended with `dataset_acquisition`, `bioinformatics_data_analysis`, `hypothesis_validation`; preferred families now F1/F4/F6/**F7**
+
+- **5 new omics integrators:**
+  - `GEOIntegrator` (F6) — NCBI GEO via eutils `db=gds` (GSE/GDS/GPL/GSM + `search:` prefix; 7-day TTL)
+  - `ArrayExpressIntegrator` (F6) — EBI BioStudies API for E-MTAB / E-GEOD accessions
+  - `SRAIntegrator` (F6) — NCBI SRA runinfo via eutils for SRR/SRP/SRX/SRS
+  - `DepMapIntegrator` (F7) — Broad DepMap portal CRISPR gene effect + dependency probability (30-day TTL)
+  - `CCLEIntegrator` (F7) — DepMap portal CCLE expression (TPM) by gene × DepMap_ID
+  - All raise `IntegratorError` on transport / HTTP / empty result (memory:feedback_no_offline_only)
+
+- **bixbench Docker compute runtime (`compute/`):**
+  - `compute/bixbench.Dockerfile` — lifted from `robin/finch/src/fhda/Dockerfile.pinned` (miniconda3 + R 4.3.3 + bioconda DESeq2 / EnhancedVolcano / clusterProfiler / gseapy / FastQC / scanpy stack)
+  - `compute/runner.py` — `BixbenchRunner` env-gated wrapper (`OPL_BIXBENCH_LIVE=1` for live docker invocation; dry-run otherwise). Returns `BixbenchRunResult` dataclass with mode + image + docker_cmd + workdir + timeout
+  - Image tag: `opl-cancer/bixbench:v0.3.0-p3`. CI does NOT build the image — smoke tests only verify Dockerfile presence + runner protocol shape
+
+- **5 new task prompt files** (`prompts/tasks/`):
+  - `dataset_acquisition.md` — G14 dataset-patient match scoring (cancer-type / stage / platform / size / control)
+  - `bioinformatics_data_analysis.md` — required steps + falsification rule + compute estimate
+  - `single_cell_reanalysis.md` — QC + integration + clustering + DA + pathway
+  - `pathway_enrichment.md` — ORA + GSEA with BH correction (G15)
+  - `hypothesis_validation.md` — support_score / verdict / claim-layer transition + smallest wet-lab experiment
+
+- **Wave 3 data-evidence runner (`Wave3Runner`):**
+  - `glue/wave3_runner.py` — sequential `dataset_acquisition` (Aviv) → per-top-hyp `bioinformatics_data_analysis` (Aviv + dry-run BixbenchRunner) → `hypothesis_validation` (Tyler if present, else Aviv)
+  - Writes `triggers/<run_id>/wave3_data_evidence.json` + `provenance.jsonl`
+  - Per ADR-2026-04-22 main-thread sequential awaits (no asyncio.gather spawning)
+
+- **59 new tests** (431 total, up from 372):
+  - `tests/test_integrators/test_geo.py` — 6 tests
+  - `tests/test_integrators/test_arrayexpress.py` — 4 tests
+  - `tests/test_integrators/test_sra.py` — 4 tests
+  - `tests/test_integrators/test_depmap.py` — 4 tests
+  - `tests/test_integrators/test_ccle.py` — 4 tests
+  - `tests/test_experts/test_tyler.py` — 5 tests (incl. Aviv extension assertion)
+  - `tests/test_experts/test_p3_task_prompts.py` — 2 tests
+  - `tests/test_compute/test_runner.py` — 7 tests (image tag / dry-run / command shape / live-mode missing-docker / env gate / round-trip / Dockerfile present)
+  - `tests/test_e2e/test_wave3_runner.py` — 4 tests
+  - `tests/test_p3_acceptance.py` — 19 parametrised tests
+
+### Deferred to P4+
+
+- Live bixbench image build in CI (Dockerfile committed but not built — gated)
+- DepMap/CCLE schema-drift adapter (quarterly release tracking)
+- meta_analysis Wave-3 data integration extension (Iain) — added in P2 task list but not yet bridged to Wave3 output
+
 ## [v0.2.0-p2] — 2026-05-24
 
 ### Added
