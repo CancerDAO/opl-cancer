@@ -19,5 +19,6 @@ class AvivExpert(LLMBackedExpert):
         "single_cell_reanalysis",
         "dataset_acquisition",
         "bioinformatics_data_analysis",
+        "hypothesis_validation",  # Aviv can validate in-silico-only; Tyler preferred for wet-lab
     )
     preferred_families: ClassVar[tuple[str, ...]] = ("F1", "F4", "F6", "F7")
