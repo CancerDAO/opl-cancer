@@ -7,16 +7,20 @@
 
 ## Status
 
-**v1.0.0-p6 (P6 Release — multi-case E2E + legal artifacts + open-source polish).**
+**v1.0.1 (Iter 9 patch — P6 deferred items closed).**
 
-Roster complete (**18/18 experts**). **670+ tests**, mypy baseline + ruff clean.
+Roster complete (**18/18 experts**). **706 tests**, mypy --strict on touched files + ruff clean.
+
+**v1.0.1** highlights (delta from `v1.0.0-p6`):
+- Routing-matrix golden test (`tests/test_experts/test_routing_matrix.py`) — 26 tests, 18 experts × 4 cancer patients
+- Henry L2 LLM disagreement-axes summariser (env-gated, `response_format=json_object`, defensive)
+- `ProjectMemoryStore.acknowledge_insight()` propagates `patient_acknowledged_at` into `InsightCard`
 
 **v1.0.0-p6** highlights:
 - Multi-case Wave 1 E2E parametrised across **4 cancer types** (HCC / NSCLC / CRC / BRCA)
 - Legal: `NOTICE` (Apache-2.0 attribution + model-card acknowledgements) + `DISCLAIMER.md` (boundaries + safety pathway)
 - `tools/sign_contributor_agreement.py` first-time contributor signing flow
 - `docs/landing/founder_mode_against_cancer.md` landing copy for cancerdao-global
-- Versioning bumped to `1.0.0` in `pyproject.toml`
 
 Read `DISCLAIMER.md` before using. This is not clinical decision support; patient is sole decision authority.
 

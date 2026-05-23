@@ -91,3 +91,20 @@ class ProjectMemoryStore:
             }
         )
         self.save_insight(card)
+
+    def acknowledge_insight(
+        self, card_id: str, version: int, acknowledged_at: str
+    ) -> InsightCard:
+        """Mark an InsightCard as patient-acknowledged.
+
+        Iter 9 #4 — propagation path for Henry L4 ack → memory store.
+        Returns the updated card. Raises KeyError if not found.
+        """
+        card = self.get_insight(card_id, version)
+        if card is None:
+            raise KeyError(f"insight {card_id}@v{version} not found")
+        card = card.model_copy(
+            update={"patient_acknowledged_at": acknowledged_at}
+        )
+        self.save_insight(card)
+        return card

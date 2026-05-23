@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.0.1] — 2026-05-24 — Iter 9 patch
+
+### Added — P6 deferred items closed
+- **Routing-matrix golden test** (`tests/test_experts/test_routing_matrix.py`):
+  26 tests covering 18-expert × task_package portfolio + 4-cancer candidate
+  coverage (HCC/NSCLC/CRC/BRCA). Documents intentional `hypothesis_validation`
+  overlap (aviv in-silico vs tyler wet-lab) via `SHARED_PACKAGES` registry.
+- **Henry L2 LLM disagreement summariser** (`HenryAuditor.summarise_disagreement_axes`):
+  async, env-gated, accepts any `LLMClient`; returns
+  `{"axes": [...], "summary": "..."}`. Defensive against malformed LLM output
+  (non-list axes coerced to `[]`). `response_format={"type": "json_object"}`
+  honoured per memory:reference_minimax_llm. memory:feedback_no_offline_only —
+  raises on network failure, no silent rule-based fallback when caller invokes
+  LLM path.
+- **`ProjectMemoryStore.acknowledge_insight()`** —
+  propagates `patient_acknowledged_at` into `InsightCard` (schema already had
+  field). Raises `KeyError` on missing card; preserves all other fields.
+
+### Tests
+- 706 total (was 674) → **+32 new tests**
+- All `mypy --strict` + `ruff` clean on touched files
+- Full suite `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/ -q` green
+
+### Deferred to a later iter (honest scope)
+- **Wave1Runner per-claim L3/L4 card emission rewire** — current runner only
+  emits L3 placeholder cards via gate-block path; full Henry-driven per-claim
+  card emission inside `_collect_claims` remains. (Iter 9 task #1)
+- Iter 10 (MiniMax live integration), Iter 11 (quad-evaluator dispatch tool),
+  Iter 12 (4 additional cancer patients + edge cases) — deferred to next
+  session per context-budget.
+
 ## [1.0.0-p6] — 2026-05-24 — v1.0.0 Release
 
 ### Added — Multi-case E2E + Legal + Open-Source Polish

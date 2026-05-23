@@ -14,6 +14,10 @@ The 4 layers (spec §8):
 memory:feedback_no_offline_only — Henry MUST fail loudly if the serious-risks
 catalogue is missing in production. Tests inject a stub catalogue.
 memory:feedback_no_false_completion — no silent skipping of L3/L4 claims.
+
+P6/Iter 9 — L2 can optionally accept an LLM client for axis-naming summarisation
+(see :meth:`HenryAuditor.summarise_disagreement_axes`). Env-gated; falls back to
+verbatim surfacing if no client is provided.
 """
 from __future__ import annotations
 
@@ -22,6 +26,8 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from opl_cancer.llm.base import LLMClient, LLMRequest
 
 from opl_cancer.delivery.risk_card import (
     RiskDisclosureCard,
@@ -153,11 +159,62 @@ class HenryAuditor:
     # ---- private layers ----
 
     def _layer2_disagreements(self, reviewer_challenges: list[str]) -> list[str]:
-        """L2 — surface reviewer disagreements verbatim (rule-based P5).
-
-        Future P6: LLM-backed summariser that names the disagreement axis.
-        """
+        """L2 — surface reviewer disagreements verbatim (rule-based P5)."""
         return [c.strip() for c in reviewer_challenges if c and c.strip()]
+
+    async def summarise_disagreement_axes(
+        self,
+        reviewer_challenges: list[str],
+        *,
+        llm_client: LLMClient,
+        model_id: str,
+        max_tokens: int = 1024,
+    ) -> dict[str, Any]:
+        """L2 LLM extension (Iter 9 #3): name the disagreement axes.
+
+        Env-gated — caller passes ``llm_client`` only when they want LLM
+        summarisation. Returns ``{"axes": [...], "summary": "..."}`` JSON.
+
+        memory:feedback_no_offline_only — if caller chose to invoke the LLM,
+        any network failure surfaces as a raised exception (no silent fallback
+        to rule-based verbatim).
+        memory:reference_minimax_llm — when MiniMax is the client, caller must
+        pass model_id="MiniMax-M2.7".
+        """
+        cleaned = self._layer2_disagreements(reviewer_challenges)
+        if not cleaned:
+            return {"axes": [], "summary": ""}
+        prompt = (
+            "You are summarising reviewer disagreement axes for a patient-facing "
+            "report. Read the verbatim reviewer challenges below and return JSON:\n"
+            "{\n"
+            "  \"axes\": [\"<axis-1>\", \"<axis-2>\", ...],\n"
+            "  \"summary\": \"<one-sentence neutral summary>\"\n"
+            "}\n"
+            "Axes are SHORT noun-phrases naming the dimension of disagreement "
+            "(e.g. 'evidence_quality', 'dose_safety', 'population_generalisability'). "
+            "Do NOT take a side. Do NOT invent challenges not in the list.\n\n"
+            "Reviewer challenges (verbatim):\n"
+            + "\n".join(f"- {c}" for c in cleaned)
+        )
+        resp = await llm_client.complete(
+            LLMRequest(
+                model=model_id,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                response_format={"type": "json_object"},
+            )
+        )
+        parsed: dict[str, Any] = json.loads(resp.content)
+        # Defensive validation — never propagate malformed shape downstream.
+        axes_raw = parsed.get("axes", [])
+        summary_raw = parsed.get("summary", "")
+        if not isinstance(axes_raw, list):
+            axes_raw = []
+        return {
+            "axes": [str(a) for a in axes_raw if isinstance(a, (str, int, float))],
+            "summary": str(summary_raw),
+        }
 
     def _layer3_serious_risks(self, drugs_mentioned: list[str]) -> list[str]:
         """L3 — collect serious risks for all named drugs from catalogue.

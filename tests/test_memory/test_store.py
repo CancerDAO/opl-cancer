@@ -85,3 +85,36 @@ def test_indexes_exist(store: ProjectMemoryStore) -> None:
         ).fetchall()
     names = {r[0] for r in idx}
     assert any("layer" in n for n in names), names
+
+
+def test_acknowledge_insight_propagates_timestamp(store: ProjectMemoryStore) -> None:
+    """Iter 9 #4 — patient_acknowledged_at propagation into InsightCard."""
+    card = _make_card("ins_ack_1")
+    store.save_insight(card)
+    updated = store.acknowledge_insight(
+        "ins_ack_1", version=1, acknowledged_at="2026-05-24T10:00:00Z"
+    )
+    assert updated.patient_acknowledged_at == "2026-05-24T10:00:00Z"
+    reloaded = store.get_insight("ins_ack_1", version=1)
+    assert reloaded is not None
+    assert reloaded.patient_acknowledged_at == "2026-05-24T10:00:00Z"
+
+
+def test_acknowledge_missing_insight_raises(store: ProjectMemoryStore) -> None:
+    """Acknowledging a non-existent card raises KeyError (no silent no-op)."""
+    with pytest.raises(KeyError):
+        store.acknowledge_insight("nonexistent", version=1, acknowledged_at="t")
+
+
+def test_acknowledge_preserves_other_fields(store: ProjectMemoryStore) -> None:
+    """Acknowledge does not clobber existing claim/evidence/audit data."""
+    card = _make_card("ins_ack_2")
+    store.save_insight(card)
+    store.acknowledge_insight(
+        "ins_ack_2", version=1, acknowledged_at="2026-05-24T11:00:00Z"
+    )
+    reloaded = store.get_insight("ins_ack_2", version=1)
+    assert reloaded is not None
+    assert reloaded.claim == "test claim"
+    assert reloaded.evidence[0].id == "999"
+    assert reloaded.audited_by.permission_level == 1
