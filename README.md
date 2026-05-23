@@ -7,16 +7,28 @@
 
 ## Status
 
-**v0.1.0-p1 (P1 Expert Batch A complete).** Wave 1 retrieval pipeline end-to-end:
-patient file drop → Sid intent parse → planner → 6 experts (Rosa/Bert/Vince/Rick/Heddy/Hong)
-in parallel → reviewer pairing (Claude executor × MiniMax reviewer) → mechanical gates
+**v0.2.0-p2 (P2 Hypothesis Tournament + Co-Sci Elo + Robin lit-loop complete).**
+
+Wave 1 retrieval pipeline (P1) — Sid intent parse → planner → 6 experts
+(Rosa/Bert/Vince/Rick/Heddy/Hong) in parallel → reviewer pairing → mechanical gates
 (G1/G2/G3/G9/G11) → patient_brief.html with 3-tier labels + PMID links + provenance.
 
-2 synthetic patients (HCC HBV+ + NSCLC EGFR osi-progressed) ship as golden-set fixtures;
-parametrised E2E covers both with mocked LLM + integrators.
+Wave 2 hypothesis pipeline (P2) — Sid `HYPOTHESIS_REQUEST` intent → Wave2Runner
+→ HypothesisGenerator (4 strategies) → EvolutionStrategist (6 strategies) → Co-Sci-style
+Elo tournament with meta-critique propagation (lift from `open-coscientist`) +
+Robin `EXPERIMENTAL_INSIGHTS_APPENDAGE` feedback environment (lift from `robin`) →
+Reflector (6 modes) → ranked + reflected hypothesis pack with provenance.
 
-P2-P6 still in flight — hypothesis generation, data analysis, full Henry IRB substitute,
-remaining 12 experts, golden-set expansion, legal review + open-source launch.
+Expert Batch B: **Iain** (Meta-Analyst, Cochrane archetype) + **Aviv** (Bioinformatician,
+single-cell archetype) added — portfolio task packages `meta_analysis` /
+`hypothesis_generation` / `pathway_enrichment` / `single_cell_reanalysis` /
+`cross_source_consistency`.
+
+372 tests pass; `ruff check` + `mypy --strict` green.
+
+P3-P6 still in flight — bioinformatics data analysis (Finch bixbench), full Henry
+IRB substitute, remaining 9 experts (Mary/Ted/Riad/Jen/Kieren/Mark/Frances/Dennis/Steve),
+golden-set expansion, legal review + open-source launch.
 
 ## Quick start
 

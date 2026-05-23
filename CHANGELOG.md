@@ -1,5 +1,69 @@
 # Changelog
 
+## [v0.2.0-p2] — 2026-05-24
+
+### Added
+
+- **Expert Batch B (assumption/repurposing族):**
+  - `IainExpert` (Meta-Analyst) — portfolio `meta_analysis`, `cross_source_consistency`; preferred F1/F2/F4
+  - `AvivExpert` (Bioinformatician) — portfolio `hypothesis_generation`, `pathway_enrichment`, `single_cell_reanalysis`; preferred F1/F4/F6
+  - `prompts/experts/iain/persona.md` + `prompts/experts/aviv/persona.md` (Cochrane / Regev archetypes)
+  - New task prompts: `prompts/tasks/meta_analysis.md` + `prompts/tasks/hypothesis_generation.md`
+
+- **Co-Sci-style hypothesis tournament machinery (`orchestrator/`):**
+  - `EloTournament` — extends P0 `EloRater` (alias preserved). `pair_rotation`, `apply_round`, `top_k`, `convergence_check` (spec §17.5 P2 early-stop)
+  - `DebateJudge` — LLM-driven pairwise comparator (G13 reviewer model); JSON-parse-safe (lift from `open-coscientist/agents/ranking.py`)
+  - `MetaCritiqueAggregator` — round-N → round-N+1 critique propagation (lift from `open-coscientist/agents/meta_review.py`)
+  - `HypothesisGenerator` — 4 strategies (`literature_gap` / `cross_domain` / `novel_mechanism` / `feasibility_first`); meta-critique + EXPERIMENTAL_INSIGHTS injection points (lift from `open-coscientist/agents/generation.py`)
+  - `EvolutionStrategist` — 6 strategies (`combination` / `simplification` / `extension` / `analogy` / `resilience` / `outside_box`); parent_chain preserved (lift from `open-coscientist/agents/evolution.py`)
+  - `Reflector` — 6 modes (`basic` / `simulation` / `observation` / `deep_verification` / `full_review` / `falsification`) returning verdict `passes`/`weakened`/`falsified` (lift from `open-coscientist/agents/reflection.py`)
+  - `tournament_loop.run_tournament` — multi-round loop with convergence early-stop; mutates Hypothesis Elo + meta_critique_inherited in place
+
+- **Robin lit-loop integration:**
+  - `ExperimentalInsightsFeedback` — Robin `EXPERIMENTAL_INSIGHTS_APPENDAGE` adapter (lift from `robin/robin/robin/prompts.py`). Injects round results into next-round Generation prompts
+  - `PaperQA2Integrator._paperqa_query` — full PaperQA2 wrapper (replaces P1 LiteRAG-only fallback). Wraps `paperqa.Docs.aadd` + `paperqa.Docs.aquery`. LiteRAG fallback retained when `paper-qa` not installed
+
+- **Wave 2 hypothesis-generation end-to-end orchestrator (`Wave2Runner`):**
+  - 4-strategy generation → 2-evolution → tournament loop → top-3 reflection (basic + falsification)
+  - Writes `triggers/<run_id>/wave2_hypotheses.json` + provenance.jsonl
+  - Per ADR-2026-04-22 main-thread only
+
+- **PI intent extension:** `HYPOTHESIS_REQUEST` added to `prompts/pi/intent_parser.md` — triggers Wave 2 dispatch when patient asks "what novel directions exist?"
+
+- **Memory schema additions (`memory/schemas.py`):**
+  - `Hypothesis` (id/text/elo_rating/status/parent_chain/generation_strategy/evidence_refs/meta_critique_inherited/rationale) — defaults to `claim_layer=speculative` per founder-mode philosophy
+  - `TournamentRound` (round_id/wave_index/participants/pairings/outcomes/elo_deltas/meta_critique)
+  - `TournamentOutcome` (a/b/winner/reason)
+
+- **82 new tests** (372 total, up from 290):
+  - `tests/test_memory/test_hypothesis_schema.py` — 6 tests
+  - `tests/test_orchestrator/test_elo_tournament.py` — 9 tests
+  - `tests/test_orchestrator/test_debate_judge.py` — 5 tests
+  - `tests/test_orchestrator/test_meta_critique.py` — 4 tests
+  - `tests/test_orchestrator/test_generation.py` — 6 tests
+  - `tests/test_orchestrator/test_evolution.py` — 7 tests
+  - `tests/test_orchestrator/test_reflection.py` — 7 tests
+  - `tests/test_orchestrator/test_experimental_insights.py` — 4 tests
+  - `tests/test_orchestrator/test_tournament_loop.py` — 5 tests
+  - `tests/test_experts/test_iain_aviv.py` — 8 tests
+  - `tests/test_glue/test_wave2_runner.py` — 4 tests
+  - `tests/test_integrators/test_paperqa.py` (+2 new for PaperQA2 wrapper)
+  - `tests/test_e2e/test_p2_hypothesis_e2e.py` — 1 test
+  - `tests/test_p2_acceptance.py` — 14 tests
+
+### Validation
+
+- 372 tests pass (`pytest tests/`)
+- `ruff check src/ tests/` green
+- `mypy --strict src/` green (75 files)
+- All LLM calls mocked (no real network); PaperQA2 paperqa module monkey-patched in tests
+
+### Tag
+
+`v0.2.0-p2`
+
+---
+
 ## [v0.1.0-p1] — 2026-05-24
 
 ### Added
