@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.6] — 2026-05-24 — Iter 14 (tools/observe.py)
+
+### Added
+- **`tools/observe.py`** — trigger-run observability aggregator per spec §10.
+  Scans `--root` recursively for `run_metadata.json` files; emits JSON
+  aggregate + Markdown report (stdout or `--out-json` / `--out-md`).
+- Metrics tracked: `token_cost`, `wall_time_seconds`, `claims_produced`,
+  `claims_withdrawn`, `reviewer_fail_rate`, `mechanical_gate_blocks`.
+- Runs with missing keys surface in `skipped[]` with reason
+  (memory:feedback_no_false_completion — transparent accounting).
+
+### Tests
+- **`tests/test_tools/test_observe.py`** — 3 tests (sum+mean aggregation,
+  skip on missing keys, Markdown rendering) using fake trigger dirs in
+  `tmp_path`.
+
+### Stats
+- 771 tests pass (was 768, +3). ruff clean, mypy --strict clean.
+
 ## [1.0.5] — 2026-05-24 — Iter 13 (Per-task model routing)
 
 ### Added
