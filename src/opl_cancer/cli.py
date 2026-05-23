@@ -1,4 +1,5 @@
 """CLI entry point for opl-cancer skill. P0 skeleton subcommands."""
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -44,6 +45,74 @@ def list_experts() -> None:
     click.echo("  " + "-" * 60)
     for name, profile in ROSTER.items():
         click.echo(f"  {name:<10}{profile.role:<28}{profile.inspiration}")
+
+
+@main.command(
+    name="acknowledge",
+    help="Patient acknowledgment loop — confirm a pending L3/L4 risk-card. Spec §8 L4.",
+)
+@click.argument("card_id")
+@click.option(
+    "--outstanding-dir",
+    type=click.Path(file_okay=False),
+    default="outstanding",
+    help="Directory of pending ack records (default: outstanding/).",
+)
+@click.option(
+    "--serious-risks",
+    type=click.Path(dir_okay=False),
+    default="knowledge/serious_risks_per_drug.json",
+    help="Path to the per-drug serious-risks catalogue.",
+)
+def acknowledge(card_id: str, outstanding_dir: str, serious_risks: str) -> None:
+    """Mark a pending risk-card as patient-acknowledged.
+
+    Spec §8 L4: writes patient_acknowledged_at ISO-timestamp.
+    """
+    from opl_cancer.validators.henry import HenryAuditor
+
+    auditor = HenryAuditor(
+        serious_risks_path=Path(serious_risks),
+        outstanding_dir=Path(outstanding_dir),
+    )
+    ts = datetime.now(timezone.utc).isoformat()
+    rec = auditor.acknowledge(card_id, acknowledged_at=ts)
+    click.echo(f"Acknowledged card {card_id!r} at {ts}")
+    click.echo(f"  level: {rec.get('level')}")
+    click.echo(f"  risks: {len(rec.get('known_serious_risks', []))}")
+
+
+@main.command(
+    name="list-pending-acks",
+    help="List risk-disclosure cards awaiting patient acknowledgment. Spec §8 L4.",
+)
+@click.option(
+    "--outstanding-dir",
+    type=click.Path(file_okay=False),
+    default="outstanding",
+    help="Directory of pending ack records (default: outstanding/).",
+)
+@click.option(
+    "--serious-risks",
+    type=click.Path(dir_okay=False),
+    default="knowledge/serious_risks_per_drug.json",
+    help="Path to the per-drug serious-risks catalogue.",
+)
+def list_pending_acks(outstanding_dir: str, serious_risks: str) -> None:
+    from opl_cancer.validators.henry import HenryAuditor
+
+    auditor = HenryAuditor(
+        serious_risks_path=Path(serious_risks),
+        outstanding_dir=Path(outstanding_dir),
+    )
+    pending = auditor.list_pending()
+    if not pending:
+        click.echo("No pending acks.")
+        return
+    for rec in pending:
+        click.echo(
+            f"  {rec['card_id']}  L{rec['level']}  {rec['claim_text'][:60]}"
+        )
 
 
 if __name__ == "__main__":

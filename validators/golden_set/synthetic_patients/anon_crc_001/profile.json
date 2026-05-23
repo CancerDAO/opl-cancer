@@ -1,0 +1,18 @@
+{
+  "patient_code": "anon_crc_001",
+  "demographics": {"age": 62, "sex": "F", "ethnicity": "Han-Chinese", "weight_kg": 58},
+  "diagnosis": {
+    "primary_site": "rectum",
+    "histology": "adenocarcinoma",
+    "stage_TNM": "T3N1M1",
+    "mss_status": "MSS",
+    "kras_status": "G12D",
+    "diagnosis_date": "2025-02-10"
+  },
+  "treatment_history": [
+    {"line": 1, "regimen": "FOLFOX+bevacizumab", "start": "2025-03-01", "end": "2025-09-10", "best_response": "PR"},
+    {"line": 2, "regimen": "FOLFIRI+cetuximab", "start": "2025-09-15", "end": null, "best_response": "PD"}
+  ],
+  "comorbidities": ["T2DM", "stage-1 hypertension"],
+  "preferences": {"depth": "plain-language", "language": "zh-CN"}
+}

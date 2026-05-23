@@ -1,0 +1,15 @@
+{
+  "case_name": "empty_ngs",
+  "description": "Patient has no NGS report at all (e.g., financial constraint or pre-test).",
+  "patient_input": {
+    "ngs_files": [],
+    "histology_only": true,
+    "diagnosis": "HCC, BCLC C"
+  },
+  "expected_behavior": [
+    "Bert (somatic-genomics) MUST NOT fabricate variants",
+    "Wave1Runner must mark genomics-dependent claims as L0/L1 only",
+    "Patient brief must include explicit 'NGS gap' note",
+    "Recommendation to obtain NGS surfaced as 'next action'"
+  ]
+}

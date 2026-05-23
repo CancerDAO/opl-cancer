@@ -1,0 +1,16 @@
+{
+  "case_name": "contradicting_reports",
+  "description": "Two NGS reports from different labs give contradicting variant calls (e.g., EGFR L858R+ in lab A, EGFR L858R- in lab B).",
+  "patient_input": {
+    "ngs_reports": [
+      {"lab": "lab_A", "date": "2025-01-15", "EGFR_L858R": "positive", "T790M": "negative"},
+      {"lab": "lab_B", "date": "2025-04-10", "EGFR_L858R": "negative", "T790M": "negative"}
+    ]
+  },
+  "expected_behavior": [
+    "Bert must surface contradiction explicitly (not silently pick one)",
+    "review_flags entry: NGS_DISCORDANCE",
+    "Recommendation: tissue re-biopsy + reference-lab confirmation",
+    "All downstream genomics claims gated until reconciliation"
+  ]
+}

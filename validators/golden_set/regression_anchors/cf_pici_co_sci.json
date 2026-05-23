@@ -1,0 +1,16 @@
+{
+  "anchor_name": "cf-PICI Co-Sci tournament case",
+  "source": "Co-Scientist tournament loop reference (lift via open-coscientist)",
+  "description": "Phage-inducible chromosomal islands (PICIs) — capsid-formation hypothesis emerged from tournament-style hypothesis competition; regression target = OPL hypothesis Wave produces same shortlist class.",
+  "patient_context": "hypothesis_generation_only (no patient case)",
+  "expected_emergent_concepts": [
+    "PICI capsid hijack",
+    "tail-fiber chimerism",
+    "horizontal-gene-transfer fitness landscape"
+  ],
+  "expected_rejected_concepts": [
+    "non-mechanistic single-gene marker stories",
+    "purely correlational expression panels"
+  ],
+  "acceptance_criterion": "Wave 2 hypothesis tournament must rank a mechanism-rich PICI-like hypothesis in top-3."
+}

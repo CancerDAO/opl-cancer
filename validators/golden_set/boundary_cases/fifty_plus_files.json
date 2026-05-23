@@ -1,0 +1,17 @@
+{
+  "case_name": "fifty_plus_files",
+  "description": "Patient drops 50+ files (10 hospitalizations × 5 reports each) — stress test for organize pipeline.",
+  "patient_input": {
+    "n_files": 52,
+    "n_hospitalizations": 10,
+    "file_types": ["pdf", "jpg", "docx"],
+    "languages": ["zh-CN", "en"]
+  },
+  "expected_behavior": [
+    "Phase-1 fan-out per hospitalization subdirectory",
+    "Phase-2 synthesis with cross-slice review_flags audit",
+    "timeline.md monotonic by date with all events",
+    "No OOM / no degraded OCR quality flag missed",
+    "readiness.json 8-domain scores stable"
+  ]
+}

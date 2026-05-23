@@ -1,5 +1,111 @@
 # Changelog
 
+## [v0.5.0-p5] — 2026-05-24
+
+### Added — Validation Stack
+
+- **Henry 4-layer IRB-substitute auditor** (`src/opl_cancer/validators/henry.py`):
+  - L1 forced risk-disclosure-card emission for any L3/L4 claim (spec §8.L1)
+  - L2 model-disagreement surfacing from reviewer challenges (rule-based; LLM
+    summariser deferred to P6)
+  - L3 forced known-serious-risk checklist reading
+    `knowledge/serious_risks_per_drug.json`; unknown drugs surface as explicit
+    `[unknown drug: ...]` warnings (fail-closed per spec §7 G11 spirit)
+  - L4 patient acknowledgment loop — writes pending acks to
+    `outstanding/<card_id>.json` with ISO-timestamp `patient_acknowledged_at`
+    field; `HenryAuditor.acknowledge()` + `list_pending()` helpers
+- **Risk-disclosure-card model + renderer** (`src/opl_cancer/delivery/risk_card.py`):
+  - Pydantic v2 `RiskDisclosureCard` with fail-closed cross-field validator
+    (must declare ≥1 `known_serious_risks` OR `epistemic_gaps`)
+  - HTML-safe rendering (escapes `<script>`, `&`, etc) + Markdown renderer
+  - `content_hash()` for provenance integrity (excludes ack/created timestamps)
+- **Serious-risks knowledge catalogue** (`knowledge/serious_risks_per_drug.json`):
+  - 5 drugs stubbed (atezolizumab / bevacizumab / osimertinib / pembrolizumab /
+    trastuzumab) with INN + class + ≥2 known serious risks each
+- **CLI ack loop** — two new subcommands in `opl-cancer`:
+  - `opl-cancer acknowledge <card_id>` — patient marks a pending card
+    acknowledged with UTC-ISO timestamp
+  - `opl-cancer list-pending-acks` — lists awaiting cards (level + claim preview)
+
+### Added — Reviewer pairings (spec §2.2 rotation)
+
+- `models.yaml.reviewer_pairings` populated for all 18 roster experts:
+  - Genomics ↔ Pharmacology: bert↔aviv
+  - Bioinformatics ↔ Pharmacology: mary↔tyler
+  - Clinical ↔ Trial matching: rosa↔rick
+  - Toxicity ↔ Clinical: iain↔heddy
+  - Translational ↔ Mechanism: ted→aviv, vince→aviv, hong→bert
+  - Supportive ↔ Clinical: jen→rosa, kieren→rosa, mark→iain
+  - EAP ↔ Cross-border: frances↔dennis
+  - Specialised: riad→ted, steve→tyler
+- Acceptance: ≥15 pairings populated; no self-review; all reviewers in roster.
+
+### Added — Operator tools (`tools/`)
+
+- **`tools/reproduce.py`** — given `<patient_dir> <run_id>`, loads the
+  per-run provenance.jsonl and verifies recipe is reproducible
+  (prompt_versions pinned + claim_hashes present + models recorded). Exits 0 on
+  reproducible, 2 on missing artifact / gap.
+- **`tools/verify_provenance.py`** — recomputes the sha256 of every entry's
+  hashable payload and compares against stored `claim_hash` / `content_hash`.
+  Reports `matches`, `mismatches`, `no_hash`. Exits 0 on all-match, 1 on any
+  mismatch.
+
+### Added — Golden set expansion (`validators/golden_set/`)
+
+- **+2 synthetic patients** (now 4 distinct cancer types):
+  - `anon_crc_001` — colorectal MSS KRAS-G12D, post-FOLFIRI+cetuximab PD
+  - `anon_brca_001` — breast HER2+ post-T-DM1 recurrence
+- **+5 failure-mode inputs** (now 8 total, ≥6 distinct gates exercised):
+  - `drug_name_confusion_input.json` (G3)
+  - `dose_unit_input.json` (G4)
+  - `batch_effect_input.json` (G15)
+  - `cherry_pick_input.json` (G16)
+  - `retraction_cascade_input.json` (G9 cascade)
+- **New `regression_anchors/`** (≥2 anchors):
+  - `cf_pici_co_sci.json` — Co-Sci tournament anchor
+  - `ripasudil_robin.json` — Robin drug-repurposing anchor
+- **New `boundary_cases/`** (≥3 cases):
+  - `empty_ngs.json`, `fifty_plus_files.json`, `contradicting_reports.json`
+
+### Closed — P4.5 deferred items
+
+- **RxNorm → Mary** integrator-dict wiring verified via constructor contract
+- **NMPA + FDA EAP → Frances** wiring verified
+- **CT.gov + ChiCTR → Dennis + Rick** wiring verified
+- All four contract tests in `tests/test_p5_integrator_wiring.py`
+
+### Tests
+
+- **+160 tests** in 4 new files (501 → 661):
+  - `tests/test_p5_acceptance.py` (33 — top-level acceptance)
+  - `tests/test_p5_golden_set_per_file.py` (49 — per-fixture parametrised)
+  - `tests/test_p5_henry_deep.py` (71 — per-drug + per-pairing parametrised)
+  - `tests/test_p5_integrator_wiring.py` (7 — async integrator routing)
+
+### Deferred (honest)
+
+- **LLM-backed Henry L2 disagreement summariser** — currently rule-based
+  pass-through of reviewer challenges. P6 will add a Claude-summarised
+  disagreement-axis renderer.
+- **Wave1Runner.run integration of risk_card emission** — Henry can be called
+  per-claim, but Wave1Runner does not yet auto-emit risk cards into the brief
+  HTML output. P6.
+- **15-expert routing-matrix golden test across HCC + NSCLC** — partial; only
+  smoke-imports validated. Full routing matrix deferred to P6 wave-runner
+  integration work.
+- **`patient_acknowledged_at` propagation to memory store schemas** — currently
+  written only to `outstanding/` JSON. Memory-store schema field deferred to P6.
+
+### Acceptance criteria met
+
+- 661 tests passing (target ≥600 exceeded by 61).
+- `ruff check src tests tools` clean.
+- All 4 P5 task buckets (T1-T9) shipped to production-grade.
+- memory:feedback_no_offline_only — Henry refuses to construct without serious-
+  risks catalogue (fail-loud on missing knowledge).
+- memory:feedback_no_false_completion — deferred items above explicitly listed.
+
 ## [v0.4.5-p4.5] — 2026-05-24
 
 ### Added

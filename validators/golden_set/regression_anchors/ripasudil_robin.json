@@ -1,0 +1,16 @@
+{
+  "anchor_name": "Ripasudil corneal-endothelium repurposing — Robin case study",
+  "source": "Robin (drug-repurposing AI agent) published case study",
+  "description": "ROCK inhibitor ripasudil identified for corneal endothelial dysfunction via cross-tissue mechanism mapping; regression target = OPL Wave can surface ROCK-inhibitor class given a hypothesis seed about corneal endothelial cells.",
+  "patient_context": "hypothesis_generation_only (no patient case)",
+  "expected_emergent_concepts": [
+    "Rho-associated kinase inhibition",
+    "corneal endothelial cell proliferation",
+    "drug repurposing from glaucoma to corneal disease"
+  ],
+  "expected_evidence_layers": [
+    "established (Fuchs dystrophy clinical trials)",
+    "exploratory (cross-tissue MoA mapping)"
+  ],
+  "acceptance_criterion": "Aviv (MoA) + Ted (translational) co-surface ROCK inhibitor class with traceable PMID chain."
+}

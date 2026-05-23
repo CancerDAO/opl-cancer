@@ -1,0 +1,20 @@
+{
+  "patient_code": "anon_brca_001",
+  "demographics": {"age": 48, "sex": "F", "ethnicity": "Han-Chinese", "weight_kg": 61},
+  "diagnosis": {
+    "primary_site": "breast",
+    "histology": "invasive ductal carcinoma",
+    "stage_TNM": "T2N2M0",
+    "er_status": "negative",
+    "pr_status": "negative",
+    "her2_status": "3+ (IHC) / amplified (FISH)",
+    "ki67_pct": 45,
+    "diagnosis_date": "2024-09-05"
+  },
+  "treatment_history": [
+    {"line": 1, "regimen": "TCHP (docetaxel+carboplatin+trastuzumab+pertuzumab) neoadjuvant", "start": "2024-09-20", "end": "2025-01-30", "best_response": "RCB-II"},
+    {"line": 2, "regimen": "T-DM1 adjuvant", "start": "2025-03-01", "end": "2025-11-15", "best_response": "recurrence"}
+  ],
+  "comorbidities": ["mild cardiomyopathy (LVEF 52%)"],
+  "preferences": {"depth": "technical", "language": "zh-CN"}
+}

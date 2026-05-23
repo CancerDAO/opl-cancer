@@ -1,0 +1,13 @@
+{
+  "test_name": "cherry_pick_evidence",
+  "expected_block_gate": "G16_evidence_balance_check",
+  "claim": {
+    "text": "Drug Y improves OS in HCC (PMID 11111111).",
+    "evidence": [{"type": "pmid", "id": "11111111", "supports": true}],
+    "ignored_negative_evidence": [
+      {"pmid": "22222222", "finding": "Drug Y showed no OS benefit in larger phase 3 trial"},
+      {"pmid": "33333333", "finding": "Drug Y associated with hepatotoxicity in HBV+ patients"}
+    ]
+  },
+  "rationale": "Single positive PMID cited while ≥2 contradicting negative studies ignored; evidence-balance gate must surface contradictions."
+}

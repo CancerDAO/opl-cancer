@@ -1,0 +1,12 @@
+{
+  "test_name": "retraction_cascade",
+  "expected_block_gate": "G9_retraction_check_cascade",
+  "claim": {
+    "text": "Mechanism Z supports drug repurposing for HCC (citing PMID 44444444 which cites PMID 55555555).",
+    "evidence": [
+      {"type": "pmid", "id": "44444444", "retracted": false, "cites": ["55555555"]},
+      {"type": "pmid", "id": "55555555", "retracted": true, "retraction_reason": "data fabrication"}
+    ]
+  },
+  "rationale": "Primary citation is not retracted, but its own foundational citation is retracted; cascade-retraction gate must surface."
+}

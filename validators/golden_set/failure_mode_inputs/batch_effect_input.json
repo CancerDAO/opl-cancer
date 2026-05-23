@@ -1,0 +1,10 @@
+{
+  "test_name": "batch_effect_masquerading_as_signal",
+  "expected_block_gate": "G15_batch_effect_check",
+  "claim": {
+    "text": "Gene X is upregulated 3.2x in HCC patients vs healthy controls (p<0.001).",
+    "evidence": [{"type": "dataset", "id": "GSE99999"}],
+    "study_design_flag": "samples processed in different sequencing batches; no ComBat correction reported"
+  },
+  "rationale": "Signal may be batch artifact rather than biology; bioinfo gate must require batch-effect adjustment evidence."
+}

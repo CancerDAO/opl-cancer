@@ -1,0 +1,10 @@
+{
+  "test_name": "drug_name_confusion",
+  "expected_block_gate": "G3_drug_normalization",
+  "claim": {
+    "text": "Recommend Avastine (PMID 12345678) for HCC 3L therapy.",
+    "evidence": [{"type": "pmid", "id": "12345678", "quote": "..."}],
+    "drug_mentioned": "Avastine"
+  },
+  "rationale": "Avastine is a typo/non-canonical spelling of Avastin (bevacizumab); G3 must normalize to RxNorm canonical INN or reject."
+}

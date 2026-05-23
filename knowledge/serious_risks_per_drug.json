@@ -1,0 +1,57 @@
+{
+  "_meta": {
+    "schema": "v0.1.0",
+    "purpose": "Spec §8 L3 forced known-serious-risk checklist source.",
+    "_note": "Stub catalogue — extend in P6 with curated FDA/NMPA label data."
+  },
+  "atezolizumab": {
+    "inn": "atezolizumab",
+    "class": "PD-L1 inhibitor",
+    "known_serious_risks": [
+      "Immune-related hepatitis (Grade 3-4)",
+      "Immune-related colitis",
+      "Pneumonitis (potentially fatal)",
+      "Endocrinopathies (thyroid, hypophysitis, adrenal insufficiency)"
+    ]
+  },
+  "bevacizumab": {
+    "inn": "bevacizumab",
+    "class": "anti-VEGF",
+    "known_serious_risks": [
+      "Hypertension (Grade 3-4)",
+      "Proteinuria / nephrotic syndrome",
+      "Gastrointestinal perforation",
+      "Arterial thromboembolism",
+      "Wound healing impairment"
+    ]
+  },
+  "osimertinib": {
+    "inn": "osimertinib",
+    "class": "EGFR-TKI (3rd gen)",
+    "known_serious_risks": [
+      "Interstitial lung disease / pneumonitis",
+      "QTc prolongation",
+      "Cardiomyopathy / LVEF decline",
+      "Cutaneous adverse reactions"
+    ]
+  },
+  "pembrolizumab": {
+    "inn": "pembrolizumab",
+    "class": "PD-1 inhibitor",
+    "known_serious_risks": [
+      "Immune-related adverse events (any organ)",
+      "Pneumonitis",
+      "Colitis",
+      "Endocrinopathies"
+    ]
+  },
+  "trastuzumab": {
+    "inn": "trastuzumab",
+    "class": "anti-HER2",
+    "known_serious_risks": [
+      "Cardiotoxicity (LVEF decline, CHF)",
+      "Infusion reactions",
+      "Pulmonary toxicity"
+    ]
+  }
+}

@@ -7,9 +7,18 @@
 
 ## Status
 
-**v0.4.5-p4.5 (P4.5 closeout — Expert Batch E: 3 deferred experts + Wave4Runner + G7 ImperativeDetector).**
+**v0.5.0-p5 (P5 Validation Stack — Henry 4-layer IRB substitute + risk-disclosure-card + patient ack loop + golden set extended).**
 
-Roster now complete (**18/18 experts** with personas + task templates). 501 tests, mypy --strict clean, ruff clean. See CHANGELOG.md for full P4.5 scope.
+Roster complete (**18/18 experts**). **661 tests**, mypy baseline + ruff clean.
+
+P5 highlights (CHANGELOG.md for full scope):
+- Henry 4-layer auditor with serious-risks catalogue, risk-card emission, model-disagreement surfacing, and patient-acknowledgment loop
+- CLI: `opl-cancer acknowledge <card_id>` + `opl-cancer list-pending-acks`
+- `reviewer_pairings` populated for all 18 experts (cross-domain rotation)
+- `tools/reproduce.py` + `tools/verify_provenance.py` provenance integrity tools
+- Golden set: 4 synthetic patients (HCC/NSCLC/CRC/breast), 8 failure-mode inputs, 2 regression anchors, 3 boundary cases
+
+Previous: v0.4.5-p4.5 closeout (Batch E: 3 deferred experts + Wave4Runner + G7 ImperativeDetector).
 
 Wave 1 retrieval pipeline (P1) — Sid intent parse → planner → 6 experts
 (Rosa/Bert/Vince/Rick/Heddy/Hong) in parallel → reviewer pairing → mechanical gates

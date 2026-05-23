@@ -1,0 +1,12 @@
+{
+  "test_name": "dose_unit_confusion",
+  "expected_block_gate": "G4_dose_unit_check",
+  "claim": {
+    "text": "Recommend osimertinib 80 mcg PO QD.",
+    "evidence": [],
+    "dose_value": 80,
+    "dose_unit": "mcg",
+    "expected_unit": "mg"
+  },
+  "rationale": "Osimertinib standard dose is 80 mg PO QD, not 80 mcg (factor 1000 error). Dose-unit gate must flag."
+}
