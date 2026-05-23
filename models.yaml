@@ -34,6 +34,17 @@ reviewer_pool:
     rationale: |
       Tertiary reviewer for second-opinion when MiniMax + Claude disagree.
 
+# Integrator cache TTL per family — spec §17.5 P2 + Iter 15.
+# Values in seconds. Concrete integrators may further override per-key via
+# `Integrator(ttl_seconds_overrides={...})` or class `default_ttl_seconds_overrides`.
+integrator_ttl_seconds:
+  nccn: 2592000             # 30 days — guideline excerpts change slowly
+  pubmed: 604800            # 7 days — abstract corpus stable-ish
+  clinicaltrials: 86400     # 1 day — trial statuses update frequently
+  civic: 604800             # 7 days
+  oncokb: 604800            # 7 days
+  fda_eap: 604800           # 7 days
+
 # Per-task model routing — spec §17.5 P2.
 # Falls back to executor_model when task_package is absent from this map.
 # memory:feedback_no_model_downgrade — Opus default for deep reasoning;

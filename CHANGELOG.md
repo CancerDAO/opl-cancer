@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.7] — 2026-05-24 — Iter 15 (Configurable integrator TTL)
+
+### Added
+- **`Integrator.default_ttl_seconds_overrides: ClassVar[dict[str, int]]`**
+  — class-level per-key TTL override map.
+- **`Integrator(ttl_seconds_overrides=...)`** ctor arg — instance-level
+  per-key TTL override map.
+- **`Integrator.resolve_ttl(key)`** — instance > class > default precedence.
+- **`models.yaml.integrator_ttl_seconds`** — declared family TTL defaults:
+  `nccn=30d`, `pubmed=7d`, `clinicaltrials=1d`, `civic=7d`, `oncokb=7d`,
+  `fda_eap=7d`.
+- `cached_fetch` now calls `resolve_ttl(key)` instead of using static
+  `self.ttl_seconds` directly.
+
+### Tests
+- **`tests/test_integrators/test_ttl_config.py`** — 3 tests (precedence,
+  models.yaml carrying family defaults, cached_fetch using resolved TTL).
+
+### Stats
+- 774 tests pass (was 771, +3). ruff clean, mypy --strict clean.
+
 ## [1.0.6] — 2026-05-24 — Iter 14 (tools/observe.py)
 
 ### Added
