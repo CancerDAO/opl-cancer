@@ -25,7 +25,8 @@ env/
 Thumbs.db
 
 # PHI - 绝不入 git (spec §1.1 + memory:project_cancer_buddy_repo_sync)
-patients/
+# Use patients/* (not patients/) so .gitkeep + SCHEMA.md placeholders can be tracked.
+patients/*
 !patients/.gitkeep
 !patients/SCHEMA.md
 
