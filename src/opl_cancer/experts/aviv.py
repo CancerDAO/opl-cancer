@@ -11,9 +11,13 @@ from ._common import LLMBackedExpert
 
 
 class AvivExpert(LLMBackedExpert):
+    # P3-T7: extended portfolio with dataset_acquisition + bioinformatics_data_analysis;
+    # preferred families add F7 (DepMap/CCLE).
     portfolio: ClassVar[tuple[str, ...]] = (
         "hypothesis_generation",
         "pathway_enrichment",
         "single_cell_reanalysis",
+        "dataset_acquisition",
+        "bioinformatics_data_analysis",
     )
-    preferred_families: ClassVar[tuple[str, ...]] = ("F1", "F4", "F6")
+    preferred_families: ClassVar[tuple[str, ...]] = ("F1", "F4", "F6", "F7")
