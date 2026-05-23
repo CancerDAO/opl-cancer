@@ -1,5 +1,51 @@
 # Changelog
 
+## [v0.4.0-p4] — 2026-05-24
+
+### Added
+
+- **Expert Batch D — 6 of 9 shipped** (Mary / Ted / Riad / Jen / Frances / Steve):
+  - `MaryExpert` (Pharmacologist, Mary Relling archetype) — portfolio `ddi_adme_dosing`; families F1/F10. Demands RxNorm `rxcui` + TPMT/DPYD/UGT1A1 phenotype surfacing.
+  - `TedExpert` (Radiation Oncologist, Theodore Lawrence archetype) — portfolio `radiation_planning`; families F1/F2. Demands BED10 + OAR constraint table + QUANTEC/TG-101 anchoring.
+  - `RiadExpert` (Interventional Oncologist, Riad Salem archetype) — portfolio `interventional_oncology`; families F1/F2. Demands Child-Pugh + BCLC + thermoprotection flag.
+  - `JenExpert` (Palliative Specialist, Jennifer Temel archetype) — portfolio `palliative_symptom_qol`; family F1. Demands ESAS + morphine equivalents + mandatory bowel-regimen flag on opioid plans.
+  - `FrancesExpert` (Expanded Access Navigator, Frances Kelsey archetype) — portfolio `expanded_access_navigation`; families F3/F8. Mandatory L4 boundary disclosure on every option; refuses "guaranteed" framing.
+  - `SteveExpert` (Nutritionist, Stephen Heber archetype) — portfolio `oncology_nutrition`; families F1/F2. Demands PG-SGA score + cachexia stage + ROS-window caveat for concurrent antioxidants.
+
+- **6 new persona files** under `prompts/experts/{mary,ted,riad,jen,frances,steve}/persona.md` — each ≥30 lines, three-tier discipline, Anti-patterns section, founder-mode no-paternalism stance.
+
+- **6 new task prompt files** under `prompts/tasks/`:
+  - `ddi_adme_dosing.md` — RxNorm-anchored DDI screen, severity, pgx implications, renal/hepatic adjustments
+  - `radiation_planning.md` — dose / fractions / BED10 / OAR table / re-irradiation flag
+  - `interventional_oncology.md` — modality / Child-Pugh / BCLC / intent
+  - `palliative_symptom_qol.md` — ESAS scores / opioid mg + MED / mandatory bowel regimen
+  - `expanded_access_navigation.md` — L4 boundary mandatory non-empty; jurisdiction explicit
+  - `oncology_nutrition.md` — PG-SGA / kcal-protein target / supplement-DDI cross-ref / ROS window caveat
+
+- **PI intent_parser LLM upgrade** (`PISession.classify_intent_llm`):
+  - Replaces P0 `classify_intent_stub` for live deployments (memory:feedback_default_prompt_over_script)
+  - Loads `prompts/pi/intent_parser.md` via `PromptTemplate`
+  - Raises `LLMResponseParseError` on bad JSON / unknown intent / missing key (G11 contract — no silent degradation)
+  - `IntentClass` enum extended with `HYPOTHESIS_REQUEST` (routes to Wave 2 tournament per intent_parser.md)
+  - Stub retained for offline CI fallback; updated to also detect `HYPOTHESIS_REQUEST` keywords
+
+- **34 new tests** (465 total, up from 431):
+  - `tests/test_experts/test_batch_d.py` — 21 tests (portfolio + persona discipline + task template invariants + per-expert anchors)
+  - `tests/test_orchestrator/test_pi_session_llm.py` — 8 tests (LLM happy paths for 3 intents + 3 failure modes + enum extension + stub fallback)
+
+### Deferred to P4.5 (honest scope limit per memory:feedback_no_false_completion)
+
+- KierenExpert (Infectious Disease — neutropenic fever)
+- MarkExpert (Endocrinologist — ICI irAE endocrine)
+- DennisExpert (Cross-Border Coordinator — US/JP/EU)
+- Wave 4 `hypothesis_validation` runner (P2 hypotheses ↔ P3 data; Aviv + Iain integration)
+- Patient brief polish + imperative-detector strict gate + three-tier strict gate
+- F10 RxNorm integrator wiring (persona references it; integrator already exists from P1 — Mary instance not yet auto-wired)
+
+### Plan
+
+- `docs/superpowers/plans/2026-05-24-opl-cancer-p4-pi-integration.md` (~96 lines)
+
 ## [v0.3.0-p3] — 2026-05-24
 
 ### Added

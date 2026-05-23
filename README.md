@@ -7,7 +7,7 @@
 
 ## Status
 
-**v0.3.0-p3 (P3 Bioinformatics + GEO/ArrayExpress/SRA/DepMap/CCLE + bixbench Docker complete).**
+**v0.4.0-p4 (P4 Expert Batch D — 6 of 9 + PI intent_parser LLM upgrade).**
 
 Wave 1 retrieval pipeline (P1) — Sid intent parse → planner → 6 experts
 (Rosa/Bert/Vince/Rick/Heddy/Hong) in parallel → reviewer pairing → mechanical gates
@@ -33,10 +33,23 @@ Wave 3 data-evidence pipeline (P3) — Aviv (extended portfolio) + **Tyler**
 `compute/bixbench.Dockerfile` + `BixbenchRunner` (env-gated via
 `OPL_BIXBENCH_LIVE`; dry-run by default for CI safety).
 
-431 tests pass; `ruff check` + `mypy --strict` green.
+Expert Batch D (P4) — 6 of 9 shipped: **Mary** (Pharmacologist, DDI/ADME/dosing,
+RxNorm + TPMT/DPYD/UGT1A1), **Ted** (Radiation Oncologist, IMRT/SBRT/SRS, BED10
++ QUANTEC), **Riad** (Interventional Oncologist, TACE/RFA/Y90, Child-Pugh +
+BCLC), **Jen** (Palliative Specialist, ESAS + opioid MED + mandatory bowel
+regimen flag), **Frances** (Expanded Access Navigator, FDA/NMPA/EMA EAP, L4
+boundary disclosure mandatory, refuses "guaranteed" framing), **Steve**
+(Nutritionist, PG-SGA + cachexia stage + ROS-window caveat). PI
+`classify_intent_llm` replaces P0 keyword stub — LLM-backed via
+`prompts/pi/intent_parser.md`; raises on bad JSON / unknown intent
+(no silent degradation); `IntentClass` extended with `HYPOTHESIS_REQUEST`.
 
-P4-P6 still in flight — full Henry IRB substitute, remaining 9 experts
-(Mary/Ted/Riad/Jen/Kieren/Mark/Frances/Dennis/Steve), golden-set expansion,
+465 tests pass; `ruff check` + `mypy --strict` green.
+
+P4.5+ in flight — Kieren (ID neutropenic fever) + Mark (ICI endocrine irAE) +
+Dennis (cross-border coordinator), Wave 4 `hypothesis_validation` runner
+(P2 hyp ↔ P3 omics, Aviv + Iain integration), patient-brief polish +
+imperative-detector strict gate, full Henry IRB substitute, golden-set expansion,
 legal review + open-source launch.
 
 ## Quick start
