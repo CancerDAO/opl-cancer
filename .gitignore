@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Virtual envs
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PHI - 绝不入 git (spec §1.1 + memory:project_cancer_buddy_repo_sync)
+patients/
+!patients/.gitkeep
+!patients/SCHEMA.md
+
+# Compute runtime state
+compute/state/
+
+# Brainstorm artifacts (per memory:feedback_docs_superpowers_private)
+docs/superpowers/
+
+# Local credentials
+.env
+*.key
+secrets/
