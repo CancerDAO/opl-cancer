@@ -36,3 +36,22 @@ def test_withdraw_cascades_to_dependents(tmp_path: Path) -> None:
     store.save_insight(_make("ins_b", supersedes="ins_a"))
     affected = withdraw_with_cascade(store, "ins_a", version=1, reason="retracted", at="2026-05-24T00:00:00Z")
     assert "ins_b" in affected
+
+
+def test_withdraw_appends_to_journal_when_provided(tmp_path: Path) -> None:
+    """Safety eval S3 — withdrawal must be reproducible from append-only journal."""
+    from opl_cancer.provenance.journal import ProvenanceJournal
+
+    store = ProjectMemoryStore(db_path=tmp_path / "m.sqlite")
+    store.save_insight(_make("ins_j"))
+
+    journal = ProvenanceJournal(path=tmp_path / "provenance.jsonl")
+    withdraw_with_cascade(
+        store, "ins_j", version=1, reason="retracted",
+        at="2026-05-24T00:00:00Z", journal=journal,
+    )
+
+    records = list(journal.iter_records())
+    assert len(records) == 1
+    assert records[0]["event"] == "withdraw"
+    assert records[0]["insight_id"] == "ins_j"
