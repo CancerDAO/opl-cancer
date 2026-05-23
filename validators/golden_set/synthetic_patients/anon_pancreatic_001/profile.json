@@ -1,0 +1,17 @@
+{
+  "patient_code": "anon_pancreatic_001",
+  "demographics": {"age": 61, "sex": "F", "ethnicity": "Ashkenazi-Jewish", "weight_kg": 58},
+  "diagnosis": {
+    "primary_site": "pancreas",
+    "histology": "pancreatic ductal adenocarcinoma",
+    "stage_TNM": "T3N1M1",
+    "stage_AJCC": "IV",
+    "diagnosis_date": "2025-03-04"
+  },
+  "treatment_history": [
+    {"line": 1, "regimen": "FOLFIRINOX", "start": "2025-03-20", "end": "2026-02-10", "best_response": "PR"},
+    {"line": 2, "regimen": "Gem+nab-Paclitaxel", "start": "2026-02-25", "end": null, "best_response": "PD"}
+  ],
+  "comorbidities": ["BRCA2 germline pathogenic (5946delT)", "T2DM", "Pancreatic exocrine insufficiency"],
+  "preferences": {"depth": "technical", "language": "zh-CN"}
+}

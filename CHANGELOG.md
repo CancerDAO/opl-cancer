@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.0.4] — 2026-05-24 — Iter 12 (4 new synthetic patients + edge cases)
+
+### Added — golden_set/synthetic_patients
+- **`anon_pancreatic_001`** — BRCA2 5946delT germline mPDAC post-FOLFIRINOX/Gem-nabP
+  PD; KRAS G12D somatic; HRD-high. Profile + readiness + case_text + timeline
+  + NGS + pathology.
+- **`anon_gbm_001`** — IDH-wildtype, MGMT-methylated, TERT C228T newly-diagnosed
+  GBM, gross-total resection, Stupp planning. Full canonical set.
+- **`anon_ped_all_001`** — 8yo F Philadelphia+ B-ALL, induction failure Day33
+  MRD 8%, T315I emergence. Declares guardian_consent + pediatric depth
+  preferences (memory:feedback_no_false_completion — pediatric safeguards).
+- **`anon_myeloma_001`** — 64yo M high-risk MM, t(4;14)+del(17p), R-ISS III,
+  early biochemical relapse post-VRd/auto-HSCT/maintenance.
+
+### Edge cases covered
+- Pediatric guardian-consent + age-appropriate assent declared.
+- Germline BRCA2 placed in `comorbidities` for HRD-aware planning.
+- High-risk cytogenetics surfaced in `diagnosis.risk_category` + `molecular`.
+
+### Tests
+- **`tests/test_golden_set/test_iter12_new_patients.py`** — 25 tests covering
+  directory presence, canonical file presence, profile schema, readiness gate,
+  ≥2-bucket requirement (NGS+pathology), pediatric safeguards, BRCA germline
+  documentation, high-risk cytogenetics, real-name pattern scan, SYNTHETIC
+  marker.
+- **`tests/test_e2e/test_wave1_e2e.py`** — extended parametrize to all
+  **8 patients** (HCC/NSCLC/CRC/BRCA + pancreatic/GBM/ped-ALL/myeloma) with
+  canned LLM responses. memory:feedback_multi_case_validation satisfied:
+  ≥2 cancer types, ≥2 patients per axis, 4 new histologies.
+
+### Tests total
+- 764 passed, 3 skipped. +41 over v1.0.3.
+
 ## [1.0.3] — 2026-05-24 — Iter 11 (Quad Independent Evaluator tool)
 
 ### Added

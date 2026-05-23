@@ -1,0 +1,9 @@
+Brain tumour NGS panel (in-house 500-gene) result:
+- IDH1 R132H: NOT detected (IDH-wildtype confirmed)
+- TERT promoter C228T (VAF 0.41)
+- TP53 wild-type
+- EGFR amplification: NOT detected
+- PTEN deletion: NOT detected
+- CDKN2A/B homozygous deletion: detected
+MGMT promoter methylation: methylated (PCR + pyrosequencing).
+Microsatellite stable. TMB 2.1 mut/Mb.

@@ -1,0 +1,7 @@
+NGS panel (Tempus xT) result (somatic + germline):
+- KRAS G12D mutation (VAF 0.36)
+- TP53 R273H mutation (VAF 0.41)
+- BRCA2 5946delT (germline pathogenic, confirmed; LOH at tumour locus)
+- CDKN2A homozygous deletion
+- SMAD4 wild-type
+Microsatellite stable. TMB 3.2 mut/Mb. HRD score 52 (high).

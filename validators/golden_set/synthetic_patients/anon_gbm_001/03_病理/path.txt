@@ -1,0 +1,4 @@
+Stereotactic biopsy + resection 2026-03-22: Glioblastoma, IDH-wildtype, WHO grade 4.
+Histology: marked pleomorphism, microvascular proliferation, palisading necrosis.
+IHC: GFAP+, IDH1-R132H-, ATRX retained, p53 wild pattern, Ki-67 ~35%.
+MGMT promoter: methylated (38% methylation index).

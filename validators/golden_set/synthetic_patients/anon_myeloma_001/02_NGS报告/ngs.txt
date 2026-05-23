@@ -1,0 +1,7 @@
+Myeloma FISH + targeted NGS panel:
+- t(4;14)(p16;q32): IGH-FGFR3/NSD2 fusion detected (87% of plasma cells)
+- del(17p13): TP53 mono-allelic loss (62% of plasma cells)
+- gain(1q21): detected (4 copies in 38%)
+- t(11;14): NOT detected
+- t(14;16): NOT detected
+NGS hotspot: NRAS Q61K (VAF 0.12), KRAS wild-type, BRAF wild-type, TP53 mono-allelic loss (no mutation on retained allele).

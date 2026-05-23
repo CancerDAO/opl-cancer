@@ -1,0 +1,6 @@
+BM aspirate + trephine 2025-08-12:
+- Hypercellular marrow with 42% clonal plasma cells (CD138+, kappa-restricted by ISH).
+- IHC: CD138+, CD56+, cyclin-D1- , CD20-.
+- Plasma cells show dyspoiesis, large nucleoli.
+- t(4;14) IGH-FGFR3/NSD2 fusion confirmed by FISH (87%).
+Final: Multiple myeloma, IgG-kappa, high-risk cytogenetics.

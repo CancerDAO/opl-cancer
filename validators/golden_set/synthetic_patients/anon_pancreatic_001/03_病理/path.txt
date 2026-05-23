@@ -1,0 +1,3 @@
+EUS-FNA pancreatic head 2025-03-04: Pancreatic ductal adenocarcinoma, moderately differentiated.
+IHC: CK7+, CK19+, MUC1+, CDX2-, p53 overexpressed (consistent with TP53 mutation).
+Liver core biopsy 2025-03-08: metastatic adenocarcinoma consistent with pancreatic primary.

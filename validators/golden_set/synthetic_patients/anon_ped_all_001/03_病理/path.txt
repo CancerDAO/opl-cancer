@@ -1,0 +1,6 @@
+Bone marrow aspirate + trephine 2026-01-18:
+- Hypercellular marrow (95%) with 72% lymphoblasts.
+- Flow cytometry: CD19+, CD10+, CD22+, TdT+, CD34+, MPO-.
+- Cytogenetics: 46,XX,t(9;22)(q34;q11.2)[20/20].
+- FISH: BCR-ABL1 fusion in 87% of nuclei.
+Final: B-cell acute lymphoblastic leukaemia, Philadelphia chromosome positive (BCR-ABL1 p190).

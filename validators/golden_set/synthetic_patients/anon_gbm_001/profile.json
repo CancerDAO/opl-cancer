@@ -1,0 +1,16 @@
+{
+  "patient_code": "anon_gbm_001",
+  "demographics": {"age": 47, "sex": "M", "ethnicity": "Han-Chinese", "weight_kg": 74},
+  "diagnosis": {
+    "primary_site": "brain",
+    "histology": "glioblastoma, IDH-wildtype",
+    "stage_WHO": "Grade 4",
+    "diagnosis_date": "2026-03-15"
+  },
+  "treatment_history": [
+    {"line": 1, "regimen": "Maximal-safe resection", "start": "2026-03-22", "end": "2026-03-22", "best_response": "gross-total per post-op MRI"}
+  ],
+  "comorbidities": ["Post-op partial seizure on levetiracetam", "Mild aphasia"],
+  "molecular": {"MGMT_methylation": "methylated", "EGFR_amp": "negative", "TERT_promoter": "C228T"},
+  "preferences": {"depth": "technical", "language": "zh-CN"}
+}

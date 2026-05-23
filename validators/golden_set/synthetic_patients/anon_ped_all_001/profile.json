@@ -1,0 +1,17 @@
+{
+  "patient_code": "anon_ped_all_001",
+  "demographics": {"age": 8, "sex": "F", "ethnicity": "Han-Chinese", "weight_kg": 26},
+  "diagnosis": {
+    "primary_site": "bone_marrow",
+    "histology": "B-cell acute lymphoblastic leukaemia",
+    "subtype": "Philadelphia-positive (BCR-ABL1 p190)",
+    "diagnosis_date": "2026-01-18"
+  },
+  "treatment_history": [
+    {"line": 1, "regimen": "CCCG-ALL-2020 induction + dasatinib", "start": "2026-01-22", "end": "2026-05-10", "best_response": "induction failure — Day 33 MRD 8%"}
+  ],
+  "comorbidities": ["Asparaginase hypersensitivity (grade 3, switched to PEG-Erwinia)", "Steroid-induced hyperglycaemia"],
+  "molecular": {"BCR_ABL1": "p190 transcript", "IKZF1_del": "positive", "TKD_mutation": "T315I detected post-induction"},
+  "guardian_consent": {"parents_confirmed": true, "patient_assent_age_appropriate": true},
+  "preferences": {"depth": "guardian-and-pediatric", "language": "zh-CN"}
+}

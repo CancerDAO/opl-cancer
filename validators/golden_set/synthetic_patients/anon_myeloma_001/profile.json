@@ -1,0 +1,19 @@
+{
+  "patient_code": "anon_myeloma_001",
+  "demographics": {"age": 64, "sex": "M", "ethnicity": "Han-Chinese", "weight_kg": 71},
+  "diagnosis": {
+    "primary_site": "bone_marrow",
+    "histology": "multiple myeloma, IgG-kappa",
+    "stage_R-ISS": "III",
+    "diagnosis_date": "2025-08-12",
+    "risk_category": "high (t(4;14) + del(17p))"
+  },
+  "treatment_history": [
+    {"line": 1, "regimen": "VRd induction (Bortezomib + Lenalidomide + Dexamethasone) x6", "start": "2025-08-25", "end": "2026-02-15", "best_response": "VGPR"},
+    {"line": 1.5, "regimen": "auto-HSCT consolidation (Melphalan 200)", "start": "2026-03-10", "end": "2026-03-10", "best_response": "CR Day100"},
+    {"line": 2, "regimen": "Lenalidomide maintenance", "start": "2026-03-30", "end": "2026-05-15", "best_response": "PD — biochemical relapse"}
+  ],
+  "comorbidities": ["Grade-2 peripheral neuropathy (post-bortezomib)", "Stage-3 CKD (eGFR 42)", "Bone disease — L2/L4 lytic lesions stable on zoledronate"],
+  "molecular": {"cytogenetics": "t(4;14)(p16;q32) + del(17p) detected at diagnosis", "FGFR3_overexpression": "yes", "TP53": "mono-allelic loss (del17p)"},
+  "preferences": {"depth": "technical", "language": "zh-CN"}
+}

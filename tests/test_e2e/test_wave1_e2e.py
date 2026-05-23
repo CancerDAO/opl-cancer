@@ -134,6 +134,66 @@ _RESPONSES: dict[str, dict[str, str]] = {
         ),
         "reviewer": '{"verdict": "pass", "challenges": []}',
     },
+    "anon_pancreatic_001": {
+        "intent": '{"intent": "NEW_GOAL", "rationale": "BRCA2 mPDAC post-FOLFIRINOX/Gem-nabP progression"}',
+        "planner": (
+            '{"experts": ["bert"], "tasks": [{"id":"t1","expert":"bert",'
+            '"task_package":"molecular_ngs_interpretation","sub_goal":"BRCA2 + KRAS G12D PDAC 3L"}]}'
+        ),
+        "executor": (
+            '{"variants": [{"gene": "BRCA2", "protein_change": "5946delT (germline)", '
+            '"claim_layer": "established", "evidence": [{"type":"pmid","id":"31157963",'
+            '"quote":"Olaparib maintenance prolongs PFS in gBRCA mPDAC post-platinum (POLO trial)"}], '
+            '"summary": "Olaparib maintenance is FDA-approved in gBRCA platinum-responsive mPDAC"}], '
+            '"summary": "Olaparib eligibility + KRAS G12D trial review; HRD-high context"}'
+        ),
+        "reviewer": '{"verdict": "pass", "challenges": []}',
+    },
+    "anon_gbm_001": {
+        "intent": '{"intent": "NEW_GOAL", "rationale": "newly-dx MGMT-methylated GBM IDH-wt Stupp planning"}',
+        "planner": (
+            '{"experts": ["bert"], "tasks": [{"id":"t1","expert":"bert",'
+            '"task_package":"molecular_ngs_interpretation","sub_goal":"MGMT-methylated GBM management"}]}'
+        ),
+        "executor": (
+            '{"variants": [{"gene": "MGMT", "protein_change": "promoter-methylated", '
+            '"claim_layer": "established", "evidence": [{"type":"pmid","id":"15758009",'
+            '"quote":"MGMT methylation predicts TMZ benefit in GBM (Stupp 2005)"}], '
+            '"summary": "MGMT methylation supports concurrent + adjuvant TMZ"}], '
+            '"summary": "Stupp protocol + TTFields adjunct consideration"}'
+        ),
+        "reviewer": '{"verdict": "pass", "challenges": []}',
+    },
+    "anon_ped_all_001": {
+        "intent": '{"intent": "NEW_GOAL", "rationale": "Ph+ ped ALL induction failure with T315I emergence"}',
+        "planner": (
+            '{"experts": ["bert"], "tasks": [{"id":"t1","expert":"bert",'
+            '"task_package":"molecular_ngs_interpretation","sub_goal":"T315I Ph+ pediatric ALL"}]}'
+        ),
+        "executor": (
+            '{"variants": [{"gene": "ABL1", "protein_change": "T315I", '
+            '"claim_layer": "established", "evidence": [{"type":"pmid","id":"22156606",'
+            '"quote":"Ponatinib retains activity against T315I-mutated BCR-ABL1"}], '
+            '"summary": "Ponatinib active against T315I; pediatric data limited (off-label)"}], '
+            '"summary": "Ponatinib + blinatumomab bridge to HSCT; CAR-T eligibility eval"}'
+        ),
+        "reviewer": '{"verdict": "pass", "challenges": []}',
+    },
+    "anon_myeloma_001": {
+        "intent": '{"intent": "NEW_GOAL", "rationale": "high-risk MM t(4;14)+del17p early relapse"}',
+        "planner": (
+            '{"experts": ["bert"], "tasks": [{"id":"t1","expert":"bert",'
+            '"task_package":"molecular_ngs_interpretation","sub_goal":"high-risk MM 2L"}]}'
+        ),
+        "executor": (
+            '{"variants": [{"gene": "IGH-FGFR3/NSD2", "protein_change": "t(4;14) fusion", '
+            '"claim_layer": "established", "evidence": [{"type":"pmid","id":"33933206",'
+            '"quote":"BCMA-targeted CAR-T (ide-cel) effective in triple-class-exposed MM (KarMMa)"}], '
+            '"summary": "High-risk MM candidate for BCMA CAR-T / teclistamab"}], '
+            '"summary": "DKd or IsaKd bridge; BCMA CAR-T referral; renal dose-adjust"}'
+        ),
+        "reviewer": '{"verdict": "pass", "challenges": []}',
+    },
 }
 
 
@@ -144,6 +204,10 @@ _RESPONSES: dict[str, dict[str, str]] = {
         ("anon_nsclc_001", "奥希替尼用了 20 个月开始进展，C797S 怎么办？"),
         ("anon_crc_001", "FOLFIRI+cetuximab 进展了，KRAS G12D 还能做什么？"),
         ("anon_brca_001", "T-DM1 辅助治疗期间复发，HER2+ 下一步怎么选？"),
+        ("anon_pancreatic_001", "BRCA2 胰腺癌 2L 进展，olaparib 维持还能用吗？"),
+        ("anon_gbm_001", "新诊断 GBM MGMT 甲基化，Stupp 和 TTFields 怎么选？"),
+        ("anon_ped_all_001", "8 岁 Ph+ ALL 诱导失败 T315I，ponatinib 安全吗？"),
+        ("anon_myeloma_001", "高危 MM 维持期间复发，CAR-T 还能做吗？"),
     ],
 )
 async def test_wave1_e2e_two_patients(
