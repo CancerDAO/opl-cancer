@@ -7,15 +7,17 @@
 
 ## Status
 
-**v1.0.8 (Iter 16 — DISCLAIMER + README polish).**
+**v1.1.0 (Iter 20 — final v1.x release). Iterations completed: 20.**
 
-Roster complete (**18/18 experts**). **774 tests + 3 env-gated live**, mypy --strict on touched files + ruff clean.
+Roster complete (**18/18 experts**). **781 tests + 3 env-gated live**, mypy --strict on touched files + ruff clean.
 
-**v1.0.5–v1.0.8** highlights:
+**v1.0.5–v1.1.0** highlights:
 - `ModelRouter.client_for_task()` — per-task model routing (Opus for code/hypothesis reasoning, MiniMax for literature synthesis)
 - `tools/observe.py` — trigger-run observability aggregator (token cost / wall-time / claims / reviewer fail rate / gate blocks)
-- `Integrator` configurable TTL — class + instance overrides, models.yaml family defaults (NCCN 30d / PubMed 7d / CT.gov 1d)
+- `Integrator` configurable TTL — class + instance overrides + `family_config_key` reading from `models.yaml.integrator_ttl_seconds` (NCCN 30d / PubMed 7d / CT.gov 1d)
 - `DISCLAIMER.md` v1.x release notice + emergency contacts (120/911/112) + jurisdictional notice
+- `Wave1Runner.run` emits `triggers/<run_id>/run_metadata.json` (wired for `tools/observe.py` aggregator)
+- Cross-patient isolation red-team — Wave1Runner raises `CrossPatientContaminationError` on foreign `patient_code` (`tests/test_safety/test_cross_patient_isolation.py`)
 
 **v1.0.2** highlights (delta from `v1.0.1`):
 - `tests/test_integration/test_minimax_live.py` — MiniMax-M2.7 live calls (`live` marker, env-gated)

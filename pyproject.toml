@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "opl-cancer"
-version = "1.0.2"
+version = "1.1.0"
 description = "Open-source AI scientist team skill plugin for cancer patients"
 readme = "README.md"
 license = { text = "Apache-2.0" }

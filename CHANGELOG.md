@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.1.0] — 2026-05-24 — Iter 20 (final v1.x release)
+
+Comprehensive aggregation of the v1.x iteration series. Roster complete
+(18/18 experts), **iterations completed: 20**, 781 tests + 3 env-gated live,
+mypy --strict on touched files + ruff clean across all 20 iters.
+
+### Highlights across v1.0.1 → v1.1.0
+
+- **Per-task routing (v1.0.5)** — `ModelRouter.client_for_task()` selects
+  executor by task package (Opus for deep reasoning / code; MiniMax-M2.7
+  for literature synthesis). Driven by `models.yaml.per_task_routing`.
+- **Observability (v1.0.6, v1.0.9)** — `tools/observe.py` aggregator;
+  `Wave1Runner.run` emits `triggers/<run_id>/run_metadata.json` with the
+  required schema (`run_id`, `token_cost`, `wall_time_seconds`,
+  `claims_produced`, `claims_withdrawn`, `reviewer_fail_rate`,
+  `mechanical_gate_blocks`).
+- **Configurable integrator TTL (v1.0.7, v1.0.10)** — instance and class
+  overrides + lazy `_load_models_yaml_ttls()` so `Integrator.__init__`
+  reads family defaults from `models.yaml.integrator_ttl_seconds`
+  (`family_config_key`). NCCN wired to 30-day TTL through this path.
+- **Legal / safety surface (v1.0.8)** — `DISCLAIMER.md` v1.x release scope
+  + emergency contacts (120 / 911 / 112) + jurisdictional notice
+  (FDA/NMPA/EMA/CE/PMDA/MHRA/TGA/Health Canada).
+- **Cross-patient isolation red-team (v1.0.11)** — Wave1Runner asserts
+  patient_code consistency in expert outputs and raises
+  `CrossPatientContaminationError` on any mismatch (top-level or nested
+  in a claim record). New `tests/test_safety/` test suite.
+
+### Version bumps
+
+- `pyproject.toml`: `1.0.2` → `1.1.0`
+- README status block: `v1.0.8` → `v1.1.0`, iterations completed: 20.
+
+### Stats
+
+- 781 tests + 3 env-gated live (was 774 at start of v1.1.0 series).
+- ruff clean; mypy --strict clean on touched files.
+
 ## [1.0.11] — 2026-05-24 — Iter 19 (cross-patient isolation red-team)
 
 ### Added — `src/opl_cancer/glue/wave1_runner.py`

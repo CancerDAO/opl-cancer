@@ -159,8 +159,8 @@ def test_wave1_e2e_parametrisation_covers_four_cancer_types() -> None:
 
 def test_pyproject_version_is_v1() -> None:
     py = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    # Accept any v1.0.x patch — P6 baseline 1.0.0; Iter-9+ bumps patch level
-    assert 'version = "1.0.' in py, "pyproject not on v1.0.x line"
+    # Accept any v1.x patch — P6 baseline 1.0.0; Iter-9+ bumps patch; v1.1.0 = Iter 20
+    assert 'version = "1.' in py, "pyproject not on v1.x line"
 
 
 def test_changelog_has_1_0_0_section() -> None:
