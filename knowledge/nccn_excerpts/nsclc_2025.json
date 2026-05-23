@@ -1,0 +1,21 @@
+{
+  "cancer_type": "NSCLC",
+  "guideline": "NCCN Non-Small Cell Lung Cancer",
+  "version": "v6.2025",
+  "version_date": "2025-04-30",
+  "url": "https://www.nccn.org/guidelines/category_1",
+  "decision_nodes": [
+    {
+      "node_id": "NSCL-19",
+      "context": "EGFR-mutant metastatic first-line",
+      "excerpt": "Osimertinib preferred for exon 19 deletion or L858R.",
+      "page_ref": "NSCL-19"
+    },
+    {
+      "node_id": "NSCL-25",
+      "context": "EGFR-mutant osimertinib progression",
+      "excerpt": "Tissue/liquid biopsy for resistance mutations; consider amivantamab+lazertinib, platinum doublet, or trial enrollment.",
+      "page_ref": "NSCL-25"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "cancer_type": "HCC",
+  "guideline": "NCCN Hepatobiliary Cancers",
+  "version": "v3.2025",
+  "version_date": "2025-04-12",
+  "url": "https://www.nccn.org/guidelines/category_1",
+  "decision_nodes": [
+    {
+      "node_id": "HCC-D",
+      "context": "BCLC stage B (intermediate)",
+      "excerpt": "TACE recommended; consider systemic therapy if TACE-refractory or progression after 2 cycles.",
+      "page_ref": "HCC-7"
+    },
+    {
+      "node_id": "HCC-E",
+      "context": "BCLC stage C (advanced) first-line systemic",
+      "excerpt": "Atezolizumab + Bevacizumab preferred (Child-Pugh A); Tremelimumab + Durvalumab alternative.",
+      "page_ref": "HCC-9"
+    },
+    {
+      "node_id": "HCC-F",
+      "context": "BCLC stage C subsequent-line",
+      "excerpt": "Regorafenib / Cabozantinib / Ramucirumab (AFP>=400) / Nivolumab+Ipilimumab depending on prior therapy.",
+      "page_ref": "HCC-10"
+    }
+  ]
+}
