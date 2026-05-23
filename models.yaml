@@ -1,0 +1,38 @@
+# OPL for Cancer — production model + reviewer pool roster
+# Spec §7 G13: Reviewer model MUST != Executor model.
+# Spec §12: Versions locked (no silent updates).
+
+executor_model:
+  id: claude-opus-4-7
+  provider: anthropic
+  api_base: https://api.anthropic.com
+  context_window: 1000000
+  max_tokens: 32768
+  version_pinned: true
+  rationale: |
+    Spec §17.5 P2 per-task routing — Opus is default executor for deep
+    reasoning (hypothesis generation, meta-analysis, drill-down).
+    memory:feedback_no_model_downgrade — never silently swap to cheaper model.
+
+reviewer_pool:
+  - id: minimax-m2-7
+    provider: minimax
+    api_base: https://api.minimaxi.com/v1
+    context_window: 192000
+    max_tokens: 96000
+    version_pinned: true
+    rationale: |
+      memory:reference_minimax_llm — default Reviewer for cross-model diversity.
+      Different model family than executor (Anthropic vs MiniMax).
+
+  - id: gpt-5
+    provider: openai
+    api_base: https://api.openai.com/v1
+    context_window: 400000
+    max_tokens: 16384
+    version_pinned: true
+    rationale: |
+      Tertiary reviewer for second-opinion when MiniMax + Claude disagree.
+
+# Reviewer pairing (P5 will fill — pairing table by expert ↔ reviewer expert)
+reviewer_pairings: {}
