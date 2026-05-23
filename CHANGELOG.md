@@ -1,5 +1,54 @@
 # Changelog
 
+## [v0.4.5-p4.5] — 2026-05-24
+
+### Added
+
+- **Expert Batch E — 3 deferred experts shipped** (Kieren / Mark / Dennis):
+  - `KierenExpert` (Infectious Disease, Kieren Marr archetype) — portfolio `neutropenic_fever_management`; families F1/F8. Demands MASCC score + IDSA empiric regimen + pseudomonal-coverage invariant + fungal escalation trigger.
+  - `MarkExpert` (Endocrinologist irAE) — portfolio `ici_endocrine_irae`; family F1. Demands CTCAE grade + adrenal-axis safety check before T4 replacement + ASCO 2021 / ESMO 2022 anchored steroid algorithm.
+  - `DennisExpert` (Cross-Border Coordinator, Dennis Lo 卢煜明 archetype) — portfolio `cross_border_navigation`; families F3/F8. Mandatory L4 boundary disclosure (founder-mode discipline) + cost_model + visa_pathway_url; refuses "guaranteed" framing.
+
+- **3 new persona files** under `prompts/experts/{kieren,mark,dennis}/persona.md` — each with three-tier discipline + Anti-patterns + non-imperative output rules.
+
+- **3 new task prompt files** under `prompts/tasks/`:
+  - `neutropenic_fever_management.md` — MASCC + IDSA + pseudomonal + fungal escalation invariants
+  - `ici_endocrine_irae.md` — CTCAE grade + adrenal_axis_checked + ici_hold_decision
+  - `cross_border_navigation.md` — jurisdiction + cost_model + visa_pathway + L4 disclosure mandatory non-empty
+
+- **`Wave4Runner` hypothesis-validation orchestrator** (`src/opl_cancer/glue/wave4_runner.py`):
+  - Mirrors Wave3Runner pattern: Aviv leads data-anchored verdict, Iain meta-validates (Cochrane lens)
+  - Classifies each top-K hypothesis as `validated` / `falsified` / `inconclusive`
+  - Writes `triggers/<run_id>/wave4_validation.json` + provenance.jsonl (≥2 stages per hypothesis)
+  - Main-thread sequential awaits per ADR-2026-04-22
+
+- **`G7ImperativeDetectorGate`** (`src/opl_cancer/validators/gates/g7_imperative_detector.py`):
+  - failure_mode_code `C1` — scans recursive walk of all string fields for imperative patterns
+  - Detects EN ("you should/must", "must give/start/take/stop", "start immediately") + ZH ("应该", "必须", "建议立即", "立即停用", "立即开始")
+  - PASS only if sentence has both PMID/NCT/URL evidence AND a risk caveat keyword ("may"/"risk"/"side effect"/"可能"/"副作用"/"风险"); otherwise FAIL+block=True
+  - Catches nested fields like `symptom_plan[].intervention`
+
+- **36 new tests** (501 total, up from 465):
+  - `tests/test_experts/test_batch_e.py` — 18 tests (portfolio + persona + L4 boundary on Dennis + adrenal-axis on Mark + MASCC on Kieren + 18-expert roster completeness)
+  - `tests/test_validators/test_g7_imperative_detector.py` — 8 tests (clean pass / EN imperative fail / ZH imperative fail / imperative+evidence+risk pass / imperative+evidence-no-risk fail / nested symptom_plan / NCT pass / failure_mode_code = C1)
+  - `tests/test_e2e/test_wave4_runner.py` — 4 tests (validated / falsified / inconclusive / artifacts written)
+  - `tests/test_p4_5_acceptance.py` — 6 tests (roster=18 / modules importable / G7 wired / Wave4Runner wired / 3 task prompts present / 3 personas present)
+
+### Roster status
+- v0 roster now complete: **18/18 experts** wired with portfolios + personas + task templates.
+
+### Deferred to P5 (explicit)
+- F10 RxNorm wiring to Mary integrator dict (currently a fake integrator in tests).
+- Frances→NMPA+FDA EAP integrator wire (currently fake).
+- 15-expert routing matrix golden test across HCC + NSCLC patients (P5 router benchmark).
+- BixbenchRunner live-mode (P3 shipped dry-run + env-gated live).
+
+### Acceptance
+- 501 pytest passing (PYTEST_DISABLE_PLUGIN_AUTOLOAD=1, ~2.2s wall-time, all LLM + HTTP mocked).
+- `mypy --strict src/opl_cancer` — clean (95 source files).
+- `ruff check src/ tests/` — clean.
+- Tag `v0.4.5-p4.5`.
+
 ## [v0.4.0-p4] — 2026-05-24
 
 ### Added

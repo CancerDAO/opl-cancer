@@ -7,7 +7,9 @@
 
 ## Status
 
-**v0.4.0-p4 (P4 Expert Batch D — 6 of 9 + PI intent_parser LLM upgrade).**
+**v0.4.5-p4.5 (P4.5 closeout — Expert Batch E: 3 deferred experts + Wave4Runner + G7 ImperativeDetector).**
+
+Roster now complete (**18/18 experts** with personas + task templates). 501 tests, mypy --strict clean, ruff clean. See CHANGELOG.md for full P4.5 scope.
 
 Wave 1 retrieval pipeline (P1) — Sid intent parse → planner → 6 experts
 (Rosa/Bert/Vince/Rick/Heddy/Hong) in parallel → reviewer pairing → mechanical gates
