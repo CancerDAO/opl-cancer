@@ -67,3 +67,24 @@ def test_permission_level_in_range_0_to_4() -> None:
             clearances=[],
             risk_card_id=None,
         )
+
+
+def test_insight_card_rejects_empty_evidence_list() -> None:
+    """Safety eval S6: every claim must cite at least one evidence."""
+    with pytest.raises(ValidationError):
+        InsightCard(
+            id="ins_e", version=1,
+            claim="claim", claim_layer=ClaimLayer.ESTABLISHED,
+            evidence=[],
+            produced_by=ProducedBy(executor_task="t", model="m", prompt_version="v", run_id="r"),
+            reviewed_by=ReviewedBy(reviewer_model="rm", verdict="pass"),
+            audited_by=AuditedBy(auditor_run="a", permission_level=1),
+            provenance_hash="sha256:" + "0" * 64,
+            created_at="2026-05-23T00:00:00Z",
+        )
+
+
+def test_pmid_evidence_rejects_empty_quote() -> None:
+    """Safety eval S6: PMID evidence must have non-empty quote."""
+    with pytest.raises(ValidationError):
+        Evidence(type=EvidenceType.PMID, id="12345678", quote="")

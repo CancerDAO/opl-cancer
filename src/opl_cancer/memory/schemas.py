@@ -4,7 +4,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ClaimLayer(str, Enum):
@@ -26,6 +26,13 @@ class Evidence(BaseModel):
     id: str = Field(min_length=1)
     quote: str = ""
     extras: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _pmid_quote_required(self) -> "Evidence":
+        """Safety eval S6: PMID-type evidence must have a non-empty quote."""
+        if self.type == EvidenceType.PMID and not self.quote:
+            raise ValueError("PMID evidence must have a non-empty quote (S6)")
+        return self
 
 
 class ProducedBy(BaseModel):
@@ -62,7 +69,7 @@ class InsightCard(BaseModel):
     version: int = Field(ge=1)
     claim: str
     claim_layer: ClaimLayer
-    evidence: list[Evidence]
+    evidence: list[Evidence] = Field(min_length=1)
     produced_by: ProducedBy
     reviewed_by: ReviewedBy
     audited_by: AuditedBy
