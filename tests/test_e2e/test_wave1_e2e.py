@@ -104,6 +104,36 @@ _RESPONSES: dict[str, dict[str, str]] = {
         ),
         "reviewer": '{"verdict": "pass", "challenges": []}',
     },
+    "anon_crc_001": {
+        "intent": '{"intent": "NEW_GOAL", "rationale": "mCRC 3L planning after anti-EGFR failure"}',
+        "planner": (
+            '{"experts": ["bert"], "tasks": [{"id":"t1","expert":"bert",'
+            '"task_package":"molecular_ngs_interpretation","sub_goal":"KRAS G12D 3L options"}]}'
+        ),
+        "executor": (
+            '{"variants": [{"gene": "KRAS", "protein_change": "G12D", '
+            '"claim_layer": "established", "evidence": [{"type":"pmid","id":"36546659",'
+            '"quote":"KRAS G12D is intrinsically resistant to anti-EGFR mAbs in mCRC"}], '
+            '"summary": "KRAS G12D explains cetuximab failure; consider FOLFIRI+aflibercept or trial"}], '
+            '"summary": "patient should be screened for KRAS-G12D selective trials (MRTX1133-class)"}'
+        ),
+        "reviewer": '{"verdict": "pass", "challenges": []}',
+    },
+    "anon_brca_001": {
+        "intent": '{"intent": "NEW_GOAL", "rationale": "HER2+ mBC post-T-DM1 recurrence"}',
+        "planner": (
+            '{"experts": ["bert"], "tasks": [{"id":"t1","expert":"bert",'
+            '"task_package":"molecular_ngs_interpretation","sub_goal":"post-T-DM1 HER2+ options"}]}'
+        ),
+        "executor": (
+            '{"variants": [{"gene": "ERBB2", "protein_change": "amplification", '
+            '"claim_layer": "established", "evidence": [{"type":"pmid","id":"35671480",'
+            '"quote":"T-DXd improves PFS over T-DM1 in HER2+ MBC (DESTINY-Breast03)"}], '
+            '"summary": "T-DXd is preferred post-T-DM1 progression in HER2+ MBC"}], '
+            '"summary": "T-DXd candidate; monitor ILD given prior LVEF 52%"}'
+        ),
+        "reviewer": '{"verdict": "pass", "challenges": []}',
+    },
 }
 
 
@@ -112,6 +142,8 @@ _RESPONSES: dict[str, dict[str, str]] = {
     [
         ("anon_hcc_001", "我的 Atezo+Bev 2L 进展了，3L 有什么选择？"),
         ("anon_nsclc_001", "奥希替尼用了 20 个月开始进展，C797S 怎么办？"),
+        ("anon_crc_001", "FOLFIRI+cetuximab 进展了，KRAS G12D 还能做什么？"),
+        ("anon_brca_001", "T-DM1 辅助治疗期间复发，HER2+ 下一步怎么选？"),
     ],
 )
 async def test_wave1_e2e_two_patients(

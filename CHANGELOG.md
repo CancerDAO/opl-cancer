@@ -1,5 +1,50 @@
 # Changelog
 
+## [1.0.0-p6] — 2026-05-24 — v1.0.0 Release
+
+### Added — Multi-case E2E + Legal + Open-Source Polish
+
+- **Multi-case Wave1 E2E** (`tests/test_e2e/test_wave1_e2e.py`):
+  - Parametrise list expanded from 2 → **4 cancer types** —
+    HCC (CTNNB1 S37F), NSCLC (EGFR C797S in cis L858R), CRC (KRAS G12D
+    post-anti-EGFR), BRCA (HER2+ post-T-DM1)
+  - All LLM + integrator calls mocked; each patient produces
+    `patient_brief.html` + `provenance.jsonl` with sha256 hashes + three-tier
+    label + no command-form leakage
+  - Satisfies `memory:feedback_multi_case_validation` — ≥2 cancer types
+    cross-sample validation matrix
+- **`NOTICE`** (root) — Apache-2.0 attribution + third-party model card
+  acknowledgements (Claude/Anthropic, MiniMax) + public data source citations
+  (PubMed, ClinicalTrials.gov, ChiCTR, NCCN, OpenFDA, CIViC) per spec §17.6
+- **`DISCLAIMER.md`** (root) — explicit "not clinical decision support, not
+  doctor substitute, patient sole decision authority" per spec §17.6, with
+  safety reporting pathway (`safety@cancerdao.org`, 72-hour response)
+- **`tools/sign_contributor_agreement.py`** — first-time contributor signing
+  flow per spec §16; writes `governance/contributors/<handle>.json` with
+  SHA-256 of agreement text, ISO-8601 UTC timestamp; supports `--dry-run` and
+  `--force`; idempotent (raises `FileExistsError` without `--force`)
+- **`docs/landing/founder_mode_against_cancer.md`** — landing copy ready for
+  cancerdao-global homepage integration; covers 为什么造这个 / 与你一起做的事 /
+  谁能用 / 怎么开始 / 如何贡献 / 安全与边界 / 我们相信什么
+- **P6 acceptance suite** (`tests/test_p6_acceptance.py`) — enumerates the
+  v1.0.0 release gates: NOTICE + DISCLAIMER content, signing-tool dry-run +
+  persistence + idempotency, landing copy, 4-cancer-type parametrisation,
+  18-expert roster integrity, golden_set 4-patient coverage, pyproject and
+  CHANGELOG version bumps
+
+### Changed — Versioning
+
+- `pyproject.toml` `version` → **`1.0.0`** (was `0.0.1`)
+- `README.md` status block → v1.0.0
+
+### Deferred to v1.x patch series (P5 carry-over not blocking v1.0.0)
+
+- Wave1Runner per-claim Henry risk-card emission rewire (basics live; full
+  L2 disagreement-summariser Claude-call gated by env)
+- 15-expert routing-matrix golden test (canned data per task package needed)
+- Henry L2 LLM disagreement summariser (Claude-call gated by env)
+- `patient_acknowledged_at` propagation to `InsightCard` schema
+
 ## [v0.5.0-p5] — 2026-05-24
 
 ### Added — Validation Stack

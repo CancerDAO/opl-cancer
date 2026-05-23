@@ -1,0 +1,47 @@
+OPL for Cancer
+Copyright 2026 CancerDAO Contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+---
+
+This product depends on third-party model providers. No model weights are
+redistributed here; calls are made via published APIs only. End-users must
+hold their own API credentials and abide by each provider's Terms of Service.
+
+Acknowledged third-party model providers:
+
+- Claude (Anthropic) — Opus / Sonnet / Haiku families
+    https://www.anthropic.com/legal/aup
+- MiniMax — MiniMax-M2 family
+    https://platform.minimaxi.com
+
+This product references — but does not redistribute — the following
+public domain or open data sources:
+
+- NCBI PubMed (PMID linkouts)
+- ClinicalTrials.gov (NCT linkouts)
+- ChiCTR (ChiCTR-* linkouts)
+- NCCN Guidelines excerpts (fair-use, attributed inline)
+- OpenFDA drug labels (FDA, public domain)
+- CIViC (CC0 cancer variant interpretations)
+
+The "Expert Roster" (18 archetypes) names real clinicians and scientists
+as inspirations only. No endorsement is claimed and no real-person likeness
+is asserted; personas are stylised composites for pedagogical and
+deliberative-cognition purposes.
+
+---
+
+This project is part of the CancerDAO open-source family.
+https://github.com/CancerDAO

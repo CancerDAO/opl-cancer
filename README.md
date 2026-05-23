@@ -7,9 +7,22 @@
 
 ## Status
 
-**v0.5.0-p5 (P5 Validation Stack — Henry 4-layer IRB substitute + risk-disclosure-card + patient ack loop + golden set extended).**
+**v1.0.0-p6 (P6 Release — multi-case E2E + legal artifacts + open-source polish).**
 
-Roster complete (**18/18 experts**). **661 tests**, mypy baseline + ruff clean.
+Roster complete (**18/18 experts**). **670+ tests**, mypy baseline + ruff clean.
+
+**v1.0.0-p6** highlights:
+- Multi-case Wave 1 E2E parametrised across **4 cancer types** (HCC / NSCLC / CRC / BRCA)
+- Legal: `NOTICE` (Apache-2.0 attribution + model-card acknowledgements) + `DISCLAIMER.md` (boundaries + safety pathway)
+- `tools/sign_contributor_agreement.py` first-time contributor signing flow
+- `docs/landing/founder_mode_against_cancer.md` landing copy for cancerdao-global
+- Versioning bumped to `1.0.0` in `pyproject.toml`
+
+Read `DISCLAIMER.md` before using. This is not clinical decision support; patient is sole decision authority.
+
+---
+
+Previous: v0.5.0-p5 (Validation Stack — Henry 4-layer IRB substitute + risk-disclosure-card + patient ack loop + golden set extended).
 
 P5 highlights (CHANGELOG.md for full scope):
 - Henry 4-layer auditor with serious-risks catalogue, risk-card emission, model-disagreement surfacing, and patient-acknowledgment loop
