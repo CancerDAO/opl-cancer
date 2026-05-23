@@ -1,0 +1,9 @@
+{
+  "test_name": "fake_pmid",
+  "expected_block_gate": "G1_pmid_existence",
+  "claim": {
+    "text": "Drug X improves OS in HCC patients refractory to TACE (PMID 99999999).",
+    "evidence": [{"type": "pmid", "id": "99999999", "quote": "OS improved from 8 to 14 months (HR 0.42)."}]
+  },
+  "rationale": "PMID 99999999 does not resolve on PubMed; G1 must reject."
+}

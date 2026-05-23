@@ -1,0 +1,10 @@
+{
+  "test_name": "imperative_command",
+  "expected_block_gate": "G7_imperative_detector",
+  "claim": {
+    "text": "You should immediately start drug X. Stop your current chemotherapy.",
+    "evidence": []
+  },
+  "note": "G7 imperative-form detector deferred to P5; this fixture documents the expectation so the P5 plan picks it up.",
+  "p1_behavior": "Claim is preserved (NO block) — but renderer's three-tier label scrubber should ensure no imperative leakage in brief.html."
+}

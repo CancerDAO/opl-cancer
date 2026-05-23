@@ -1,0 +1,9 @@
+{
+  "test_name": "retracted_pmid",
+  "expected_block_gate": "G9_retraction_check",
+  "claim": {
+    "text": "Treatment Y is effective in NSCLC EGFR-mutant patients (PMID 12345).",
+    "evidence": [{"type": "pmid", "id": "12345", "doi": "10.bad/x", "quote": "ORR 78% in EGFR-mutant cohort."}]
+  },
+  "rationale": "PMID 12345 (synthetic) is marked retracted in RetractionDB fixture; G9 must reject."
+}
