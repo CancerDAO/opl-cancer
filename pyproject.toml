@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "opl-cancer"
-version = "1.0.1"
+version = "1.0.2"
 description = "Open-source AI scientist team skill plugin for cancer patients"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -39,6 +39,9 @@ asyncio_mode = "auto"
 # When PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 is set (CI / sandbox), explicitly
 # load pytest-asyncio + respx so async LLM/HTTP tests still collect.
 addopts = "-p pytest_asyncio.plugin -p respx"
+markers = [
+    "live: tests that hit real external services (MiniMax, OpenAI). Skipped by default; require env vars to run.",
+]
 
 [project.scripts]
 opl-cancer = "opl_cancer.cli:main"

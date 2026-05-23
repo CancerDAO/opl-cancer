@@ -7,9 +7,14 @@
 
 ## Status
 
-**v1.0.1 (Iter 9 patch — P6 deferred items closed).**
+**v1.0.2 (Iter 10 patch — MiniMax live integration).**
 
-Roster complete (**18/18 experts**). **706 tests**, mypy --strict on touched files + ruff clean.
+Roster complete (**18/18 experts**). **710 tests + 3 env-gated live**, mypy --strict on touched files + ruff clean.
+
+**v1.0.2** highlights (delta from `v1.0.1`):
+- `tests/test_integration/test_minimax_live.py` — MiniMax-M2.7 live calls (`live` marker, env-gated)
+- `scripts/verify_minimax_setup.py` — manual CLI verification
+- `pyproject.toml` declared `live` marker
 
 **v1.0.1** highlights (delta from `v1.0.0-p6`):
 - Routing-matrix golden test (`tests/test_experts/test_routing_matrix.py`) — 26 tests, 18 experts × 4 cancer patients

@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.0.2] — 2026-05-24 — Iter 10 patch (MiniMax live integration)
+
+### Added
+- **`tests/test_integration/test_minimax_live.py`** — live integration tests
+  for MiniMax-M2.7 (api.minimaxi.com/v1/chat/completions). Marked `live`,
+  skipped by default; runs when `MINIMAX_API_KEY` env var is set. Validates:
+  - Endpoint reachable + 200 status
+  - LLMResponse parses cleanly (Pydantic)
+  - `response_format={"type": "json_object"}` honoured
+  - errcode 2056 surfaces as typed `LLMQuotaError`
+  - max_tokens=96000 ceiling accepted (per memory:reference_minimax_llm)
+- **`tests/test_integration/test_minimax_live_meta.py`** — meta-tests (run
+  unconditionally) verifying live test module imports, `live` marker
+  registered in pyproject, verify script syntactically valid, skipif
+  scaffolding correct.
+- **`scripts/verify_minimax_setup.py`** — manual CLI checks: env present,
+  endpoint reachable, json_object completion + parse. Exit codes
+  (0/1/2/3/4) for env/transport/parse/quota outcomes.
+- **`pyproject.toml`** — declared `live` pytest marker.
+
+### Deferred
+- **E2E live variant** (`tests/test_e2e/test_wave1_minimax_live.py`) running
+  full Wave1Runner with MiniMax as Reviewer — deferred. Requires real
+  MiniMax key + paid budget; not safe to enable by default. Manual operator
+  run via `scripts/verify_minimax_setup.py` covers the per-call validation.
+
+### Tests
+- 710 passed, 3 skipped (live, env-gated). Full suite green.
+
 ## [1.0.1] — 2026-05-24 — Iter 9 patch
 
 ### Added — P6 deferred items closed
