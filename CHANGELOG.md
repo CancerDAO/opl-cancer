@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.0.3] — 2026-05-24 — Iter 11 (Quad Independent Evaluator tool)
+
+### Added
+- **`tools/run_quad_evaluation.py`** — generates 4 evaluator prompts
+  (architecture / safety / code_quality / ux) + JSON result schema for parallel
+  third-party subagent dispatch (memory:feedback_review_via_parallel_subagents,
+  memory:feedback_third_party_lens). CLI: `--out evaluator_workspace/`
+  optionally `--dimension <one>`.
+- **`tools/aggregate_evaluator_verdicts.py`** — validates 4 JSON verdicts,
+  computes overall verdict (any-fail-dominates, missing-counts-as-conditional)
+  + mean score, writes `evaluator_report.html`.
+- **`tests/test_tools/test_quad_evaluator.py`** — 13 tests: dimension parity,
+  prompt rejection of paternalistic language, schema shape, aggregation rules
+  (all-pass / any-fail / conditional / missing), HTML render, end-to-end run,
+  bad-verdict rejection, missing-dir handling.
+
+### Notes
+- Tool does NOT itself dispatch subagents — operator (or main-thread Claude)
+  hands each prompt to an independent evaluator. Keeps CI deterministic.
+- mypy --strict + ruff clean on both tools.
+
+### Tests
+- 723 passed, 3 skipped (live, env-gated). +13 over v1.0.2.
+
 ## [1.0.2] — 2026-05-24 — Iter 10 patch (MiniMax live integration)
 
 ### Added
