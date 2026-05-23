@@ -40,7 +40,7 @@ OPL for Cancer is a two-layer fractal AI scientist team:
 
 **Inner layer — task-primitive grammar** (each Expert internally uses):
 
-planner → executor (task package) → reviewer (cross-expert peer) → integrator → feedback
+planner → executor (task package) → reviewer (cross-expert peer) → auditor (intra-expert) → integrator → feedback
 
 ## Expert Roster
 
