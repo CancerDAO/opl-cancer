@@ -1,0 +1,25 @@
+# Patient Brief — {{ patient_code }}
+
+> Run {{ run_id }} · {{ created_at }}
+
+{% for card in risk_cards %}
+> **⚠ Risk Disclosure (Level {{ card.level }}):** {{ card.message }}
+{% endfor %}
+
+## Summary
+{{ sid_summary }}
+
+## Findings by Expert
+{% for ex in experts %}
+### {{ ex.name|capitalize }} — {{ ex.role }}
+{% for claim in ex.claims %}
+- **[{{ claim.layer }}]** {{ claim.text }}
+{% for ev in claim.evidence %}
+  - {% if ev.type == "pmid" %}[PMID:{{ ev.id }}](https://pubmed.ncbi.nlm.nih.gov/{{ ev.id }}/){% else %}{{ ev.type }}:{{ ev.id }}{% endif %} — "{{ ev.quote }}"
+{% endfor %}
+{% if claim.reviewer_challenges %}
+  - **Reviewer challenges:** {{ claim.reviewer_challenges | join('; ') }}
+{% endif %}
+  - provenance: `{{ claim.provenance_hash }}`
+{% endfor %}
+{% endfor %}
