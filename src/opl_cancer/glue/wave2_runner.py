@@ -1,0 +1,137 @@
+"""Wave 2 hypothesis-generation end-to-end orchestrator. P2-T16.
+
+Spec §4 lifecycle (Wave 2 = 假设生成 + 重定位). Run AFTER Wave 1 produces
+retrieval/synthesis evidence. Pipeline:
+
+1. HypothesisGenerator generates 4 hypotheses (one per strategy)
+2. EvolutionStrategist extends top-2 via combination + extension → +2 hypotheses
+3. tournament_loop.run_tournament ranks all hypotheses via Elo + meta-critique
+4. Reflector validates top-3 hypotheses across 'basic' + 'falsification' modes
+5. Write JSON output to ``triggers/<run_id>/wave2_hypotheses.json``
+
+Per ADR-2026-04-22 main-thread only.
+"""
+from __future__ import annotations
+
+import json
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from opl_cancer.memory.schemas import Hypothesis
+from opl_cancer.orchestrator.debate import DebateJudge
+from opl_cancer.orchestrator.evolution import EvolutionStrategist
+from opl_cancer.orchestrator.generation import STRATEGIES, HypothesisGenerator
+from opl_cancer.orchestrator.meta_critique import MetaCritiqueAggregator
+from opl_cancer.orchestrator.reflection import Reflector
+from opl_cancer.orchestrator.tournament_loop import run_tournament
+from opl_cancer.provenance.hasher import hash_claim
+from opl_cancer.provenance.journal import ProvenanceJournal
+
+
+class Wave2Runner:
+    """End-to-end Wave 2 driver — hypothesis generation + tournament + reflection."""
+
+    def __init__(
+        self,
+        *,
+        out_dir: Path,
+        hypothesis_generator: HypothesisGenerator,
+        evolution_strategist: EvolutionStrategist,
+        reflector: Reflector,
+        judge: DebateJudge,
+        aggregator: MetaCritiqueAggregator,
+        max_tournament_rounds: int = 3,
+    ) -> None:
+        self.out_dir = Path(out_dir)
+        self.hypothesis_generator = hypothesis_generator
+        self.evolution_strategist = evolution_strategist
+        self.reflector = reflector
+        self.judge = judge
+        self.aggregator = aggregator
+        self.max_tournament_rounds = max_tournament_rounds
+
+    async def run(
+        self,
+        patient_text: str,
+        patient_context: dict[str, Any],
+        wave1_outputs: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        run_id = f"wave2_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}"
+        run_dir = self.out_dir / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        prov = ProvenanceJournal(run_dir / "provenance.jsonl")
+
+        integrator_evidence = wave1_outputs or {}
+
+        # Stage 1: 4-strategy generation
+        hypotheses: list[Hypothesis] = []
+        for strategy in STRATEGIES:
+            h = await self.hypothesis_generator.generate(
+                strategy=strategy,
+                patient_context=patient_context,
+                integrator_evidence=integrator_evidence,
+            )
+            hypotheses.append(h)
+
+        # Stage 2: Evolution of top-2 (combination + extension)
+        # NB: before tournament we use insertion order as a stand-in for ranking
+        if len(hypotheses) >= 2:
+            evolved_a = await self.evolution_strategist.evolve(
+                "combination", hypotheses[0], sibling=hypotheses[1],
+                context=patient_context,
+            )
+            evolved_b = await self.evolution_strategist.evolve(
+                "extension", hypotheses[0], context=patient_context,
+            )
+            hypotheses.extend([evolved_a, evolved_b])
+
+        # Stage 3: Tournament
+        tournament_result = await run_tournament(
+            hypotheses,
+            self.judge,
+            self.aggregator,
+            max_rounds=self.max_tournament_rounds,
+            context=patient_context,
+        )
+
+        # Stage 4: Reflection on top-3
+        top_k_ids = [hid for hid, _ in tournament_result["top_k"][:3]]
+        hyps_by_id = {h.id: h for h in hypotheses}
+        reflections: list[dict[str, Any]] = []
+        for hid in top_k_ids:
+            h = hyps_by_id[hid]
+            basic = await self.reflector.reflect("basic", h, patient_context)
+            falsif = await self.reflector.reflect("falsification", h, patient_context)
+            reflections.append({"hyp_id": hid, "basic": basic, "falsification": falsif})
+
+        # Stage 5: write out + provenance
+        out_payload: dict[str, Any] = {
+            "run_id": run_id,
+            "patient_text": patient_text,
+            "hypotheses": [h.model_dump(mode="json") for h in hypotheses],
+            "rounds": tournament_result["rounds"],
+            "final_ratings": tournament_result["final_ratings"],
+            "top_k": tournament_result["top_k"],
+            "meta_critique_chain": tournament_result["meta_critique_chain"],
+            "experimental_insights_chain": tournament_result[
+                "experimental_insights_chain"
+            ],
+            "reflections": reflections,
+        }
+        for h in hypotheses:
+            phash = hash_claim({"hyp_id": h.id, "text": h.text})
+            prov.append({"hyp_id": h.id, "text": h.text, "elo": h.elo_rating, "hash": phash})
+
+        (run_dir / "wave2_hypotheses.json").write_text(
+            json.dumps(out_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        return out_payload
+
+
+def make_default_wave2_runner_id() -> str:
+    """Helper for tests / external callers."""
+    return uuid.uuid4().hex[:8]
