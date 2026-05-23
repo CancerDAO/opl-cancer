@@ -29,15 +29,21 @@ class ModelRouter:
         self,
         executor: dict[str, Any],
         reviewer_pool: list[dict[str, Any]],
+        per_task_routing: dict[str, str] | None = None,
     ) -> None:
         self._executor = executor
         self._reviewer_pool = reviewer_pool
+        self._per_task_routing: dict[str, str] = dict(per_task_routing or {})
 
     @classmethod
     def from_models_yaml(cls, path: Path | None = None) -> ModelRouter:
         p = path or (_repo_root() / "models.yaml")
         cfg = yaml.safe_load(p.read_text())
-        return cls(executor=cfg["executor_model"], reviewer_pool=cfg["reviewer_pool"])
+        return cls(
+            executor=cfg["executor_model"],
+            reviewer_pool=cfg["reviewer_pool"],
+            per_task_routing=cfg.get("per_task_routing") or {},
+        )
 
     @property
     def executor_model_id(self) -> str:
@@ -58,6 +64,33 @@ class ModelRouter:
 
     def executor_client(self) -> LLMClient:
         return self._build_client(self._executor)
+
+    def model_id_for_task(self, task_package: str) -> str:
+        """Resolve which model id should handle a task_package.
+
+        Falls back to the default executor model id when the package
+        is not listed in per_task_routing.
+        """
+        return self._per_task_routing.get(task_package, self.executor_model_id)
+
+    def client_for_task(self, task_package: str) -> LLMClient:
+        """Build the LLM client that should execute task_package.
+
+        Spec §17.5 P2 — per-task model routing. The executor model is the
+        default; any task_package present in models.yaml.per_task_routing
+        is routed to its declared model (looked up in executor or reviewer
+        pool by id).
+        """
+        target_id = self.model_id_for_task(task_package)
+        if target_id == self.executor_model_id:
+            return self._build_client(self._executor)
+        for spec in self._reviewer_pool:
+            if spec.get("id") == target_id:
+                return self._build_client(spec)
+        raise LLMError(
+            f"per_task_routing target {target_id!r} for task {task_package!r} "
+            f"not found in executor or reviewer_pool"
+        )
 
     def reviewer_client_for(
         self, *, executor_model_id: str, reviewer_model_id: str

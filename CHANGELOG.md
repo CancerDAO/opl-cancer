@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.0.5] — 2026-05-24 — Iter 13 (Per-task model routing)
+
+### Added
+- **`ModelRouter.client_for_task(task_package)`** — spec §17.5 P2 per-task
+  routing. Falls back to default executor model when task is unmapped.
+- **`models.yaml.per_task_routing`** — 4 task packages declared:
+  - `bioinformatics_data_analysis` → `claude-opus-4-7` (code reasoning)
+  - `literature_synthesis` → `minimax-m2-7` (cheaper, sufficient)
+  - `hypothesis_generation` → `claude-opus-4-7` (deep reasoning)
+  - `meta_analysis` → `claude-opus-4-7`
+- **`ModelRouter.model_id_for_task(task_package)`** — pure-lookup helper.
+
+### Tests
+- **`tests/test_llm/test_router_per_task.py`** — 4 tests: literature →
+  MiniMax, hypothesis → Opus, unknown → executor fallback, unknown target
+  raises.
+
+### Stats
+- 768 tests pass (was 764, +4). ruff clean, mypy --strict clean.
+
 ## [1.0.4] — 2026-05-24 — Iter 12 (4 new synthetic patients + edge cases)
 
 ### Added — golden_set/synthetic_patients

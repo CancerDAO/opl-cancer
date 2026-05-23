@@ -34,6 +34,16 @@ reviewer_pool:
     rationale: |
       Tertiary reviewer for second-opinion when MiniMax + Claude disagree.
 
+# Per-task model routing — spec §17.5 P2.
+# Falls back to executor_model when task_package is absent from this map.
+# memory:feedback_no_model_downgrade — Opus default for deep reasoning;
+# only swap to MiniMax where its capability is demonstrably sufficient.
+per_task_routing:
+  bioinformatics_data_analysis: claude-opus-4-7   # heavy code reasoning
+  literature_synthesis: minimax-m2-7              # cheaper, sufficient for paraphrase
+  hypothesis_generation: claude-opus-4-7          # deep reasoning
+  meta_analysis: claude-opus-4-7                  # cross-evidence synthesis
+
 # Reviewer pairings — P5 per spec §2.2 reviewer rotation.
 # Rule: reviewer expert MUST NOT be the same as producer; pairing pairs cross-
 # domain so genomics is reviewed by clinical, trials by EAP, etc.
