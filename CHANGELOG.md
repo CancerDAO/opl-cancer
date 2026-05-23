@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.11] — 2026-05-24 — Iter 19 (cross-patient isolation red-team)
+
+### Added — `src/opl_cancer/glue/wave1_runner.py`
+- New `CrossPatientContaminationError` (RuntimeError subclass).
+- `Wave1Runner._collect_claims` now invokes `_assert_patient_isolation`
+  per task. If an expert output declares (top-level or per-claim) a
+  `patient_code` that differs from the current run's patient, the runner
+  raises immediately — no silent context bleed.
+
+### Tests — `tests/test_safety/test_cross_patient_isolation.py` (new)
+- `test_runs_on_patient_a_never_contain_patient_b`: 2-patient red-team
+  scenario; verifies brief.html/.md + provenance.jsonl never mention the
+  other case's `patient_code`.
+- `test_mismatched_patient_code_raises`: poisoned top-level patient_code
+  in expert output → CrossPatientContaminationError.
+- `test_mismatched_patient_code_inside_claim_raises`: poisoned nested
+  patient_code → CrossPatientContaminationError.
+
+### Stats
+- 781 tests pass (was 778, +3). ruff clean, mypy --strict clean.
+
 ## [1.0.10] — 2026-05-24 — Iter 18 (integrator_ttl_seconds from models.yaml)
 
 ### Added — `src/opl_cancer/integrators/base.py`

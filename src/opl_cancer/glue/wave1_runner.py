@@ -338,10 +338,15 @@ class Wave1Runner:
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         rendered_experts: list[dict[str, Any]] = []
         risk_cards: list[dict[str, Any]] = []
+        current_patient_code = plan.patient_code
         for task in plan.tasks:
             data = outputs[task.id]
             exec_out: dict[str, Any] = data["output"]
             review: dict[str, Any] = data["review"]
+            # Iter 19 (v1.0.11) — cross-patient isolation guard.
+            # If expert output carries a `patient_code` field for a different
+            # patient, raise immediately to prevent context bleed across cases.
+            self._assert_patient_isolation(exec_out, current_patient_code, task.id)
             claims: list[dict[str, Any]] = []
             for raw_claim in self._iter_claim_records(exec_out):
                 claim: dict[str, Any] = {
@@ -402,3 +407,40 @@ class Wave1Runner:
             if isinstance(value, str) and value:
                 return value
         return json.dumps(raw_claim, ensure_ascii=False)
+
+    @staticmethod
+    def _assert_patient_isolation(
+        exec_out: dict[str, Any], current_patient_code: str, task_id: str,
+    ) -> None:
+        """Raise if expert output references a different patient_code.
+
+        Iter 19 cross-patient red-team guard. Scans the top-level
+        `patient_code` and any nested-in-claim `patient_code`. Mismatch fails
+        loud — silent context bleed is a P0 safety bug.
+        """
+        top = exec_out.get("patient_code")
+        if isinstance(top, str) and top and top != current_patient_code:
+            raise CrossPatientContaminationError(
+                f"task {task_id}: expert output patient_code={top!r} "
+                f"!= current patient_code={current_patient_code!r}"
+            )
+        for key in ("variants", "matches", "studies", "expanded_access_routes",
+                    "differentials", "adjuvant_interventions"):
+            records = exec_out.get(key)
+            if not isinstance(records, list):
+                continue
+            for rec in records:
+                if not isinstance(rec, dict):
+                    continue
+                rec_pc = rec.get("patient_code")
+                if isinstance(rec_pc, str) and rec_pc and rec_pc != current_patient_code:
+                    raise CrossPatientContaminationError(
+                        f"task {task_id}: claim patient_code={rec_pc!r} "
+                        f"!= current patient_code={current_patient_code!r}"
+                    )
+
+
+class CrossPatientContaminationError(RuntimeError):
+    """Raised when an expert output references a patient_code other than the
+    one driving the current run. memory:feedback_no_false_completion — fail
+    loud, never silently cross-pollinate."""
