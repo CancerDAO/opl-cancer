@@ -1,4 +1,4 @@
-"""CLI entry point for opl-cancer skill. P0 skeleton subcommands."""
+"""CLI entry point for opl-cancer skill (v1.2.0)."""
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -13,11 +13,14 @@ def main() -> None:
     pass
 
 
-@main.command(help="Show current OPL skeleton status.")
+@main.command(help="Show current OPL capability snapshot.")
 def status() -> None:
-    click.echo("P0 Skeleton — no experts/tasks/integrators implemented yet.")
-    click.echo(f"Experts registered (placeholders): {len(ROSTER)}")
-    click.echo("See docs/superpowers/plans/ for active implementation plan.")
+    click.echo("OPL for Cancer — v1.2.0")
+    click.echo(f"  Experts active: {len(ROSTER)} (Sid PI + Henry Auditor + 18 named experts)")
+    click.echo("  Wave runners ready: Wave1 / Wave2 / Wave3 / Wave4")
+    click.echo("  Integrators wired: 20+ (NCCN / PubMed / CT.gov / ChiCTR / FDA-EAP / NMPA-EAP / RxNorm / GEO / etc.)")
+    click.echo("  License: Apache-2.0")
+    click.echo("  Read DISCLAIMER.md before use — not clinical decision support; not for emergencies.")
 
 
 @main.command(help="Initialize a new patient project directory.")
@@ -38,7 +41,7 @@ def init_patient(patient_code: str, root: str) -> None:
 
 @main.command(name="list-experts", help="List the 18-name expert roster.")
 def list_experts() -> None:
-    click.echo("OPL for Cancer — Expert Roster (P0 placeholders)")
+    click.echo("OPL for Cancer — Expert Roster (18 experts active)")
     click.echo()
     click.echo("  sid       PI / Chief-of-Staff      (Sid Mukherjee homage)")
     click.echo("  henry     Auditor / IRB substitute (Henry Beecher homage)")

@@ -1,6 +1,6 @@
 """Steve — Nutritionist expert. P4-T7.
 
-Archetype: Stephen Heber (UCLA Center for Human Nutrition). Portfolio focuses
+Archetype: David Heber (UCLA Center for Human Nutrition founder). Portfolio focuses
 on PG-SGA assessment, cachexia staging, energy/protein targets, supplement-drug
 interaction checks.
 """

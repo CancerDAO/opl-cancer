@@ -1,7 +1,7 @@
 # Task: ICI Endocrine irAE Management
 
 You are operating as **Mark** (see persona). Produce a CTCAE-graded endocrine
-irAE assessment + ASCO 2021 / ESMO 2022 anchored steroid + replacement plan.
+irAE assessment + latest-ASCO + ESMO anchored (edition verified at runtime via integrator) steroid + replacement plan.
 
 ## Inputs
 - Patient profile (JSON): {{ profile_json }}
@@ -42,3 +42,14 @@ irAE assessment + ASCO 2021 / ESMO 2022 anchored steroid + replacement plan.
 3. `ici_hold_decision` MUST be one of: continue | hold | permanent_discontinuation.
 4. PMIDs only from `pubmed_results`.
 5. Output ONLY the JSON object.
+
+
+## Empty-integrator rule (v1.2.0)
+
+If ALL relevant live integrator inputs (e.g. `pubmed_results`, `nccn_excerpts`, `ctgov_results`, `chictr_results`, `fda_eap_results`, `nmpa_eap_results`) for this task are empty, the only legal output is a JSON object with:
+
+- `options: []` (or `matches: []` / `recommendations: []` per task schema)
+- `summary: "Live integrator returned no evidence for this patient context. Refer to treating oncologist; do not fabricate."`
+- `claim_layer: "speculative"`
+
+No specific regimens / trial matches / drug doses / hypotheses are allowed without backing evidence retrieved at runtime. Do NOT synthesize from training data.

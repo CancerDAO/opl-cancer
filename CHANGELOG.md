@@ -510,7 +510,7 @@ mypy --strict on touched files + ruff clean across all 20 iters.
   - `RiadExpert` (Interventional Oncologist, Riad Salem archetype) — portfolio `interventional_oncology`; families F1/F2. Demands Child-Pugh + BCLC + thermoprotection flag.
   - `JenExpert` (Palliative Specialist, Jennifer Temel archetype) — portfolio `palliative_symptom_qol`; family F1. Demands ESAS + morphine equivalents + mandatory bowel-regimen flag on opioid plans.
   - `FrancesExpert` (Expanded Access Navigator, Frances Kelsey archetype) — portfolio `expanded_access_navigation`; families F3/F8. Mandatory L4 boundary disclosure on every option; refuses "guaranteed" framing.
-  - `SteveExpert` (Nutritionist, Stephen Heber archetype) — portfolio `oncology_nutrition`; families F1/F2. Demands PG-SGA score + cachexia stage + ROS-window caveat for concurrent antioxidants.
+  - `SteveExpert` (Nutritionist, David Heber archetype) — portfolio `oncology_nutrition`; families F1/F2. Demands PG-SGA score + cachexia stage + ROS-window caveat for concurrent antioxidants.
 
 - **6 new persona files** under `prompts/experts/{mary,ted,riad,jen,frances,steve}/persona.md` — each ≥30 lines, three-tier discipline, Anti-patterns section, founder-mode no-paternalism stance.
 

@@ -145,11 +145,11 @@ planner → executor (task package) → reviewer (cross-expert peer) → auditor
 | Riad | Interventional Oncologist | Riad Salem (HCC TARE) |
 | Jen | Palliative Specialist | Jennifer Temel (NEJM 2010 PC trial) |
 | Kieren | Infectious Disease | Kieren Marr (febrile neutropenia) |
-| Mark | Endocrinologist (irAE) | Mark Stelfox (ICI irAE) |
+| Mark | Endocrinologist (irAE) | Composite archetype (ASCO + ESMO ICI irAE consensus methodology) |
 | Hong | TCM Oncologist | 林洪生 (中国中医肿瘤) |
 | Frances | Expanded Access | Frances Kelsey (FDA safety) |
 | Dennis | Cross-Border | Dennis Lo 卢煜明 (cfDNA) |
-| Steve | Nutritionist | Stephen Heber (oncology nutrition) |
+| Steve | Nutritionist | David Heber (UCLA Center for Human Nutrition founder) |
 
 Names are first-name homages — archetype personas, not impersonations of real individuals.
 

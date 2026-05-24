@@ -42,3 +42,14 @@ You are operating as **Ted** (see persona). Produce a dose-fractionation plan
 3. Prior RT must be checked — set `re_irradiation_flag.prior_rt_present`
    honestly even if `prior_rt` is empty (then `false`).
 4. Output ONLY the JSON object.
+
+
+## Empty-integrator rule (v1.2.0)
+
+If ALL relevant live integrator inputs (e.g. `pubmed_results`, `nccn_excerpts`, `ctgov_results`, `chictr_results`, `fda_eap_results`, `nmpa_eap_results`) for this task are empty, the only legal output is a JSON object with:
+
+- `options: []` (or `matches: []` / `recommendations: []` per task schema)
+- `summary: "Live integrator returned no evidence for this patient context. Refer to treating oncologist; do not fabricate."`
+- `claim_layer: "speculative"`
+
+No specific regimens / trial matches / drug doses / hypotheses are allowed without backing evidence retrieved at runtime. Do NOT synthesize from training data.

@@ -1,6 +1,6 @@
 """Mark — Endocrinologist (irAE) expert. P4.5-T2.
 
-Archetype: Mark Stelfox-style ICI immune-related endocrinopathy management
+Archetype: composite (ASCO + ESMO ICI irAE consensus methodology — not a real-person impersonation)
 (thyroiditis / hypophysitis / T1DM emergent). Portfolio focuses on CTCAE-graded
 endocrine irAE, corticosteroid algorithm, lifelong replacement framing.
 """

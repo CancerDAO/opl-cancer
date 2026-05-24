@@ -65,3 +65,14 @@ eligibility verdicts with explicit inclusion + exclusion deltas.
    the other.
 5. Drug names: generic INN only (G3 will block brand-only).
 6. Output ONLY the JSON object — no preamble, no markdown fences.
+
+
+## Empty-integrator rule (v1.2.0)
+
+If ALL relevant live integrator inputs (e.g. `pubmed_results`, `nccn_excerpts`, `ctgov_results`, `chictr_results`, `fda_eap_results`, `nmpa_eap_results`) for this task are empty, the only legal output is a JSON object with:
+
+- `options: []` (or `matches: []` / `recommendations: []` per task schema)
+- `summary: "Live integrator returned no evidence for this patient context. Refer to treating oncologist; do not fabricate."`
+- `claim_layer: "speculative"`
+
+No specific regimens / trial matches / drug doses / hypotheses are allowed without backing evidence retrieved at runtime. Do NOT synthesize from training data.
