@@ -27,7 +27,7 @@ PMIDs from the pre-fetched integrator pool.
     {
       "label": "Option A — NCCN-preferred",
       "regimen": "osimertinib 80 mg PO daily",
-      "guideline_anchor": "NCCN NSCL-15 v6.2025",
+      "guideline_anchor": "the latest NCCN edition (verified at runtime via integrator)",
       "rationale": "<short — biomarker / line of therapy fit>",
       "expected_pfs_months": "median 18.9 (PMID …)",
       "expected_os_months": "median 38.6 (PMID …)",

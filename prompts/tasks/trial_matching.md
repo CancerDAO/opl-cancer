@@ -13,6 +13,7 @@ eligibility verdicts with explicit inclusion + exclusion deltas.
 - Integrator results (pre-fetched):
   - ClinicalTrials.gov: {{ ctgov_results }}
   - ChiCTR: {{ chictr_results }}
+  - ISRCTN: {{ isrctn_results }}  # NOTE (v1.2.0): ISRCTN integrator not yet wired — empty list means UK/EU trials not searched yet
   - FDA Expanded Access Programs: {{ fda_eap_results }}
   - NMPA Expanded Access Programs: {{ nmpa_eap_results }}
 

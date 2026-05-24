@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.2.0] — 2026-05-24 — Audit-fix release
+
+### CRITICAL (patient-safety / legal)
+
+- **C1**: Mark inspiration corrected — "Mark Stelfox" was not a verifiable real-person archetype → `Composite archetype (ASCO + ESMO ICI irAE consensus methodology)`. Updated README, roster, mark.py docstring, mark/persona.md with "Not a real-person impersonation" disclaimer.
+- **C2**: Steve inspiration corrected — `Stephen Heber` → `David Heber (UCLA Center for Human Nutrition founder)`. Updated README, roster, steve.py, steve/persona.md.
+- **C3**: `SKILL.md` + `cli.py status` rewritten — drop "P0 Skeleton" fiction; list real v1.x capabilities; SKILL `description:` tightened for trigger-match accuracy; removed `docs/superpowers/plans/` reference per global memory rule.
+- **C4**: Mark persona + ici_endocrine_irae task — `ASCO 2021 / ESMO 2022` replaced with runtime-verified consensus language.
+- **C5**: Kieren persona + neutropenic_fever_management task — `IDSA 2018` replaced with runtime-verified consensus language.
+- **C6**: Empty-integrator rule appended to all 15 task packages that consume integrator outputs.
+- **C7**: `DISCLAIMER.md` repo URLs corrected — `opl-for-cancer/issues` → `opl-cancer-skill/issues`.
+
+### IMPORTANT
+
+- **I1**: All 18 personas got explicit `## Identity attribution (v1.2.0)` section with 2026-accurate real-person methodological lineage + legal disclaimer.
+- **I2**: Hard-coded NCCN edition refs stripped from task packages — replaced with runtime-verified language.
+- **I3**: 10 personas got `## Founder-mode discipline (v1.2.0)` section: dennis, frances, jen, kieren, mark, mary, riad, steve, ted, tyler.
+- **I4**: 8 high-risk experts got `## Mandatory disclosure (high-risk / L4 boundary)` section: frances, dennis, vince, mary, ted, riad, jen, mark.
+- **I5**: Created PI prompts (`prompts/pi/persona.md` + `delivery.md` + `drilldown.md` + `proactive_push.md`) — framework stubs per budget.
+- **I6**: Created Auditor prompts (`prompts/auditor/l1_mechanical_gates.md` + `l2_disagreement_summariser.md` + `l3_permission_gate.md` + `l4_rollback.md`) — framework stubs.
+- **I7**: SKILL.md `description:` optimised — addressed in C3.
+- **I8**: Skill-form wrappers under `scripts/`: `list_experts.sh`, `status.sh`, `init_patient.sh`, `acknowledge.sh`, `run_wave1.sh`.
+- **I9**: `trial_matching.md` — added `isrctn_results` input with gap note.
+
+### Docs
+
+- ADR `docs/adr/0006-audit-fixes-v1.2.0.md` — full audit + decision record.
+- `pyproject.toml` 1.1.0 → 1.2.0; `README.md` status block reflects v1.2.0.
+
+### Deferred to v1.3+
+
+- Deepen PI + Auditor prompt content (currently framework stubs).
+- Migrate inline L2 prompt from `validators/henry.py` to file-load.
+- Wire ISRCTN integrator implementation.
+
 ## [1.1.0] — 2026-05-24 — Iter 20 (final v1.x release)
 
 Comprehensive aggregation of the v1.x iteration series. Roster complete

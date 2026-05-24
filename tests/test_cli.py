@@ -9,7 +9,10 @@ from opl_cancer.cli import main
 def test_cli_status_runs() -> None:
     r = CliRunner().invoke(main, ["status"])
     assert r.exit_code == 0
-    assert "P0 Skeleton" in r.output
+    # v1.2.0 audit-fix: dropped the P0 Skeleton fiction; status now reflects shipped capabilities.
+    assert "OPL for Cancer" in r.output
+    assert "v1.2.0" in r.output
+    assert "Experts active: 18" in r.output
 
 
 def test_cli_init_patient_runs(tmp_path: Path) -> None:

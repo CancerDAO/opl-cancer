@@ -7,7 +7,7 @@
 
 ## Status
 
-**v1.1.0 (Iter 20 — final v1.x release). Iterations completed: 20.**
+**v1.2.0 (Audit-fix release). Iterations completed: 20 + audit-fix pass.**
 
 Roster complete (**18/18 experts**). **781 tests + 3 env-gated live**, mypy --strict on touched files + ruff clean.
 

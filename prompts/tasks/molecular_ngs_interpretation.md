@@ -29,7 +29,7 @@ pre-fetched variant evidence and produces an actionability-ranked variant list.
       "actionability": {
         "oncokb_level": "LEVEL_1",
         "civic_level": "A",
-        "summary": "Sensitises to osimertinib (1L per NCCN v6.2025)"
+        "summary": "Sensitises to osimertinib (1L per the latest NCCN edition (verified at runtime via integrator))"
       },
       "claim_layer": "established",
       "evidence": [
