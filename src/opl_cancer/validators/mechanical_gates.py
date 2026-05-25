@@ -1,9 +1,13 @@
 """Mechanical gate framework — no-LLM hard rules. Spec §7.
 
 P0 ships only the framework (Gate abstract base + run_gates dispatcher).
-Concrete gates G1-G24 are implemented in P5 / v1.3.1 / v1.3.2 and registered
-via ``ALL_GATE_CLASSES`` below so callers can introspect/instantiate the full
-set without re-import-listing every module.
+Concrete gates G1-G27 are implemented in P5 / v1.3.1 / v1.3.2 / v1.5 and
+registered via ``all_gate_classes()`` below so callers can introspect/
+instantiate the full set without re-import-listing every module.
+
+History: through v1.5.5 only G1-G20 + G22-G24 were registered (23 gates) while
+G21/G25/G26/G27 were defined and re-exported but never picked up by the
+orchestrator loop. The P0-3 fix (this commit) registers all 27.
 """
 from __future__ import annotations
 
@@ -52,15 +56,16 @@ def run_gates(claim: dict[str, Any], gates: list[Gate]) -> list[GateResult]:
 
 
 def all_gate_classes() -> list[type[Gate]]:
-    """Return the full G1-G24 gate-class registry.
+    """Return the full G1-G27 gate-class registry.
 
     Wrapped in a function to defer the import-cycle: ``mechanical_gates`` is
     imported by every concrete gate module, so we cannot import the gates at
     top-level here. Call this at orchestrator-bootstrap time.
 
-    Order is canonical (G1 → G24) to match spec §7 numbering.
+    Order is canonical (G1 → G27) to match spec §7 numbering.
     G24 (crisis_detection) is the SAFETY floor — keyword-scan no-LLM gate
     that locks Wave runners on SI / self-harm language (v1.3.2 hot-fix).
+    G21 / G25-G27 added to registry in P0-3 (previously defined but unhooked).
     """
     from .gates import (  # noqa: PLC0415 — intentional lazy import
         G1PMIDExistenceGate,
@@ -83,9 +88,13 @@ def all_gate_classes() -> list[type[Gate]]:
         G18MetaSearchStrategyGate,
         G19PIImperativeDetectorGate,
         G20PIDisagreementSurfacingGate,
+        G21QuantitativeAnchorGate,
         G22DDRZygosityGate,
         G23RecencyBandGate,
         G24CrisisDetectionGate,
+        G25DeferredEvidenceBlockGate,
+        G26EvidenceStrengthRankingGate,
+        G27PrivacyScrubGate,
     )
 
     return [
@@ -109,7 +118,11 @@ def all_gate_classes() -> list[type[Gate]]:
         G18MetaSearchStrategyGate,
         G19PIImperativeDetectorGate,
         G20PIDisagreementSurfacingGate,
+        G21QuantitativeAnchorGate,
         G22DDRZygosityGate,
         G23RecencyBandGate,
         G24CrisisDetectionGate,
+        G25DeferredEvidenceBlockGate,
+        G26EvidenceStrengthRankingGate,
+        G27PrivacyScrubGate,
     ]

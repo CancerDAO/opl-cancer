@@ -1,5 +1,63 @@
 # Changelog
 
+## [1.5.6] — 2026-05-25 — P0/P1 hardening from independent code-review verification
+
+Fixes 7 issues surfaced by independent parallel-subagent verification of the
+prior code review. Several review claims were validated (gates 24/27 registered,
+NCBI calls missing identity, models.yaml silent fallback, expert stubs); several
+were corrected against ground truth (rollback.py, trigger.py, IntegratorCache
+SQLite, Wave-3 Docker, meta-critique structured injection — all already exist
+and work as spec'd).
+
+**P0 (compliance + prod-reliability)**
+
+1. **`integrators/base.py`** — `models.yaml` parse/IO failure now raises
+   `IntegratorError` instead of silently returning `{}` and falling back to
+   class-default TTLs. Violates G11 / `memory:feedback_no_offline_only`.
+2. **NCBI integrators (`pubmed`, `clinvar`, `geo`, `sra`)** — every call to
+   `eutils.ncbi.nlm.nih.gov` now sends `tool=opl-cancer` + `email=` (overridable
+   via `OPL_NCBI_EMAIL` / `OPL_NCBI_TOOL` env; `NCBI_API_KEY` raises the rate
+   limit from 3 to 10 req/s). Without these, NCBI rate-limits and may IP-ban
+   bursts. New shared helper: `integrators/_ncbi.py::with_ncbi_identity()`.
+3. **`mechanical_gates.all_gate_classes()`** — registry now returns 27 gates
+   (was 23). G21 (`quantitative_anchor`), G25 (`deferred_evidence_block`),
+   G26 (`evidence_strength_ranking`), G27 (`privacy_scrub`) were defined and
+   re-exported but never picked up by the orchestrator loop. README/SKILL.md
+   advertised "27+ gates"; runtime ran 23. Now matches spec §7.
+4. **Retry + exponential backoff** — new `integrators/_http.py::request_with_retry()`
+   implements tenacity-based retry (4 attempts, 0.5→8s exp backoff) on transient
+   failures: `httpx.TransportError`, `TimeoutException`, HTTP 429, HTTP 5xx.
+   Respects `Retry-After` header on 429. Migrated to the 4 NCBI integrators
+   (highest 429 risk under wave-concurrent dispatch); other 26 integrators
+   can opt in via the same helper in a follow-up.
+
+**P1 (spec-honesty + correctness)**
+
+5. **`experts/_common.py`** — `plan()`, `audit()`, `feedback()` now emit
+   `StubMethodWarning` so callers can detect they're P1 stubs (per spec §2.2
+   the 6 task-primitive grammar is incomplete — these 3 return constants
+   without LLM calls). Callers can `simplefilter("error", StubMethodWarning)`
+   to fail-fast in tests that need real behaviour.
+6. **G7 imperative-detector — `strict_imperative_isolation` mode** — closes
+   the known single-sentence bypass ("You must take drug X PMID:12345 — risk
+   of bleeding."). Strict mode (opt-in, default off for backwards-compat)
+   requires the imperative clause itself to NOT carry a bare PMID/NCT/URL —
+   evidence must live in a separate clause (split on commas, semicolons,
+   em-dashes, parens) or be parenthesised. v1.6 will flip strict on by default.
+7. **Robin lit-loop wired** — `experimental_insights_chain` written by each
+   tournament round was previously never consumed. `tournament_loop.py` now
+   passes round-N insights into round-N+1 `DebateJudge.judge_pair()` prompt
+   (new `experimental_insights=...` arg). Tested via prompt capture.
+
+**Test additions**: `test_integrators/test_base.py::test_malformed_models_yaml_hard_fails`,
+`test_integrators/test_ncbi_identity.py` (5 cases), `test_integrators/test_http_retry.py`
+(5 cases), `test_validators/test_gate_registry.py` (3 cases),
+`test_experts/test_common.py::test_stub_methods_emit_warnings`,
+`test_validators/test_g7_imperative_detector.py` (+4 strict-mode cases),
+`test_orchestrator/test_tournament_loop.py::test_insights_injected_into_next_round_judge_prompt`.
+
+Full suite: 1127 passed, 0 failed (3 live MiniMax tests deselected — quota wall).
+
 ## [1.5.5] — 2026-05-25 — Remove wrong safety email + fix post-rename DISCLAIMER URLs
 
 `safety@cancerdao.org` was not a real intake — removed from `DISCLAIMER.md`, `CHANGELOG.md` (historical mention redacted to "GitHub Issues"), `docs/landing/founder_mode_against_cancer.md`, and the `test_p6_acceptance.py` assertion (which had an OR fallback to "issues", so coverage is preserved). The two `opl-cancer-skill` URLs in `DISCLAIMER.md` (still pointing to the pre-rename repo) are also updated to `opl-cancer`. Other `opl-cancer-skill` references across README/CONTRIBUTING/install.sh/etc. are left for a separate rename-sweep commit.

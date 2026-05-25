@@ -333,7 +333,7 @@ OPL 的核心信念："**患者本人是自己案例的唯一决策人**。"
 
 - **18 named experts** + Sid PI + Henry IRB-substitute — 完整 6-primitive 任务调用语法 (plan / execute / review / audit / integrate / feedback)
 - **30+ 真实数据接口** — PubMed / NCCN / CT.gov / ChiCTR / ISRCTN / EU-CTR / HKCTR / OncoKB / CIViC / cBioPortal / GDC / ClinVar / gnomAD / GEO / TCGA (via GEPIA3, v1.5 新增) / ArrayExpress / SRA / DepMap / CCLE / Hartwig / BeatAML / ICGC / Open Targets / FDA-EAP / NMPA-EAP / EMA-EAP / RxNorm / RetractionDB / PaperQA2 / Unpaywall / Crossref
-- **26 mechanical gates** — G1-G24 基础合规 (PMID存在/引文匹配/INN规范化/命令式语气/撤稿/无静默fallback/...) + v1.5 新增 G25 (deferred-evidence-block) + G26 (evidence-strength-ranking) + G27 (privacy-scrub PII)
+- **27 mechanical gates** — G1-G24 基础合规 (PMID存在/引文匹配/INN规范化/命令式语气/撤稿/无静默fallback/...) + G21 (quantitative-anchor 真预测) + v1.5 新增 G25 (deferred-evidence-block) + G26 (evidence-strength-ranking) + G27 (privacy-scrub PII)
 - **5-Wave 生命周期** — retrieval → Co-Sci Elo hypothesis tournament → cBioPortal+GEPIA3+meta+Cox data-evidence → validation → 双 audience delivery
 - **Founder-mode 安全栈** — G24 危机检测 (中英文自残 / 自杀意念词库 + 危机热线路由) · G7/G19 命令式语气检测 · 儿科监护人 ack 协议 · 灰色市场药品的前瞻 + 回溯披露模式
 - **双 audience 交付** — `patient_plain_brief` (2 页通俗) + `pi_delivery` (完整专业 PMID-anchored)

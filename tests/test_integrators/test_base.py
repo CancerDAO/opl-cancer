@@ -39,3 +39,29 @@ async def test_cached_fetch_uses_cache_when_present(tmp_path) -> None:
     i.cache = cache
     result = await i.cached_fetch("pre")
     assert result == {"hit": True}  # served from cache, fetch() not called
+
+
+def test_malformed_models_yaml_hard_fails(tmp_path, monkeypatch) -> None:
+    """P0-1: models.yaml parse/IO errors must raise IntegratorError, not silently
+    return {} (memory:feedback_no_offline_only / G11 no_silent_fallback)."""
+    from pathlib import Path
+
+    from opl_cancer.integrators import base as base_mod
+
+    # Force a fake repo root with a corrupt models.yaml on the discovery path.
+    fake_root = tmp_path / "fakerepo" / "src" / "opl_cancer" / "integrators"
+    fake_root.mkdir(parents=True)
+    fake_module = fake_root / "base.py"
+    fake_module.write_text("# stub")
+    bad = tmp_path / "fakerepo" / "models.yaml"
+    bad.write_text("integrator_ttl_seconds: {nccn: [oops, this, is, not, valid")
+
+    # Reset class-cache and re-point __file__ resolution to the fake tree.
+    Integrator._models_yaml_ttls_cache = None
+    monkeypatch.setattr(base_mod, "__file__", str(fake_module))
+
+    with pytest.raises(IntegratorError, match="models.yaml"):
+        Integrator._load_models_yaml_ttls()
+
+    # Reset for other tests.
+    Integrator._models_yaml_ttls_cache = None

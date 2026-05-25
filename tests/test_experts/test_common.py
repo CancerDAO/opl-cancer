@@ -279,4 +279,41 @@ def test_feedback_is_a_noop_in_p1() -> None:
         reviewer_model_id="minimax-m2-7",
     )
     # MUST NOT raise. Working memory update lives in P2.
-    assert exp.feedback({"event": "trial_started"}) is None
+    import warnings as _w
+
+    from opl_cancer.experts._common import StubMethodWarning
+
+    with _w.catch_warnings():
+        _w.simplefilter("always")
+        assert exp.feedback({"event": "trial_started"}) is None
+
+
+async def test_stub_methods_emit_warnings() -> None:
+    """P1-5: plan/audit/feedback are stubs — they must warn so callers know."""
+    import warnings as _w
+
+    from opl_cancer.experts._common import StubMethodWarning
+
+    exp = _DummyExpert(
+        profile=_profile(),
+        executor_client=_FakeClient(content="{}"),
+        reviewer_client=_FakeClient(content="{}"),
+        executor_model_id="claude-opus-4-7",
+        reviewer_model_id="minimax-m2-7",
+    )
+
+    with _w.catch_warnings(record=True) as caught:
+        _w.simplefilter("always")
+        await exp.plan("sub-goal", context={})
+        await exp.audit({"claim": "x"})
+        exp.feedback({"event": "x"})
+
+    stub_warnings = [w for w in caught if issubclass(w.category, StubMethodWarning)]
+    assert len(stub_warnings) == 3, (
+        f"expected 3 StubMethodWarnings (plan/audit/feedback), got {len(stub_warnings)}: "
+        f"{[(w.category.__name__, str(w.message)) for w in caught]}"
+    )
+    msgs = [str(w.message) for w in stub_warnings]
+    assert any("plan()" in m for m in msgs)
+    assert any("audit()" in m for m in msgs)
+    assert any("feedback()" in m for m in msgs)
