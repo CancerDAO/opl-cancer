@@ -343,7 +343,7 @@ OPL 的核心信念："**患者本人是自己案例的唯一决策人**。"
 - **Founder-mode 安全栈** — G24 危机检测 (中英文 SI/SH 词库 + 危机热线路由) · G7/G19 命令式语气检测 · `guardian_ack_protocol.md` 儿科场景 · `boundary_unregulated_channel_disclosure.md` 灰色市场前瞻 + 回溯模式
 - **双 audience 交付** — `patient_plain_brief` (2 页通俗) + `pi_delivery` (完整专业 PMID-anchored)
 
-详细架构、风险等级、机械门定义、可重现性脚本都在 [`references/`](references/) 和 [`docs/adr/`](docs/adr/) (9 个 ADR)。深度技术报告：[`docs/TECHNICAL_REPORT_v1.4.0_zh.md`](docs/TECHNICAL_REPORT_v1.4.0_zh.md)。
+详细架构、风险等级、机械门定义、可重现性脚本都在 [`references/`](references/) 和 [`docs/adr/`](docs/adr/) (9 个 ADR)。
 
 ### 测试与可重现性
 
