@@ -329,14 +329,80 @@ OPL 的核心信念："**患者本人是自己案例的唯一决策人**。"
 
 ## 技术实现
 
-如果您是开发者 / 研究者，下面是技术层概览：
+完整技术报告见 [`TECHNICAL_REPORT.md`](TECHNICAL_REPORT.md)。
+
+### 系统架构
+
+```
+                       ┌─────────────────────────┐
+                       │  患者输入                 │
+                       │  病历 · 影像 · NGS · 化验  │
+                       └────────────┬────────────┘
+                                    ▼
+                       ┌─────────────────────────┐
+                       │  Sid · PI                │
+                       │  main-thread orchestrator │
+                       │  intent_parser → planner  │
+                       └────────────┬────────────┘
+                                    ▼
+   ┌────────────────────────────────────────────────────────────────┐
+   │ Wave 1 · Retrieval (parallel fanout, 10 experts default)        │
+   │  Rosa · Bert · Vince · Rick · Heddy · Mary · Iain · Mark        │
+   │  · Frances · Hong       → tasks/w1_*/report.md                  │
+   └────────────────────────┬───────────────────────────────────────┘
+                            ▼
+   ┌────────────────────────────────────────────────────────────────┐
+   │ Wave 2 · Hypothesis tournament                                  │
+   │  Aviv 生成 12-20 H-cards                                         │
+   │  Co-Sci Elo pairwise (4 轮 × N 对, k=32)                         │
+   │  Meta-critique 聚合 + Robin lit-loop 反馈下一轮                    │
+   │                          → tournament/round_*.json               │
+   └────────────────────────┬───────────────────────────────────────┘
+                            ▼
+   ┌────────────────────────────────────────────────────────────────┐
+   │ Wave 3 · Data-evidence  · NON-SKIPPABLE 核心路径                  │
+   │  cBioPortal 队列  │  GEPIA3 TCGA+GTEx  │  ctDNA Monte Carlo      │
+   │  DerSimonian-Laird meta │ Cox / KM 生存 │ bixbench / 原生 Python  │
+   │  → data/cohorts/*.csv + data/meta_analysis/ + data/figures/      │
+   └────────────────────────┬───────────────────────────────────────┘
+                            ▼
+   ┌────────────────────────────────────────────────────────────────┐
+   │ Wave 4 · Validation 用 Wave 3 数据验证每条领先假设                  │
+   │  confidence_delta > 0.4 → 三级标签升/降 (established/exp/spec)    │
+   │                          → tasks/w4_*/report.md                  │
+   └────────────────────────┬───────────────────────────────────────┘
+                            ▼
+   ┌────────────────────────────────────────────────────────────────┐
+   │ Wave 5 · Dual delivery 双 audience 交付                           │
+   │  patient_plain_brief  ←  Section 0 一句话答案 (conclusion-first)  │
+   │  pi_delivery          ←  完整 PMID-anchored 三级标签 + 证据        │
+   └─────────────────────────────────────────────────────────────────┘
+
+   ╔═════════════════════════════════════════════════════════════════╗
+   ║ Henry · IRB-substitute auditor (跨 wave 全程审计)                  ║
+   ║   L1 · 27 个 mechanical_gates (G1 PMID-existence ... G27 privacy) ║
+   ║   L2 · model_disagreement 多模型分歧浮现                            ║
+   ║   L3 · permission_gate 风险卡 + 患者 ack 流                         ║
+   ║   L4 · rollback BFS 级联撤回 (validators/rollback.py)              ║
+   ╚═════════════════════════════════════════════════════════════════╝
+
+   30 个 integrators  (Wave 1/3/4 在生成证据时实时调用, 失败不静默 fallback):
+   PubMed · NCCN · CT.gov · ChiCTR · ISRCTN · EU-CTR · HKCTR · OncoKB
+   · CIViC · cBioPortal · GDC · ClinVar · gnomAD · GEO · GEPIA3 · SRA
+   · ArrayExpress · DepMap · CCLE · OpenTargets · Hartwig · BeatAML
+   · ICGC · FDA-EAP · NMPA-EAP · EMA-EAP · RxNorm · RetractionDB
+   · PaperQA2 · Unpaywall · Crossref
+```
+
+### 关键组件
 
 - **18 named experts** + Sid PI + Henry IRB-substitute — 完整 6-primitive 任务调用语法 (plan / execute / review / audit / integrate / feedback)
 - **30+ 真实数据接口** — PubMed / NCCN / CT.gov / ChiCTR / ISRCTN / EU-CTR / HKCTR / OncoKB / CIViC / cBioPortal / GDC / ClinVar / gnomAD / GEO / TCGA (via GEPIA3, v1.5 新增) / ArrayExpress / SRA / DepMap / CCLE / Hartwig / BeatAML / ICGC / Open Targets / FDA-EAP / NMPA-EAP / EMA-EAP / RxNorm / RetractionDB / PaperQA2 / Unpaywall / Crossref
-- **27 mechanical gates** — G1-G24 基础合规 (PMID存在/引文匹配/INN规范化/命令式语气/撤稿/无静默fallback/...) + G21 (quantitative-anchor 真预测) + v1.5 新增 G25 (deferred-evidence-block) + G26 (evidence-strength-ranking) + G27 (privacy-scrub PII)
-- **5-Wave 生命周期** — retrieval → Co-Sci Elo hypothesis tournament → cBioPortal+GEPIA3+meta+Cox data-evidence → validation → 双 audience delivery
+- **27 mechanical gates** — G1-G24 基础合规 (PMID存在/引文匹配/INN规范化/命令式语气/撤稿/无静默fallback/...) + G21 (quantitative-anchor 真预测) + v1.5 新增 G25 (deferred-evidence-block) + G26 (evidence-strength-ranking) + G27 (privacy-scrub PII)。v1.5.7 起 G7 strict 默认 on（关闭单句旁路）
+- **5-Wave 生命周期** — retrieval → Co-Sci Elo hypothesis tournament → cBioPortal+GEPIA3+meta+Cox data-evidence → validation → 双 audience delivery。Wave 3 v1.5+ 起 **non-skippable critical path**：CLI 拒绝在无 data artifact 时声明完成
 - **Founder-mode 安全栈** — G24 危机检测 (中英文自残 / 自杀意念词库 + 危机热线路由) · G7/G19 命令式语气检测 · 儿科监护人 ack 协议 · 灰色市场药品的前瞻 + 回溯披露模式
-- **双 audience 交付** — `patient_plain_brief` (2 页通俗) + `pi_delivery` (完整专业 PMID-anchored)
+- **双 audience 交付** — `patient_plain_brief` (Section 0 conclusion-first · ≤ 2 pp 通俗) + `pi_delivery` (完整专业 PMID-anchored)
+- **Honest-failure CLI** — `wave1/wave2/wave3/wave4` 是 state-reader 不是 pretend-runner；artifacts 缺失就 exit 非 0 + `requires_main_thread_dispatch: true`，杜绝 v1.4 那次"声明完成但实际跳过 Wave 3"的根因 (`memory:feedback_no_false_completion`)
 
 详细架构、风险等级、机械门定义、可重现性脚本都在 [`references/`](references/) 和 [`docs/adr/`](docs/adr/) (9 个 ADR)。
 

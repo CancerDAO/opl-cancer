@@ -23,14 +23,29 @@ def test_patient_plain_brief_task_prompt_exists() -> None:
     assert "lay" in content
 
 
-def test_patient_plain_brief_has_4_mandatory_sections() -> None:
+def test_patient_plain_brief_has_5_mandatory_sections_conclusion_first() -> None:
+    """v1.5.7: Section 0 (conclusion-first, 3-sentence bottom line) added per
+    run-retrospective issue #10. Reader who reads only Section 0 must walk
+    away with: top recommendation + effect size + risk + next step."""
     p = REPO_ROOT / "prompts" / "tasks" / "patient_plain_brief_rendering.md"
     content = p.read_text(encoding="utf-8")
-    # Each section heading appears (Chinese name + section number)
+    assert "Section 0 · 一句话答案" in content
     assert "Section 1 · 你的病情一页纸" in content
     assert "Section 2 · 下一步要做什么" in content
     assert "Section 3 · 不同的选择" in content
     assert "Section 4 · 问医生的 5 个问题" in content
+    # Section 0 must appear textually BEFORE Section 1
+    assert content.index("Section 0 · 一句话答案") < content.index("Section 1 · 你的病情一页纸")
+
+
+def test_patient_plain_brief_section_0_honest_failure_clause() -> None:
+    """Section 0 must cover the false-completion-honesty case: if Wave 3 did
+    not produce data anchors, the brief must say so plainly rather than
+    pretend to recommend (the v1.4 retrospective root cause)."""
+    p = REPO_ROOT / "prompts" / "tasks" / "patient_plain_brief_rendering.md"
+    content = p.read_text(encoding="utf-8")
+    assert "Honest-failure clause" in content or "honest-failure" in content.lower()
+    assert "Wave 3 did not" in content or "没法给您一个有把握的答案" in content
 
 
 def test_patient_plain_brief_enforces_no_imperative_and_no_promises() -> None:

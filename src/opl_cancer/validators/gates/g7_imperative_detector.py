@@ -10,8 +10,8 @@ nested fields like ``symptom_plan[].intervention``.
 
 P1-6 — strict_imperative_isolation
 ----------------------------------
-The default same-sentence rule has a known LLM-learnable bypass: a single
-sentence stuffing imperative + bare PMID + risk keyword passes even though
+The original same-sentence rule had an LLM-learnable bypass: a single
+sentence stuffing imperative + bare PMID + risk keyword passed even though
 the structure ("You must take drug X PMID:12345 — risk of bleeding.") is
 exactly the spoof shape clinical reviewers worry about. Setting
 ``strict_imperative_isolation=True`` additionally requires that within the
@@ -20,7 +20,12 @@ contain a bare (non-parenthesised) PMID/NCT/URL token** — evidence must
 either live in a separate clause (split on commas, semicolons, em-dashes,
 parens) or be parenthesised as is conventional in clinical citations.
 
-Default stays ``False`` for backwards compatibility; v1.6 will flip it on.
+v1.5.6 introduced strict mode as opt-in. v1.5.7 (this commit) flips the
+default to ``True`` per run-retrospective issue #9: Henry was flagging G7
+violations in the v1.4 case but final delivery still contained "必须" /
+imperative language because the permissive mode passed them. Callers that
+need the legacy permissive behaviour for unit tests can pass
+``strict_imperative_isolation=False`` explicitly.
 """
 from __future__ import annotations
 
@@ -82,14 +87,16 @@ class G7ImperativeDetectorGate(Gate):
     )
     failure_mode_code = "C1"
 
-    def __init__(self, *, strict_imperative_isolation: bool = False) -> None:
+    def __init__(self, *, strict_imperative_isolation: bool = True) -> None:
         """Construct G7 gate.
 
         Args:
-            strict_imperative_isolation: when True, additionally require that
-                the imperative clause itself does NOT carry a bare (non-parenthesised)
-                PMID/NCT/URL. Evidence must live in a separate clause or be
-                citation-formatted. Closes the single-sentence bypass.
+            strict_imperative_isolation: when True (v1.5.7 default), additionally
+                require that the imperative clause itself does NOT carry a bare
+                (non-parenthesised) PMID/NCT/URL. Evidence must live in a
+                separate clause or be citation-formatted. Closes the single-
+                sentence bypass that the v1.4 run retrospective surfaced.
+                Pass ``False`` explicitly to opt out (e.g. for legacy tests).
         """
         self.strict_imperative_isolation = strict_imperative_isolation
 

@@ -69,10 +69,15 @@ def test_g7_fail_imperative_nested_in_symptom_plan() -> None:
 
 
 def test_g7_pass_nct_url_with_caveat() -> None:
+    """v1.5.7: strict mode requires evidence to be parenthesised (citation form)
+    when it appears in the imperative clause. Bare NCT inside the imperative
+    is the spoof shape and now fails — clinical writers should write
+    `enrolment in (NCT01234567)` not `enrolment in NCT01234567`.
+    """
     gate = G7ImperativeDetectorGate()
     claim = {
         "summary": (
-            "You should consider enrolment in NCT01234567 (may have side effect of grade 3 fatigue)."
+            "You should consider enrolment in (NCT01234567) — may have side effect of grade 3 fatigue."
         )
     }
     r = gate.check(claim)
@@ -87,15 +92,27 @@ def test_g7_failure_mode_code_c1() -> None:
 # ─── P1-6: strict_imperative_isolation closes single-sentence bypass ──────────
 
 
-def test_g7_default_mode_passes_single_sentence_spoof() -> None:
-    """Default (loose) mode preserves backwards-compat: spoof sentence passes."""
-    gate = G7ImperativeDetectorGate()
+def test_g7_default_mode_blocks_single_sentence_spoof() -> None:
+    """v1.5.7 — strict_imperative_isolation is the DEFAULT now.
+
+    The v1.4 patient run shipped with G7 flags Henry surfaced but delivery
+    proceeded because the gate was permissive on single-sentence imperatives.
+    v1.5.7 flips strict on so the bypass blocks at the gate, not just at
+    Henry's review layer.
+    """
+    gate = G7ImperativeDetectorGate()  # default now True
     claim = {"summary": "You must take drug X PMID:12345 — risk of bleeding."}
     r = gate.check(claim)
-    assert r.status == GateStatus.PASS, (
-        "default mode (no strict isolation) should accept single-sentence-with-all-three "
-        "for backwards-compat; v1.6 will flip strict on"
-    )
+    assert r.status == GateStatus.FAIL
+    assert r.block is True
+
+
+def test_g7_explicit_opt_out_restores_legacy_permissive() -> None:
+    """Callers that need legacy permissive behaviour pass strict=False."""
+    gate = G7ImperativeDetectorGate(strict_imperative_isolation=False)
+    claim = {"summary": "You must take drug X PMID:12345 — risk of bleeding."}
+    r = gate.check(claim)
+    assert r.status == GateStatus.PASS
 
 
 def test_g7_strict_mode_blocks_single_sentence_spoof() -> None:
