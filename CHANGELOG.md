@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.5.2] — 2026-05-25 — UX patch round 2 (reporter wired + auto-prefix + interrupt protocol)
+
+User follow-up after v1.5.1: three explicit "didn't finish" items needed to land before user testing. v1.5.2 closes all three on the same `iter/v1.5` branch.
+
+### v1.5.2-1: ProgressReporter wired into Python long-runners
+
+- `Wave1Runner.__init__` + `Wave3Runner.__init__` now accept a keyword-only `reporter: ProgressReporter | None = None` (back-compat: None default = v1.5 behavior).
+- Wave1Runner.run() emits `start_stage(1)` at entry, 4 forced heartbeats at natural seams (after case-load, after intent, after plan, after expert dispatch), `end_stage(1)` with lay summary + "下一步: 想办法" preview. Early-exit on non-NEW_GOAL intent emits a tailored end_stage.
+- Wave3Runner.run() emits `start_stage(3)` ("查数据 / Cross-checking"), forced heartbeat after dataset_acquisition, per-hypothesis heartbeats during bioinformatics_data_analysis (cadence-respecting, not forced — protects against spammy chat), `end_stage(3)` with "下一步: 审核" preview.
+- New `tests/test_e2e/test_runners_with_reporter.py` (6 cases) — start/end emission, next-stage preview wording, no-jargon-leak trip-wire on default messages, signature back-compat.
+
+### v1.5.2-2: persona_prefix auto-prepended in LLMBackedExpert
+
+- `LLMBackedExpert._compose_system_prompt()` (new) loads + class-level-caches the canonical persona prefix (`prompts/experts/_shared/persona_prefix.md`, v1.5 P1-A) and prepends it to every expert's `persona.md` before passing as `system=` to the LLM. All 18 personas inherit G7 voice + 3-tier rubric + patient-anchor checklist + traceability footer + privacy hygiene WITHOUT manual backfill of 18 .md files.
+- New keyword-only `skip_persona_prefix=True` escape hatch for unit tests in isolation.
+- Missing prefix file raises `FileNotFoundError` (loud — no silent degradation per `memory:feedback_no_offline_only`).
+- `tests/test_persona_prefix_auto.py` (7 cases) — prefix present, compose includes prefix for bert, escape hatch, missing-prefix raises, prefix inlined for all roster experts with persona.md, cache avoids repeated disk reads.
+- `tests/test_experts/test_common.py` fixture updated to stub a minimal `_shared/persona_prefix.md` and reset the class-level cache per test.
+
+### v1.5.2-3: SKILL.md interrupt protocol
+
+- New SKILL.md section ("Interrupt protocol") with 7 canonical actions (SKIP-STAGE / SIMPLIFY-STAGE / PAUSE-AND-SHOW-PARTIAL / PARTIAL-DELIVERY / CANCEL / REPLAN / STATUS+ETA), pattern table (zh + en), hard rules (acknowledge ≤5s, never silent scope-change, gate-aware skip, cancel preserves artifacts, replan re-runs comorbid expansion), 3 worked dialog examples, wiring notes.
+- New `prompts/tasks/interrupt_handling.md` (task contract) — JSON envelope schema (`parsed_intent` / `safety_warnings` / `plan_modification` / `needs_user_confirm`), procedure, hard-rules mirror, failure modes (intent ambiguous / safety-override demanded / cancel mid-write / partial-delivery with no claims). G25 safety surface and `ProgressReporter.block(...)` integration documented.
+- `tests/test_interrupt_handling.py` (12 cases) — SKILL.md interrupt section present, 7 canonical actions enumerated consistently between SKILL.md and the task prompt, zh + en pattern coverage, hard-rules mirrored, G25 safety surface, cancel.json preservation, reporter.block integration, ≥3 worked examples.
+
+### Test count
+
+v1.5.1: 1101 → v1.5.2: 1126. All green under `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`.
+
+### Migration
+
+- ProgressReporter wiring is opt-in (default None for v1.4 / v1.5 callers); pass `Wave1Runner(reporter=ProgressReporter(on_emit=chat.send))` to drive heartbeats from Python.
+- LLMBackedExpert subclasses get the prefix automatically. To opt out (tests only): `Expert(profile=..., skip_persona_prefix=True)`.
+- Mid-run user input handling: any chat input arriving during Steps 4-10 is routed through `prompts/tasks/interrupt_handling.md` to parse intent and produce a structured plan modification with safety surface.
+
 ## [1.5.1] — 2026-05-25 — Long-run UX hotfix (plain-language progress)
 
 User feedback after v1.5 ship: *"opl-cancer 太久了, 用户一直在等好几个小时, 普通人体验较差; 输出内容太专业 — 存档可以专业, 但输出给用户要通俗。"* v1.5 fixed the final deliverable (`patient_plain_brief_rendering.md` + `patient_jargon_glossary.json`) but left the **intermediate run** of 30-90 minutes silent + jargon-heavy. v1.5.1 closes both gaps in one patch on the same `iter/v1.5` branch.
