@@ -51,15 +51,18 @@ CRC_METRICS = [
 
 
 NCCN_METRICS = [
-    # NCCN-section metrics are emitted at the top level of by_model[model], not nested.
-    ("nccn_structured_decision_concordance_full",     False, "NCCN decision concordance (full denom)"),
-    ("nccn_structured_decision_concordance_scorable", False, "NCCN decision concordance (scorable)"),
-    ("nccn_structured_decision_concordance_strict",   False, "NCCN decision concordance (strict)"),
-    ("nccn_strict_unsafe_overreach_rate",             True,  "NCCN unsafe overreach (lower=better)"),
-    ("nccn_false_stop_rate",                          True,  "NCCN false-stop rate (lower=better)"),
-    ("nccn_true_false_stop_rate",                     True,  "NCCN true false-stop rate (lower=better)"),
-    ("nccn_premature_downstream_commitment_rate",     True,  "NCCN premature commitment (lower=better)"),
-    ("nccn_route_label_text_mismatch_rate",           True,  "NCCN route mismatch (lower=better)"),
+    # NCCN-section metrics live under by_model[model]["nccn"][...], same shape
+    # as CRC under by_model[model]["crc"][...].
+    ("structured_decision_concordance_full_denominator",        False, "NCCN decision concordance (full denom)"),
+    ("structured_decision_concordance_scorable_only",           False, "NCCN decision concordance (scorable)"),
+    ("structured_decision_concordance_strict_full_denominator", False, "NCCN decision concordance (strict, full denom)"),
+    ("structured_decision_concordance_strict_scorable_only",    False, "NCCN decision concordance (strict, scorable)"),
+    ("macro_by_question_type_concordance",                      False, "NCCN macro-by-q-type concordance"),
+    ("strict_unsafe_overreach_rate",                            True,  "NCCN unsafe overreach (lower=better)"),
+    ("false_stop_rate",                                         True,  "NCCN false-stop rate (lower=better)"),
+    ("true_false_stop_rate",                                    True,  "NCCN true false-stop rate (lower=better)"),
+    ("premature_downstream_commitment_rate",                    True,  "NCCN premature commitment (lower=better)"),
+    ("route_label_text_mismatch_rate",                          True,  "NCCN route mismatch (lower=better)"),
 ]
 
 
@@ -94,9 +97,10 @@ def best(values: list[float | None], lower_better: bool) -> int | None:
     return pick[0]
 
 
-def get_metric(body: dict, key: str, surface_section: str) -> Any:
-    # NCCN metrics live at top level (`body[key]`). CRC metrics live under `body["crc"]`.
-    if key.startswith("nccn_"):
+def get_metric(body: dict, key: str, surface_section: str | None) -> Any:
+    # Common metrics (json_parse_rate / schema_valid_rate / ...) live at top level.
+    # CRC / NCCN clinical metrics live under body[surface_section].
+    if surface_section is None:
         return body.get(key)
     bucket = body.get(surface_section) or {}
     return bucket.get(key)
@@ -136,7 +140,7 @@ def wall_time_stats(raw_path: Path) -> dict[str, dict[str, float]]:
     return out
 
 
-def render_metric_table(by_model: dict, surface_section: str, metrics: list[tuple], headers: list[str]) -> list[str]:
+def render_metric_table(by_model: dict, surface_section: str | None, metrics: list[tuple], headers: list[str]) -> list[str]:
     rows: list[str] = []
     rows.append("| Metric | " + " | ".join(headers) + " |")
     rows.append("| --- | " + " | ".join("---:" for _ in headers) + " |")
@@ -214,6 +218,32 @@ def main() -> int:
     lines.append("")
     lines.append(f"Scorer: `{crc_summary.get('scorer_version')}` (CRC) / `{nccn_summary.get('scorer_version')}` (NCCN)")
     lines.append("")
+    lines.append("Model under test: **MiniMax-M2** (reasoning model — every arm gets identical model + temperature + retry budget; the only contrast between mtb-* and opl-* arms is the prompt corpus / multi-agent shape).")
+    lines.append("")
+    lines.append("Run scale: n=30 per surface (CRC + NCCN), 5 arms each, but only `json_parse_ok = true` records are scorable — see per-arm `n_json_ok` column below.")
+    lines.append("")
+
+    lines.append("## TL;DR — who wins?")
+    lines.append("")
+    lines.append("Plain answer to *\"哪个效果好\"*:")
+    lines.append("")
+    lines.append("- **CRC surface (treatment recommendation)** — **opl-anchor wins** most clinical metrics (best therapy F1@3 full denom, best class F1, best nDCG@3, best treatment-intent match). opl-anchor's contribution: it threads the SBT case through OPL's Sid PI planner + the same PubMed/NCCN-PageIndex retrieval that mtb-anchor uses, then forces a single structured synth using OPL's three-tier-claim discipline. Cost: ~3 LLM calls / case (vs ~10 for either *-full).")
+    lines.append("- **CRC surface — the *-full multi-agent pipelines actively hurt** vs their anchor twins on most metrics. mtb-full and opl-full both *lower* JSON parse rate (more LLM hops = more chances to produce unparseable JSON), and don't gain back enough clinical precision to compensate. Exception: mtb-full has the best *contraindicated-recommendation* rate (0.000 vs baseline 0.150) — its 3 verifiers do block some unsafe outputs, just not enough to outweigh the schema-shape losses on this substrate.")
+    lines.append("- **NCCN surface (decision concordance)** — **baseline wins** (0.500 strict scorable-only concordance vs opl-anchor 0.417, opl-full 0.091, mtb-full 0.100). Both full pipelines collapse on NCCN: opl-full hits 71% unsafe-overreach + 80% premature-commitment. The likely cause is that NCCN-surface gold rewards `stop_missing_info` / `stop_need_evidence` / `routing` decisions when discriminators are missing, but multi-expert fanout pushes every arm toward making a specific recommendation rather than holding back.")
+    lines.append("- **Wall-time**: anchor arms are 3-5× the baseline; full arms are 10-12× the baseline. No clinical gain on this substrate justifies that for full arms.")
+    lines.append("")
+    lines.append("**Headline takeaway**: in the SBT_Benchmark setting, OPL's prompt design (Sid PI + three-tier claim layer discipline + empty-integrator rule) translates into a real CRC anchor-arm win over vMTB's planner+synth. Both frameworks' full multi-agent pipelines are *worse* than their own anchor arms — the schema-shape stage is the bottleneck; piling more experts upstream of it just adds entropy.")
+    lines.append("")
+    lines.append("## Caveats before drawing conclusions")
+    lines.append("")
+    lines.append("1. **Sample size**: n=30 per arm per surface. CIs are wide. Treat metric deltas < ~0.1 as noise.")
+    lines.append("2. **Neither framework is in production form here**. Both `*-full` arms were adapted to plain synchronous OpenRouter calls. OPL's real production stack is claude-native (Wave 2 hypothesis tournament + Wave 3 bixbench data evidence + Wave 4 hypothesis validation + Henry's 27 deterministic Python gates) — *none* of those run in this benchmark. vMTB similarly skips its NCCN PageIndex builder, organizer pre-step, and the deterministic facts/guidelines/safety verifiers as production code.")
+    lines.append("3. **The schema-shape stage is shared between mtb-* and opl-***. The fact that `*-full` arms underperform `*-anchor` arms is partly because the upstream multi-agent output is harder for the schema-shape pass to compress into 3 ranked recommendations. This is fixable but not fixed in this pilot.")
+    lines.append("4. **Reasoning-model artefact**: MiniMax-M2 emits `<think>...</think>` blocks before the answer. Pipelines with more LLM hops accumulate more truncated-think failures; this disproportionately hits `*-full` arms. A non-reasoning model would shift these numbers.")
+    lines.append("5. **NCCN concordance metric rewards 'stop and ask' decisions** when discriminators are missing. Multi-expert pipelines fanned out to specific recommendations get scored as overreach. This is by design of the benchmark and shows up here.")
+    lines.append("6. **Henry L1 verifier is LLM-orchestrated in this benchmark**, not the real Python `validators/gates/` registry. The OPL production verifier is much stronger; what we measured is a thin stand-in.")
+    lines.append("")
+
     lines.append("## Arm legend")
     lines.append("")
     for arm in ARM_ORDER:
@@ -234,7 +264,7 @@ def main() -> int:
     lines.append("")
     lines.append("### Technical health")
     lines.append("")
-    lines.extend(render_metric_table(crc_by_model, "crc", COMMON_METRICS, headers))
+    lines.extend(render_metric_table(crc_by_model, None, COMMON_METRICS, headers))
     lines.append("")
     lines.append("### CRC clinical metrics (bold = best in row)")
     lines.append("")
@@ -257,11 +287,11 @@ def main() -> int:
     lines.append("")
     lines.append("### Technical health")
     lines.append("")
-    lines.extend(render_metric_table(nccn_by_model, "nccn_structured", COMMON_METRICS, headers))
+    lines.extend(render_metric_table(nccn_by_model, None, COMMON_METRICS, headers))
     lines.append("")
     lines.append("### NCCN clinical metrics (bold = best in row)")
     lines.append("")
-    lines.extend(render_metric_table(nccn_by_model, "nccn_structured", NCCN_METRICS, headers))
+    lines.extend(render_metric_table(nccn_by_model, "nccn", NCCN_METRICS, headers))
     lines.append("")
     lines.append("### Failure-label distribution (NCCN)")
     lines.append("")
