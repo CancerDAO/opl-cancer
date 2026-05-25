@@ -22,7 +22,7 @@ import click
 
 from opl_cancer.experts.roster import ROSTER
 
-VERSION = "1.4.0"
+VERSION = "1.5.7"
 DEFAULT_PATIENT_ROOT_ENV = "OPL_PATIENT_DATA_ROOT"
 DEFAULT_PATIENT_ROOT = Path.home() / "CancerDAO" / "patients"
 
@@ -313,49 +313,158 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
 
 
 # ─── Step 5-8: Waves ──────────────────────────────────────────────────────
+#
+# v1.5.7 honest-failure rewrite (memory:feedback_no_false_completion + run
+# retrospective AP-1 / AP-2 / AP-5):
+#
+# Through v1.5.6 these commands ran `mkdir -p` and returned `{"ok": true}`
+# even when no expert report / hypothesis / dataset / validation had been
+# produced. That false-positive ok let the v1.4 patient run reach "delivery"
+# while Wave 3 had been skipped — the user had to ask "是否真的做了数据分析?"
+# to surface the gap. This is the OPL North Star violation: the system
+# claimed it had produced new information when it had only created folders.
+#
+# OPL runs are **main-thread Claude orchestrated**: the LLM (Claude Code,
+# in our reference deployment) dispatches subagents per `SKILL.md`. The CLI
+# is the *state reader*, not the executor. Each wave command now:
+#   1. Reads the run-root for the artifacts that real execution leaves behind.
+#   2. Emits ok=true only when those artifacts exist (with file count + hashes).
+#   3. Emits ok=false + `requires_main_thread_dispatch: true` + an
+#      LLM-readable action when artifacts are absent — so the orchestrator
+#      can decide to dispatch the real path, not declare completion.
+#
+# The Python `Wave{1,3}Runner` classes are still the execution body when
+# you want to run the work *outside* a Claude session (CI, batch, eval).
+# They were never invoked by the CLI stub and are not invoked here either —
+# wiring them sync-from-CLI is a larger task tracked separately and would
+# block on architectural decisions (which LLM client to inject, how to
+# surface progress, where to keep secrets). The honest-failure path is the
+# minimal v1.5.7 fix that closes the false-completion vector.
 
-@main.command(help="Step 5: Wave 1 (world-known retrieval) — parallel experts.")
+_WAVE_ARTIFACT_PROBES: dict[int, dict[str, Any]] = {
+    1: {
+        "out_dir_segment": "tasks",
+        "expected_glob": "w1_*/report.md",
+        "min_count": 1,
+        "story": "Wave 1 retrieval — at least one `tasks/w1_*/report.md` expert report",
+    },
+    2: {
+        "out_dir_segment": "tournament",
+        "expected_glob": "*.json",
+        "min_count": 1,
+        "story": "Wave 2 tournament — at least one `tournament/*.json` round artifact",
+    },
+    3: {
+        "out_dir_segment": "data",
+        # Wave 3 produces real data: cohort CSVs, meta-analysis JSON, GEPIA3
+        # results, notebooks. Any one of these counts.
+        "expected_glob": "**/*.csv,**/*.json,**/*.ipynb,**/*.png",
+        "min_count": 1,
+        "story": (
+            "Wave 3 data-evidence — at least one real artifact under `data/` "
+            "(cohort CSV, meta JSON, GEPIA3 results, notebook, figure). "
+            "v1.5 SKILL.md §Step 7 declares Wave 3 non-skippable; mkdir-only is a skip."
+        ),
+    },
+    4: {
+        "out_dir_segment": "tasks",
+        "expected_glob": "w4_*/report.md",
+        "min_count": 1,
+        "story": "Wave 4 validation — at least one `tasks/w4_*/report.md` validation report",
+    },
+}
+
+
+def _wave_artifact_state(run_root: Path, wave: int) -> dict[str, Any]:
+    """Probe the run-root for evidence that a real wave run happened.
+
+    Returns: {ok, found, expected, files: [first-10]}
+    """
+    probe = _WAVE_ARTIFACT_PROBES[wave]
+    out_dir = run_root / probe["out_dir_segment"]
+    if not out_dir.exists():
+        return {"ok": False, "found": 0, "files": [], "out_dir": str(out_dir)}
+    found: list[str] = []
+    for pattern in str(probe["expected_glob"]).split(","):
+        found.extend(str(p.relative_to(run_root)) for p in out_dir.glob(pattern.strip()))
+    return {
+        "ok": len(found) >= int(probe["min_count"]),
+        "found": len(found),
+        "files": sorted(found)[:10],
+        "out_dir": str(out_dir),
+    }
+
+
+def _emit_wave_state(wave: int, run_root: Path, json_mode: bool, **extra: Any) -> None:
+    """Emit honest wave state — ok=true only when artifacts present.
+
+    When artifacts are absent, return ok=false + an LLM-readable action so the
+    orchestrator can decide what to do next (dispatch subagents, or block).
+    """
+    run_root.mkdir(parents=True, exist_ok=True)
+    state = _wave_artifact_state(run_root, wave)
+    probe = _WAVE_ARTIFACT_PROBES[wave]
+    payload: dict[str, Any] = {
+        "ok": state["ok"],
+        "wave": wave,
+        "run_root": str(run_root),
+        "artifacts_found": state["found"],
+        "artifacts_sample": state["files"],
+        "expected": probe["story"],
+        **extra,
+    }
+    if not state["ok"]:
+        payload["requires_main_thread_dispatch"] = True
+        payload["action"] = (
+            f"Wave {wave} produced no artifacts at {state['out_dir']}. "
+            "This CLI command is a *state reader*, not the executor. "
+            "The orchestrator (SKILL.md main-thread) must dispatch the real "
+            f"wave-{wave} subagent workflow now, then re-invoke this command "
+            "to confirm artifacts landed. Refusing to declare completion."
+        )
+        # Non-zero exit so shell-level callers also see honest failure.
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2) if json_mode
+                   else "\n".join(f"{k}: {v}" for k, v in payload.items()))
+        sys.exit(2)
+    _emit(payload, json_mode)
+
+
+@main.command(help="Step 5: Wave 1 state-check. Reads tasks/w1_*/report.md count.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--plan", "plan_path", type=click.Path(exists=True, dir_okay=False), required=True)
 @click.option("--json", "json_mode", is_flag=True)
 def wave1(patient_dir: str, run_id: str, plan_path: str, json_mode: bool) -> None:
-    pdir = Path(patient_dir)
-    out = pdir / "triggers" / run_id
-    out.mkdir(parents=True, exist_ok=True)
-    # Real Wave1Runner is async; here we expose a thin sync wrapper for the SKILL.
-    _emit({"ok": True, "wave": 1, "out": str(out), "note": "Wave1Runner is async — invoke via Python: from opl_cancer.glue.wave1_runner import Wave1Runner. v1.3 ships the runner; full sync-from-CLI path lands in v1.4."}, json_mode)
+    run_root = Path(patient_dir) / "triggers" / run_id
+    _emit_wave_state(1, run_root, json_mode, plan_path=plan_path)
 
 
-@main.command(help="Step 6: Wave 2 (hypothesis tournament).")
+@main.command(help="Step 6: Wave 2 state-check. Reads tournament/*.json count.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--json", "json_mode", is_flag=True)
 def wave2(patient_dir: str, run_id: str, json_mode: bool) -> None:
-    out = Path(patient_dir) / "triggers" / run_id / "tournament"
-    out.mkdir(parents=True, exist_ok=True)
-    _emit({"ok": True, "wave": 2, "out": str(out)}, json_mode)
+    run_root = Path(patient_dir) / "triggers" / run_id
+    _emit_wave_state(2, run_root, json_mode)
 
 
-@main.command(help="Step 7: Wave 3 (data-evidence + bixbench).")
+@main.command(help="Step 7: Wave 3 state-check. Refuses to claim completion without real data artifacts.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--enable-docker/--no-docker", default=True)
 @click.option("--json", "json_mode", is_flag=True)
 def wave3(patient_dir: str, run_id: str, enable_docker: bool, json_mode: bool) -> None:
-    out = Path(patient_dir) / "triggers" / run_id / "data"
-    out.mkdir(parents=True, exist_ok=True)
-    _emit({"ok": True, "wave": 3, "docker": enable_docker, "out": str(out)}, json_mode)
+    run_root = Path(patient_dir) / "triggers" / run_id
+    _emit_wave_state(3, run_root, json_mode, docker=enable_docker)
 
 
-@main.command(help="Step 8: Wave 4 (hypothesis validation against measured data).")
+@main.command(help="Step 8: Wave 4 state-check. Reads tasks/w4_*/report.md count.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--json", "json_mode", is_flag=True)
 def wave4(patient_dir: str, run_id: str, json_mode: bool) -> None:
-    out = Path(patient_dir) / "triggers" / run_id
-    out.mkdir(parents=True, exist_ok=True)
-    _emit({"ok": True, "wave": 4, "out": str(out)}, json_mode)
+    run_root = Path(patient_dir) / "triggers" / run_id
+    _emit_wave_state(4, run_root, json_mode)
 
 
 # ─── Step 9: Henry audit ──────────────────────────────────────────────────
@@ -395,7 +504,7 @@ def status() -> None:
     click.echo(f"  Experts active: {len(ROSTER)} (Sid PI + Henry Auditor + 18 named experts)")
     click.echo("  Wave runners ready: Wave1 / Wave2 / Wave3 / Wave4 / Wave5 (render)")
     click.echo("  Integrators wired: 29 (NCCN / PubMed / CT.gov / ChiCTR / ISRCTN / EU-CTR / HKCTR / FDA-EAP / NMPA-EAP / EMA-EAP / RxNorm / GEO / Open Targets / Hartwig / BeatAML / ICGC / etc.)")
-    click.echo("  Mechanical gates: 26 (G1-G20 + G22 DDR-zygosity + G23 recency-band + G24 crisis-detection + v1.5 G25 deferred-evidence-block + G26 evidence-strength-ranking + G27 privacy-scrub)")
+    click.echo("  Mechanical gates: 27 (G1-G20 + G21 quantitative-anchor + G22 DDR-zygosity + G23 recency-band + G24 crisis-detection + v1.5 G25 deferred-evidence-block + G26 evidence-strength-ranking + G27 privacy-scrub)")
     click.echo("  License: Apache-2.0")
     click.echo("  Read DISCLAIMER.md before use — not clinical decision support; not for emergencies.")
     click.echo(f"  Patient data root: {_patient_root()}")

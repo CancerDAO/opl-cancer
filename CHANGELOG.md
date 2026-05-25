@@ -1,5 +1,100 @@
 # Changelog
 
+## [1.5.7] — 2026-05-26 — Runtime honesty + prompt-first generalisation
+
+Driven by the PT-EE62321353 run retrospective (2026-05-25) which surfaced a
+class of issues my v1.5.6 code-review hardening didn't touch: **the v1.4
+false-completion vector wasn't a code-quality bug, it was a CLI honesty
+bug** — `wave1/wave2/wave3/wave4` returned `{"ok": true}` after `mkdir`,
+so the orchestrator could declare "complete" while no expert / data /
+validation had actually happened.
+
+First-principles fix: **the CLI is a state reader, not a pretend-runner.**
+A wave is `ok` only when the artifacts real execution leaves on disk are
+actually present. Empty → exit non-zero + `requires_main_thread_dispatch:
+true` + LLM-readable action so the orchestrator dispatches the real path.
+
+Per `memory:feedback_default_prompt_over_script`, the planner / Henry /
+patient-brief fixes are prompt-layer, not Python keyword tables — LLM
+generalisation across patient varieties beats hardcoded if-elif trees.
+
+**Runtime honesty (P0-CRIT)**
+
+- `cli.py wave1/wave2/wave3/wave4` rewritten as artifact state-readers.
+  Probes `triggers/<run_id>/tasks/w{1,4}_*/report.md`, `tournament/*.json`,
+  and `data/**/*.{csv,json,ipynb,png}`. Empty run-root → exit 2 +
+  `ok: false` + `requires_main_thread_dispatch: true` + an
+  LLM-readable `action` field telling the orchestrator what to do.
+- New `_WAVE_ARTIFACT_PROBES` table per wave: `out_dir_segment`,
+  `expected_glob`, `min_count`, plain-language `story`.
+- Closes run-retrospective issues #2 (CLI false-positive stubs) and #5
+  (Wave 3 skip-able default).
+
+**Prompt-first planner expansion (P0-C)**
+
+- `SKILL.md` `Cancer-type-aware planner hints` adds two missing rows:
+  - **mCRC KRAS G12C MSS, line 4+** — fills the v1.4 retrospective gap.
+    Frances + Tyler (TROP2 GEPIA3) + Mark (MSS immune-cold) + Mary (CKD
+    × cumulative tox) + Heddy (Q6-8wk imaging) + Hong (CN herb × EGFR-ab
+    DDI) + Dennis (CodeBreaK / KRYSTAL / ACROBAT). Calls out the
+    mandatory Wave 3 data: cBioPortal KRAS G12C+MSS cohort, TCGA +
+    MSK-IMPACT survival projection, ctDNA Monte Carlo from baseline VAF.
+  - **Late-line (≥ 4 prior lines) resistance — generic disease-agnostic
+    row** — when a patient has exhausted ≥ 3 SoC lines, planner MUST add
+    Frances + Heddy + Mary + Tyler + Mark + Riad on top of the
+    disease-specific base. Founder-mode: line 4+ patients have weeks-to-
+    months horizons.
+- Prompt-layer expansion, not Python row table — generalises across the
+  long tail of resistance scenarios via LLM judgment.
+
+**Safety stack (P1)**
+
+- `G7ImperativeDetectorGate(strict_imperative_isolation=True)` is now
+  the **default**. Closes the v1.4 single-sentence spoof
+  (`"You must take drug X PMID:12345 — risk of bleeding."`) at the gate
+  layer rather than relying on Henry's review. Legacy permissive
+  behaviour available via `strict_imperative_isolation=False`.
+- `prompts/auditor/l1_mechanical_gates.md` — Henry now has explicit
+  Rule 5: G7 violations are non-negotiable blocking; v1.4 case had 8 G7
+  flags but delivery proceeded because Henry only flagged. Rule 5 also
+  prescribes the rewrite contract: "必须" / "should" → options-language
+  ("可以考虑" / "您可以").
+
+**Patient delivery (P1)**
+
+- `prompts/tasks/patient_plain_brief_rendering.md` — Section 0 (一句话
+  答案) prepended, MANDATORY. Three sentences: top recommendation +
+  rough effect size + rough risk + ONE next step, all in plain
+  language. Reader who reads only Section 0 walks away with the answer.
+- Section 0 includes an honest-failure clause: if Wave 3 did not
+  produce data anchors, the brief says so plainly ("这次分析没有跑到底,
+  所以我们没法给您一个有把握的答案") and jumps to Section 4 (questions
+  for the doctor) instead of pretending Sections 2/3 carry weight they
+  don't.
+
+**Documentation**
+
+- README.md — ASCII architecture diagram added (no Mermaid, per user
+  preference for plain-text portability).
+- New TECHNICAL_REPORT.md — full technical overview: first-principles
+  design contract, 5-Wave lifecycle in detail, 27-gate safety stack
+  breakdown, 30 integrators by F1-F10 family, provenance &
+  reproducibility, honest state matrix (what's real vs P1 stub).
+
+**Tests added**
+
+- `tests/test_cli_honest_failure.py` — 5 cases pinning the wave
+  state-reader contract: empty run-root → exit non-zero, real artifact
+  → ok=true.
+- `tests/test_validators/test_g7_imperative_detector.py` — strict-mode
+  default test + explicit opt-out test.
+- `tests/test_patient_plain_brief.py` — Section 0 conclusion-first
+  contract + honest-failure clause checks.
+- Adjusted `tests/test_cli.py::test_cli_status_runs` for version + gate
+  count bump.
+
+Full suite: 1134 passed, 0 failed (3 live MiniMax deselected — quota wall).
+
 ## [1.5.6] — 2026-05-25 — P0/P1 hardening from independent code-review verification
 
 Fixes 7 issues surfaced by independent parallel-subagent verification of the

@@ -46,6 +46,12 @@ This prompt orchestrates the gate-runner schedule and reports per-gate verdicts.
 2. Any blocking-failure halts the pipeline; non-blocking warnings are surfaced but do not halt.
 3. Blocked claims MUST list the specific gate violated + the violating quote (verbatim).
 4. The gate-id enumeration MUST match the live registry table above; if a gate id in the runtime registry is unknown to this prompt, mark it `non_blocking_warnings: ["unknown gate id <X>"]` and continue (do NOT invent gate names).
+5. **G7 is non-negotiable blocking (v1.5.7).** The v1.4 patient run shipped with 8 G7 imperative-voice violations flagged by Henry, but the assistant rendered delivery anyway. Even one G7 fail → `l1_verdict: fail` + `blocking_failures` includes the gate + the offending sentences verbatim + the action `"rewrite_to_non_imperative_voice"`. The rewrite contract:
+   - Replace "必须" / "应该" / "you must" / "you should" with options-language: "可以考虑" / "您可以" / "the team's analysis suggests, but you decide".
+   - If the imperative was directed at the orchestrator (not the patient) and it was inside fenced-code or a `<system_instruction>` block, it does not count — see `prompts/experts/_shared/persona_prefix.md` exemption clause.
+   - Henry MUST refuse to set `l1_verdict: pass` until the renderer regenerates the section and a re-run of G7 returns 0 offenders.
+6. **G27 (PrivacyScrub) is non-negotiable blocking.** Any PII detected at L1 → BLOCK + `action: "rewrite_with_redactions"`.
+7. **G24 (CrisisDetection) is the SAFETY floor.** SI / self-harm language → `crisis_lockout: true` + immediately surface the jurisdictional crisis line + dispatch `cancer-buddy-mind`. Do NOT continue the wave runs.
 
 ## Self-verify of own rendering mandates (v1.5)
 

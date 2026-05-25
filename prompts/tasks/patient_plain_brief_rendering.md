@@ -67,7 +67,38 @@ Both artifacts must pass:
   on first use. Bare acronyms (KRAS, mCRC, ORR, mPFS, ctDNA, ADC, ICI)
   fail this gate.
 
-### Structure (4 mandatory sections, in this order)
+### Structure (5 mandatory sections, in this order)
+
+> v1.5.7 — conclusion-first contract (run-retrospective issue #10).
+> The PT-EXAMPLE-A v2 brief had data + paths but no plain-language
+> conclusion-first answer; the user had to ask "所以结论是什么 / 我有点
+>看不懂" *after* reading the brief. v1.5.7 fixes this by mandating a
+> Section 0 that delivers the 3-sentence answer BEFORE any context,
+> evidence, or paths. The reader who reads only Section 0 should walk
+> away with: (1) the team's top recommendation, (2) the rough effect
+> size, (3) the rough risk. Everything else is supporting detail.
+
+#### Section 0 · 一句话答案 (The bottom line, in three sentences)
+
+- **Sentence 1** — the team's leading recommendation in plain language,
+  expressed as an option not a command. Example: *"我们这次研究下来,
+  最值得跟医生认真讨论的方案是 **KRAS 靶向药 + 抗 EGFR 药双联**。"*
+- **Sentence 2** — the rough effect size with honest uncertainty. Use
+  percentages and time-ranges patients understand. Example: *"在和您
+  情况类似的病人里, 大约 1/3 到 1/2 会有明显缩小, 平均能撑 5-8 个月
+  不进展。"* Avoid "ORR / HR / mPFS" — translate first, parenthesise
+  the technical term only if essential.
+- **Sentence 3** — the rough risk + the ONE next step. Example:
+  *"主要副作用是皮肤反应和肝功能波动, 大多数能控制住; 下一步先做心
+  脏检查再决定。"*
+- Hard limits: ≤ 3 sentences, ≤ 90 中文字 each (≤ 30 英文 words).
+  If you cannot fit, the brief is not ready — go back and pick the
+  truly leading recommendation rather than equivocating across three.
+- **Honest-failure clause**: if Wave 3 did not produce data anchors
+  (the v1.4 false-completion failure mode), Section 0 MUST say so
+  plainly: *"这次分析没有跑到底, 所以我们没法给您一个有把握的答案 —
+  下面只是世界已知的方向。"* Then jump to Section 4 (questions for
+  the doctor) without pretending Section 2/3 carry weight they don't.
 
 #### Section 1 · 你的病情一页纸 (Your situation in one page)
 
