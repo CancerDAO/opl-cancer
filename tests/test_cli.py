@@ -19,9 +19,11 @@ def test_cli_status_runs() -> None:
     #   - SKILL.md Step 4: TNBC + LM planner row
     #   - cli.py acknowledge --batch ack-batch UX + ack_consolidation_card
     assert "OPL for Cancer" in r.output
-    assert "v1.4.0" in r.output
+    assert "v1.5.7" in r.output  # bumped in P0-CRIT-A runtime-honesty PR
     assert "Experts active: 18" in r.output
-    assert "Mechanical gates: 26" in r.output  # v1.5: +G25 +G26 epistemic gates +G27 privacy scrub
+    # v1.5.6 registered G21/G25/G26/G27 (was 23). The status string is the
+    # advertised public count; status.py is updated below.
+    assert "Mechanical gates: 27" in r.output
     assert "Integrators wired: 29" in r.output
 
 
