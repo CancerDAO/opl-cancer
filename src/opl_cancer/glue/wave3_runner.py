@@ -19,27 +19,41 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from opl_cancer.compute.native_runner import NativeAnalysisRunner
 from opl_cancer.compute.runner import BixbenchRunner
 from opl_cancer.experts._common import LLMBackedExpert
 from opl_cancer.provenance.hasher import hash_claim
 from opl_cancer.provenance.journal import ProvenanceJournal
 
 
+# Type alias — Wave 3 accepts either compute runner. They share the
+# ``run_notebook(notebook_path=, workdir=, timeout_s=)`` interface returning
+# a ``BixbenchRunResult``. v1.5 added ``NativeAnalysisRunner`` to remove the
+# Docker dependency on the critical path (docs/ANTI_PATTERNS_v1.4.md AP-1).
+ComputeRunner = BixbenchRunner | NativeAnalysisRunner
+
+
 class Wave3Runner:
-    """End-to-end Wave 3 data-evidence driver."""
+    """End-to-end Wave 3 data-evidence driver.
+
+    v1.5: ``bixbench`` param widened to accept ``NativeAnalysisRunner`` as
+    well. The field is still named ``self.bixbench`` for back-compat with
+    existing tests + downstream code; the runtime check goes by interface
+    (``run_notebook``) not by class.
+    """
 
     def __init__(
         self,
         *,
         out_dir: Path,
         aviv: LLMBackedExpert,
-        bixbench: BixbenchRunner,
+        bixbench: ComputeRunner,
         tyler: LLMBackedExpert | None = None,
     ) -> None:
         self.out_dir = Path(out_dir)
         self.aviv = aviv
         self.tyler = tyler
-        self.bixbench = bixbench
+        self.bixbench: ComputeRunner = bixbench
 
     async def run(
         self,
