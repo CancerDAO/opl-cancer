@@ -166,7 +166,11 @@ python ~/.claude/skills/opl-cancer/scripts/cli.py plan \
 
 The plan goes through `validators/mechanical_gates.py` (G5 patient-context-isolation, G6 injection-scan over raw patient input) before any expert spins up. On violation: abort + tell user what was rejected and why.
 
-Echo the plan to user in human form (no JSON): *"Team 这次会上场的:Rosa+Bert+Aviv+Rick+Iain ... 跑 Wave 1+2+3。预计 wall-time 8-15 分钟,token 成本 ~$3-8 (depends on hypothesis tournament rounds)。要开始吗?"*
+Echo the plan to user in **plain language** (v1.5.1): NEVER say "Wave 1+2+3 / hypothesis tournament / wall-time / token cost / Reviewer pairing / Elo". Translate to lay terms.
+
+Example: *"团队这次会上场: 病理 Rosa, 基因 Bert, 想方案 Aviv, 试验匹配 Rick, 查文献 Iain (共 5 位专家)。整个过程会分 5 步走 — 准备 / 想办法 / 查数据 / 审核 / 写报告, 一步一步给您报进度。整体大概 30-50 分钟, 费用大约 3-8 美元 (跑得多寡看您病情复杂度)。要开始吗?"*
+
+If `comorbid_expansion_triggers_fired` is non-empty (v1.5 P0-6 surface), name the additional experts and what each one's lens covers: *"另外因为您有 [活动期免疫副作用 / 多种合并用药 / 慢性肾病 / ... 等], 团队还会加上 [副作用专家 Mark, 用药专家 Mary, ...] 来照顾这些方面。"*
 
 > v1.5 — `cli.py plan` reads `profile.json` and **deterministically expands** the baseline t1-t9 skeleton when the patient phenotype hits multi-comorbid triggers (active irAE → Mark; ≥3 prior lines → Frances; ≥3 co-meds → Mary; CAD/PCI/LVEF≤50 → Mary cardiac; CKD or eGFR≤60 → Mary renal; mainland-CN patient → Riad + Dennis; imaging gap or age≥70 → Heddy). The CLI JSON output exposes `comorbid_expansion_triggers_fired` with per-trigger rationale. **You MUST surface the fired triggers** to the user in this Step 4 echo — silent override is forbidden (`docs/ANTI_PATTERNS_v1.4.md` AP-9, AP-11).
 
@@ -187,7 +191,13 @@ python ~/.claude/skills/opl-cancer/scripts/cli.py wave1 \
 
 Cross-expert peer review pairings (per `models.yaml.reviewer_pairings`, distinct expert + distinct model) run automatically. Reviewer prompts: `pmid_quote_verify` · `retraction_check` · `self_contradiction` · `numerical_sanity` · `stats_correctness`.
 
-Surface to user after Wave 1: *"Wave 1 finished — Rosa, Bert, Heddy, Rick, Vince 都交卷了,Reviewer 跑了 6 个 pairing,有 1 个 disagreement (Bert ⟂ Aviv on the WNT signature interpretation) — 我会在最终交付时给你两个视角。要继续 Wave 2 hypothesis tournament 吗?"*
+**Mandatory user-facing progress messages (v1.5.1).** Throughout this Step and Steps 6–10, you MUST emit plain-language progress updates per `prompts/tasks/progress_message_rendering.md`. Use the 5 canonical stage labels (准备 / 想办法 / 查数据 / 审核 / 写报告), NEVER "Wave 1 / hypothesis tournament / Elo / Henry / G25" in the chat surface. ETA is a range, never a single number. Heartbeat at least once every 60 seconds during long sub-steps. The Python helper `src/opl_cancer/glue/progress_reporter.py` (`ProgressReporter`) provides the format if you want to drive it from code; otherwise emit the strings directly.
+
+Stage-start example: *"[1/5 准备 / Getting ready] 团队正在整理您的病历 + 查指南 + 找匹配的临床试验。大概 5-8 分钟。"*
+
+Stage-end example: *"[1/5 准备 / Getting ready] ✓ 病历整理好了, 一共找到 5 个有可能合适的临床试验 (3 个在国内、2 个香港),还有 1 处医生之间看法不一样,我会在最后给您两个视角看看。下一步: 想办法 — 团队会列 10-20 种可能的方案让它们互相比一比。"*
+
+The internal Wave 1 artifacts (per-expert reports, reviewer pairings, mechanical-gate verdicts) remain stored at `triggers/<run_id>/tasks/w1_*/` and are surfaced to the user only in the final clinician brief — not in the live chat.
 
 ---
 
@@ -204,7 +214,13 @@ python ~/.claude/skills/opl-cancer/scripts/cli.py wave2 \
 
 Robin EXPERIMENTAL_INSIGHTS_APPENDAGE feedback string flows back into each new round's Generation prompt. Reflector runs 6 modes between rounds.
 
-Show user the top-3 hypothesis cards (with confidence + parent chain) after Wave 2. *"Team 跑了 4 轮联赛,产出 17 个 hypothesis,top-3 是 …(简述)。要进 Wave 3 用真实数据验证吗?Wave 3 默认走 native Python (cBioPortal + GEPIA3 + PythonMeta + scipy,本地 ~5-15 min)。Docker (bixbench) 是 opt-in,只用于 heavy R / bioconductor notebooks。"*
+Surface the top-3 paths to the user in plain language (v1.5.1):
+
+Stage-start example: *"[2/5 想办法 / Brainstorming] 团队在列 10-20 种可能的方案, 然后让它们互相比一比, 找出最有把握的几个。大概 8-15 分钟。"*
+
+Stage-end example: *"[2/5 想办法 / Brainstorming] ✓ 17 种可能的方案里挑出了前 3 名 (分别是 ...简述...)。下一步: 查数据 — 拿这 3 个方案去对照公开的肿瘤数据库, 看看现有研究里证据有多强。"*
+
+Top-3 path summaries MUST be in lay terms — translate every medical term on first use per `references/patient_jargon_glossary.json`. The detailed hypothesis cards (HR / ORR / mPFS / Elo / parent-chain) stay in the clinician brief, NOT the live chat.
 
 > v1.5: Wave 3 is **non-skippable critical path** (`docs/ANTI_PATTERNS_v1.4.md` AP-1). The preflight check (`opl-cancer preflight`) refuses to start a patient run when neither jupyter (native) nor docker (bixbench) is available — no silent skip, no "Wave 3 will skip bixbench analysis" message. To bypass for dev/test only, use the assistant override `--allow-single-model` in preflight (NOT for patient runs).
 
@@ -223,6 +239,14 @@ python ~/.claude/skills/opl-cancer/scripts/cli.py wave3 \
 Mechanical gates auto-enforce: G14 dataset-patient-match-score, G15 multiple-testing-correction, G16 batch-effect-declared, G17 meta-I²-policy + Henry self-verify-render mandate, G18 PRISMA-search-strategy, **G25 deferred-evidence-block** (v1.5 — refuses delivery if Wave-3 critical claim was skipped), **G26 evidence-strength-ranking** (v1.5 — caps Elo boost when subgroup match < 50% or I² > 60%, requires demotion-disclosed marker). Any gate block → re-run with corrections, surface to user as data-quality finding.
 
 Outputs land in `triggers/<run_id>/data/` (per dataset, including `gepia3/aggregated_summary.csv`) + `meta_analysis/` (effect_sizes.csv + forest.png + funnel.png + pooled_estimates.json) + `analysis/*.ipynb` (reproducible notebooks).
+
+User-facing surface (v1.5.1):
+
+Stage-start example: *"[3/5 查数据 / Cross-checking] 团队在公开数据库 (TCGA 这种)里对照您的肿瘤特征。大概 5-12 分钟,慢的地方是查询要排队 (上游限速 12 秒一次,这是为了对方服务器稳定)。"*
+
+Heartbeat example: *"[3/5 查数据 / Cross-checking] 还在跑公开数据库的查询, 已经完成 45/71 个。预计还需要 5 分钟。"*
+
+Stage-end example: *"[3/5 查数据 / Cross-checking] ✓ 70 个查询里 70 个成功 (1 个失败是对方服务器问题, 不影响整体结论)。发现 2 个新方向值得记下来 (在报告里会标出来)。下一步: 审核 — 一条一条核对证据。"*
 
 ---
 
@@ -252,7 +276,15 @@ Henry checks:
 - **L3 permission gate** — every claim tagged Level 0 (info) / 1 (reasoning) / 2 (recommendation) / 3 (high-risk recommendation) / 4 (boundary). L3/L4 require a `risk_disclosure_card` written and patient-ack-gated.
 - **L4 rollback registry** — retraction / new-evidence / patient-feedback / auditor-recheck withdraw queue.
 
-Henry does **not** modify expert claims — only decides what may render. Surface Henry's verdict counts to user (passed / risk-card-required / blocked + reason).
+Henry does **not** modify expert claims — only decides what may render.
+
+User-facing surface (v1.5.1) — translate Henry verdicts to plain language. The internal name "Henry" can be mentioned by name once for warmth ("我们的内部审查员 Henry"), but the verdict words MUST be plain:
+
+Stage-start example: *"[4/5 审核 / Double-checking] 我们的内部审查员 (Henry) 在一条一条核对证据, 把不稳的标出来。大概 3-6 分钟。"*
+
+Stage-end example: *"[4/5 审核 / Double-checking] ✓ 27 条结论里 24 条直接通过, 2 条需要附加一段风险说明 (在报告里会标出来), 1 条被退回重做。下一步: 写两份报告 — 简单版给您, 专业版给医生。"*
+
+Internal gate IDs (G1-G27), claim-level Level-3/Level-4 codes, RC-xxx risk-card IDs all stay in the archive (`triggers/<run_id>/tasks/henry/`) and the clinician brief — NEVER in the live user chat. See `prompts/tasks/progress_message_rendering.md` §"Hard rules".
 
 ---
 

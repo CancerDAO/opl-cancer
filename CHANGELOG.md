@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.5.1] — 2026-05-25 — Long-run UX hotfix (plain-language progress)
+
+User feedback after v1.5 ship: *"opl-cancer 太久了, 用户一直在等好几个小时, 普通人体验较差; 输出内容太专业 — 存档可以专业, 但输出给用户要通俗。"* v1.5 fixed the final deliverable (`patient_plain_brief_rendering.md` + `patient_jargon_glossary.json`) but left the **intermediate run** of 30-90 minutes silent + jargon-heavy. v1.5.1 closes both gaps in one patch on the same `iter/v1.5` branch.
+
+### Changes
+
+1. **`prompts/tasks/progress_message_rendering.md`** (new) — canonical contract for plain-language progress messages. 5 stage labels (准备 / 想办法 / 查数据 / 审核 / 写报告) replace internal "Wave 1..5". 5 message templates (start / heartbeat / end / delay / block) with worked examples. Hard rules: no internal jargon (Wave / hypothesis / Elo / I² / ctDNA / log2FC / G-codes / RC-xxx / H-xxx), ETA always a range, never silent past 60s, no outcome promises, no apology-for-tech.
+
+2. **`src/opl_cancer/glue/progress_reporter.py`** (new) — `ProgressReporter` class with `start_stage` / `heartbeat` / `end_stage` / `delay` / `block` methods. Heartbeat respects 60s default cadence (configurable). Jargon-scrub trip-wire flags leaks with `[jargon-leak:X]`. JSONL audit trail. `on_emit` callback wires user-facing string to the chat. Language switchable zh / en / bilingual (default).
+
+3. **SKILL.md surface rewrites** — every Step 4-10 user-facing example switched to plain-language 5-stage format. Internal Wave/Elo/Henry/G-codes stay in the archive (`triggers/<run_id>/tasks/...`) and the clinician brief, never in the live chat. Explicit instruction to emit a stage-start, heartbeats (≥60s), and stage-end at every Wave boundary. The `comorbid_expansion_triggers_fired` payload (v1.5 P0-6) is now narrated in lay terms too.
+
+4. **`references/patient_jargon_glossary.json` 38 → 73 terms** — adds Wave 1..5, hypothesis, Elo, Henry, Sid, PMID, NCT, ChiCTR, CT.gov, NMPA, TCGA, GEPIA3, GTEx, cBioPortal, meta-analysis, pooled-ORR, subgroup, I², heterogeneity, audit, verdict, risk-card, ack, L3/L4, rate-limit, retrieval, integrator, provenance, preflight, hypothesis-tournament, gate. Schema bumped to v1.5.1.
+
+5. **`tests/test_progress_reporter.py`** — 20 new tests for stage labels (bilingual + monolingual), ETA range presence, heartbeat cadence, force override, delay invite-skip phrasing, block letter options, jargon-scrub trip-wire on v1.5 internal codes, JSONL persistence, on_emit callback, unknown-stage error.
+
+### Test count
+
+1081 (v1.5) → 1101 (v1.5.1). All green under `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`.
+
+### Migration
+
+- No breaking API change. ProgressReporter is opt-in (Wave runners accept it as an optional kwarg; v1.5 default behavior is unchanged when `reporter=None`).
+- Skill prompt-layer assistants MUST start using the 5-stage labels at every stage transition. The Python helper is a convenience; the orchestrator can also emit strings directly per `prompts/tasks/progress_message_rendering.md`.
+
 ## [1.5.0] — 2026-05-25 — Retrospective-driven hardening (iter/v1.5)
 
 Driven by `docs/RETROSPECTIVE_v1.4_PT-EXAMPLE-A_run-20260525.md` (compiled from 6 parallel Explore-subagent audits of the v1.4 PT-EXAMPLE-A run) and the 16 anti-patterns it surfaced (`docs/ANTI_PATTERNS_v1.4.md`). PRD lives at `docs/PRD_v1.5.md`. Closes 8 P0 + 9 P1 items; 3 of 6 P2 deferred to v1.6 with explicit rationale in `docs/P2_DEFERRALS_v1.5.md`.

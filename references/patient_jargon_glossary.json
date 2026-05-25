@@ -1,11 +1,151 @@
 {
   "_meta": {
-    "schema": "patient_jargon_glossary v1.5",
-    "purpose": "Lay-language translations used by patient_plain_brief_rendering. Each term has zh + en plain synonyms; renderer either replaces (preferred) or parenthesizes on first use. v1.5 P0-4.",
-    "source": "docs/RETROSPECTIVE_v1.4_PT-EXAMPLE-A_run-20260525.md §3h F5 — 60+ untranslated medical terms identified in v1.4 patient_brief output.",
-    "extend": "Add new entries when a Henry G-jargon gate violation surfaces. Never delete — old runs may still reference."
+    "schema": "patient_jargon_glossary v1.5.1",
+    "purpose": "Lay-language translations used by patient_plain_brief_rendering AND progress_message_rendering. Each term has zh + en plain synonyms; renderer either replaces (preferred) or parenthesizes on first use. v1.5 P0-4 + v1.5.1 hotfix.",
+    "source": "docs/RETROSPECTIVE_v1.4_PT-EXAMPLE-A_run-20260525.md §3h F5 — 60+ untranslated medical terms identified in v1.4 patient_brief output. v1.5.1 adds intermediate-stage terms (Wave / hypothesis / Elo / gate / 验证 / TCGA / pooled-ORR) so the in-run progress messages also stay plain.",
+    "extend": "Add new entries when a Henry G-jargon gate violation OR a progress_reporter jargon-leak trip-wire surfaces. Never delete — old runs may still reference."
   },
   "terms": {
+    "Wave 1": {
+      "zh": "准备阶段 (整理病历 + 查指南 + 找试验)",
+      "en": "getting-ready stage (records + guidelines + trial matching)"
+    },
+    "Wave 2": {
+      "zh": "想办法阶段 (列出方案让它们互相比一比)",
+      "en": "brainstorming stage (list paths and head-to-head them)"
+    },
+    "Wave 3": {
+      "zh": "查数据阶段 (在公开数据库里对照您的肿瘤特征)",
+      "en": "cross-checking stage (compare against public tumor databases)"
+    },
+    "Wave 4": {
+      "zh": "审核阶段的第一道",
+      "en": "first audit pass"
+    },
+    "Wave 5": {
+      "zh": "写报告阶段 (一份给您 + 一份给医生)",
+      "en": "writing-up stage (one report for you, one for your doctor)"
+    },
+    "hypothesis": {
+      "zh": "可能的治疗方案",
+      "en": "possible treatment path"
+    },
+    "hypothesis tournament": {
+      "zh": "方案 PK / 互相比一比",
+      "en": "head-to-head comparison of paths"
+    },
+    "Elo": {
+      "zh": "团队内部给方案的排名分数 (可不显示给您)",
+      "en": "internal ranking score (need not be surfaced)"
+    },
+    "gate": {
+      "zh": "内部检查规则",
+      "en": "internal safety check"
+    },
+    "Henry": {
+      "zh": "我们的内部审查员 (类似一个独立第三方审稿人)",
+      "en": "our internal auditor (like an independent third-party reviewer)"
+    },
+    "Sid": {
+      "zh": "团队的负责人 / 项目协调人",
+      "en": "team PI / project coordinator"
+    },
+    "PMID": {
+      "zh": "PubMed 上的论文编号 (一篇论文一个号)",
+      "en": "PubMed paper ID (unique per paper)"
+    },
+    "NCT": {
+      "zh": "ClinicalTrials.gov 上的临床试验编号",
+      "en": "ClinicalTrials.gov trial ID"
+    },
+    "ChiCTR": {
+      "zh": "中国临床试验注册中心 (国内的试验目录)",
+      "en": "China's clinical trial registry"
+    },
+    "CT.gov": {
+      "zh": "美国国家临床试验目录",
+      "en": "US national clinical trial registry"
+    },
+    "NMPA": {
+      "zh": "国家药监局 (中国的药品监管机构, 类似美国 FDA)",
+      "en": "China's National Medical Products Administration (the regulator, similar to US FDA)"
+    },
+    "TCGA": {
+      "zh": "癌症基因组图谱 (国际公开的肿瘤数据库)",
+      "en": "Cancer Genome Atlas (a public tumor genomics database)"
+    },
+    "GEPIA3": {
+      "zh": "一个对比肿瘤和正常组织基因表达的公开网站",
+      "en": "a public site that compares gene expression in tumor vs normal tissue"
+    },
+    "GTEx": {
+      "zh": "正常组织基因表达数据库 (用来做对照)",
+      "en": "normal-tissue gene expression database (used as a baseline)"
+    },
+    "cBioPortal": {
+      "zh": "一个公开的癌症基因变化数据库",
+      "en": "a public cancer genomics portal"
+    },
+    "meta-analysis": {
+      "zh": "把几份研究的结果合在一起算",
+      "en": "combine results across multiple studies"
+    },
+    "pooled ORR": {
+      "zh": "几份研究的客观缓解率合在一起算的结果",
+      "en": "pooled objective response rate across studies"
+    },
+    "subgroup": {
+      "zh": "研究里的子人群 (例如同种基因变化的患者)",
+      "en": "patient subset within a study (e.g. same mutation)"
+    },
+    "I²": {
+      "zh": "异质性指标 (大于 50% 说明各研究之间差异较大)",
+      "en": "heterogeneity index (>50% means the studies are notably different)"
+    },
+    "heterogeneity": {
+      "zh": "研究之间的差异",
+      "en": "how different the studies are from each other"
+    },
+    "audit": {
+      "zh": "审核 / 一条一条核对",
+      "en": "double-check, one claim at a time"
+    },
+    "verdict": {
+      "zh": "审核结论",
+      "en": "audit conclusion"
+    },
+    "risk-card": {
+      "zh": "风险提示卡 (高风险结论会附一段提醒)",
+      "en": "risk-disclosure note (high-risk conclusions carry one)"
+    },
+    "ack": {
+      "zh": "您确认看过 / 知情同意",
+      "en": "you confirm having read this"
+    },
+    "L3 / L4": {
+      "zh": "高风险等级 / 边界级 (内部分级,可不显示)",
+      "en": "high-risk / boundary tier (internal labels)"
+    },
+    "rate-limit": {
+      "zh": "网站限速 (要排队一会儿)",
+      "en": "the website is throttling our requests; we have to wait between calls"
+    },
+    "retrieval": {
+      "zh": "查资料 / 拉数据",
+      "en": "look up / pull data"
+    },
+    "integrator": {
+      "zh": "数据接口 (我们用来连一个公开数据库)",
+      "en": "data connector (a link to one external database)"
+    },
+    "provenance": {
+      "zh": "来源凭证 (哪条结论来自哪篇论文)",
+      "en": "source trail (which claim came from which paper)"
+    },
+    "preflight": {
+      "zh": "出发前自检",
+      "en": "pre-run self-check"
+    },
     "KRAS": {
       "zh": "KRAS 基因 (决定肿瘤生长的一个关键开关)",
       "en": "KRAS gene (a key switch driving tumor growth)"
