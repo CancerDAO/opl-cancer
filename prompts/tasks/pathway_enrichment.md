@@ -25,3 +25,21 @@ Return strict JSON:
   "cross_referenced_with_literature": [{"pathway":"<name>","pmid":"<pmid>"}, ...],
   "claim_layer": "exploratory"
 }
+
+
+## Empty-integrator rule (v1.2.0)
+
+If `deg_list` is empty (zero genes) OR `geneset_library` is empty, the only legal output is:
+
+- `library: "<name>"` (echo input)
+- `method: "ORA"`
+- `n_input_genes: 0`
+- `hits: []`
+- `cross_referenced_with_literature: []`
+- `claim_layer: "speculative"`
+
+Do NOT invent pathway names or NES / p / q values. Do NOT synthesize hits from training data.
+
+## PMID / pathway grounding (v1.2.0)
+
+Every `pathway` name MUST come from the supplied `geneset_library` (e.g. MSigDB Hallmark / KEGG / Reactome canonical names). Every `pmid` in `cross_referenced_with_literature` MUST come from the patient's upstream literature pack (`pubmed_results` etc.) — do NOT invent PMIDs.

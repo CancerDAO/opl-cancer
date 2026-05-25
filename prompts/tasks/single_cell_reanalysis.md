@@ -26,3 +26,23 @@ Return strict JSON:
   "claim_layer": "exploratory",
   "limitations": ["<lim>", ...]
 }
+
+
+## Empty-integrator rule (v1.2.0)
+
+If `accession` does not resolve to a real dataset in `wave3_evidence` / `datasets_json` upstream (i.e. the planner could not find a suitable scRNA-seq dataset), the only legal output is:
+
+- `accession: <input>`
+- `n_cells_after_qc: 0`
+- `clusters: []`
+- `differential_abundance: []`
+- `pathway_hits: []`
+- `interpretation: "Live integrator returned no evidence for this patient context. No scRNA-seq dataset matches the hypothesis; further dataset acquisition is required before this question can be answered. Patient is sole decision authority; output is non-directive."`
+- `claim_layer: "speculative"`
+- `limitations: ["No upstream dataset available."]`
+
+Do NOT invent cluster ids, cell-type assignments, marker genes, or pathway hits. Do NOT synthesize from training data.
+
+## PMID / accession grounding (v1.2.0)
+
+Every `accession`, every `marker` gene symbol, and every `pathway` name MUST come from upstream integrator outputs or canonical reference libraries. Do NOT invent cluster ids that don't appear in the supplied analysis output.

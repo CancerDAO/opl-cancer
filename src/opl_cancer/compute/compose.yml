@@ -1,0 +1,45 @@
+# OPL for Cancer — bixbench compute compose.
+#
+# Used by Wave 3 (data-evidence generation: DESeq2 / scanpy / scvi / metafor).
+# Optional: Wave 1/2/4/5 run without docker.
+#
+# Build once:
+#   docker compose -f src/opl_cancer/compute/compose.yml build bixbench
+#
+# Wave 3 invocation (Python-driven via compute/runner.py — env-gated by
+# OPL_BIXBENCH_LIVE=1):
+#   the runner spawns transient containers per notebook with the patient's
+#   triggers/<run_id>/data/analysis/ mounted on /workspace.
+#
+# Manual exec (useful for debugging a single notebook):
+#   docker compose -f src/opl_cancer/compute/compose.yml run --rm \
+#     -v ~/CancerDAO/patients/anon_001/triggers/<run_id>/data/analysis:/workspace \
+#     bixbench jupyter execute /workspace/<notebook>.ipynb
+
+services:
+  bixbench:
+    image: opl-cancer/bixbench:v0.3.0-p3
+    build:
+      context: .
+      dockerfile: bixbench.Dockerfile
+    # Wave 3 mounts patient analysis dir at runtime via -v flag (not here, so
+    # this compose file remains patient-agnostic). For interactive testing,
+    # uncomment the volume:
+    # volumes:
+    #   - ~/CancerDAO/patients/anon_001/triggers/run_test/data/analysis:/workspace
+    working_dir: /workspace
+    # entrypoint is set in Dockerfile to: jupyter execute /workspace/<notebook>
+    # Memory: PRD §15 G1 — bixbench ≥ 4GB RAM recommended.
+    mem_limit: 8g
+    cpu_count: 4
+    # Network on by default; Wave 3 may need to fetch reference data inside the
+    # container (e.g. annotation databases). Set to "none" to disable.
+    network_mode: bridge
+    # No restart — Wave 3 spawns one transient run per notebook.
+    restart: "no"
+    # Mount /tmp via tmpfs so failed runs don't leave artifacts in host /tmp.
+    tmpfs:
+      - /tmp:size=2g
+
+# Healthcheck: Wave 3 runner.py runs `docker compose run --rm bixbench python -c "import scanpy"`
+# before dispatching the first real notebook to confirm the image is healthy.

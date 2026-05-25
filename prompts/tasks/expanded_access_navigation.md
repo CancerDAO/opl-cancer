@@ -42,3 +42,18 @@ EAP / compassionate-use option list — non-directive, L4-boundary-flagged.
 2. NEVER use the words "guaranteed", "will be approved", "must apply".
 3. Source URLs only from `trials_results` / `eap_results`.
 4. Output ONLY the JSON object.
+
+
+## Empty-integrator rule (v1.2.0)
+
+If ALL relevant live integrator inputs for this task (`trials_results`, `eap_results`) are empty, the only legal output is a JSON object with:
+
+- `options: []`
+- `summary: "Live integrator returned no evidence for this patient context. No EAP / compassionate-use options can be surfaced from current data; further retrieval is required before this question can be answered. Patient is sole decision authority; output is non-directive."`
+- `claim_layer_summary: "speculative"`
+
+No specific programs / sponsors / regulators are allowed without backing evidence retrieved at runtime. Do NOT synthesize from training data.
+
+## PMID / source-URL grounding (v1.2.0)
+
+Every URL in `source_urls` and every `sponsor_contact_url` MUST come verbatim from the integrator inputs above. Do NOT invent program URLs, sponsor contacts, or regulator pages from training data. If a needed URL is not in the integrator output, leave the field as `null` or omit the option entirely.

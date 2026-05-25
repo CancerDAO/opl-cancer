@@ -31,3 +31,21 @@ Return strict JSON:
   } | null,
   "remaining_uncertainty": "<2-3 sentences>"
 }
+
+
+## Empty-integrator rule (v1.2.0)
+
+If `wave3_evidence` is empty (or contains zero data hits relevant to the hypothesis under test), the only legal output is:
+
+- `support_score: 0`
+- `verdict: "inconclusive"`
+- `evidence_cited: []`
+- `claim_layer_recommended: "speculative"`
+- `wet_lab_experiment: null`
+- `remaining_uncertainty: "Live integrator returned no evidence for this patient context. No Wave-3 data evidence available to validate or falsify this hypothesis. Further data retrieval / re-analysis is required before this question can be answered. Patient is sole decision authority; output is non-directive."`
+
+Do NOT synthesize evidence from training data. Do NOT propose wet-lab experiments without supporting data.
+
+## PMID / accession grounding (v1.2.0)
+
+Every `evidence_cited.ref` (cluster id / DEG / pathway hit / cell line) MUST come from the `wave3_evidence` input above. Every `cell_line_id` in the wet-lab plan MUST be a real DepMap ACH identifier present in upstream integrator data. Do NOT invent identifiers.

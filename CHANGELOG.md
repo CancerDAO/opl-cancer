@@ -1,5 +1,290 @@
 # Changelog
 
+## [1.4.0] — 2026-05-25 — Round-2/3 deferred backlog (priority A + B)
+
+After v1.3.3 ship-ready, ADR-0008's Deferred-to-v1.4 backlog (13 items with trigger conditions + effort estimates) is worked through in one batch fix. 11 of the 13 items close (5 priority A + 6 priority B); 2 items (D11 Bilingual delivery, D12 Expert-mode delivery channel) remain deferred to v1.5 as they belong to a delivery-layer rewrite that would over-scope v1.4. Three new task packages, two substantive task-package extensions, one new integrator, one CLI UX expansion, one intent_parser field, one planner row.
+
+### Priority A — round-2 P0-equivalent fixes (5 items)
+
+1. **A1 `prompts/tasks/surveillance_schedule.md` (new, ~265 lines)** — D1 domain; Heddy + Bert + Vince three-way; closes round-2 EVAL Patient #12 MEN1 post-resection pancreatic NET + parathyroid + pituitary surveillance gap. Inputs: `cancer_type` + `treatment_status` (curative_intent_completed / resected_with_residual_risk / maintenance / adjuvant_completed / watchful_waiting / post_definitive_RT) + `genetic_syndrome` (MEN1 / Lynch / LFS / HBOC_BRCA1/2 / VHL / NF1/2 / FAP / Peutz-Jeghers / Cowden / none) + `prior_recurrences[]`. Outputs: `surveillance_schedule[]` per modality (imaging / biomarker / clinical_exam / genetic_cascade) with cadence + integrator-anchored guideline + claim_layer. Mandatory: G14 cohort match for `recurrence_risk_projection`; G21 quantitative anchor for 5yr DFS / OS estimate + CI; cascade hand-off to `firefly-genetic-counseling` when syndrome+. Integrator anchors: NCCN Survivorship + cancer-specific NCCN follow-up + ASCO Survivorship + syndrome consensus (Thakker 2012 MEN1, Villani 2016 LFS, NCCN Lynch, NCCN HBOC). Surveillance is structurally NOT recurrence response (`recist_progression.md`) NOT next-line (`treatment_line_recommendation.md`) NOT acute workup (`staging_workup.md` restaging).
+
+2. **A2 `prompts/tasks/irae_rechallenge.md` schema extension (modify)** — Closes round-2 EVAL Patient #14 G2 myocarditis + G3 pneumonitis concurrent multi-organ gap. Schema changes:
+   - `prior_irae_record` changed from **singleton → list** (each entry `{organ, ctcae_grade, resolution_status, time_since_resolution_days}`); legacy singleton wrapped to length-1 list (no break).
+   - New `cumulative_organ_load_index` field with severity-weighted formula `Σ_i (grade_i^2 × organ_severity_weight_i × resolution_penalty_i)` + canonical weight table (myocarditis 2.5 / encephalitis 2.5 / pneumonitis 1.8 / hepatitis 1.3 / colitis 1.2 / nephritis 1.4 / GBS 2.2 / endocrine 0.6-1.0 / dermatitis 0.4 / arthritis 0.6) + resolution penalty (complete 1.0 / partial 1.4 / chronic 2.0 / not_resolved 3.0) + bands (low <2 / moderate 2-5 / high 5-10 / very_high >10).
+   - New contraindication escalation rules: `myocarditis_g2+` → STRONG RELATIVE (escalated from g3+, anchored to Salem ESC 2022 + Mahmood JACC 2018 PMID 29567210); `pneumonitis_g3+ AND any other_organ_irAE_g2+` → STRONG RELATIVE (v1.4.0 multi-organ rule); `2+ G3+ events in different organs` → NEAR-ABSOLUTE (~50% pooled rebound mortality); `cumulative_organ_load_index band ∈ {high, very_high}` → STRONG RELATIVE.
+   - L3 risk-card escalates to L4 when any escalation rule fires; `organ_specific_warning` becomes verbatim concatenation of all matching rules; `rebound_specific_text` includes the cumulative_organ_load_index value + band.
+
+3. **A3 `prompts/tasks/boundary_unregulated_channel_disclosure.md` retrospective mode (modify)** — Closes round-2 EVAL Patient #15 already-administered grey-market Lu-177 gap. Schema changes:
+   - New `disclosure_mode: prospective | retrospective | mixed` mandatory field.
+   - New `forensic_evaluation_request: bool` + `retrospective_records: {dosimetry_log_present, batch_records_present, packaging_photos_present, post_exposure_lab_panel_present, imaging_response_present, adverse_event_log_present}`.
+   - `procurement_refusal_text` split into `_prospective` + `_retrospective` variants; retrospective text reads: *"OPL cannot validate the source post-hoc — the exposure already happened. What OPL can do is help you quantitatively check what your dosimetry log / batch records / packaging photos / post-exposure labs / imaging response / AE log can tell us about activity match / radiochemical purity flags / response window / cross-contaminant signature. FUTURE doses through this channel remain refused — the prospective boundary holds."*
+   - New `retrospective_forensic_evaluation` block with 5 record-type rows + what_we_cannot_check_post_hoc + next_step_monitoring (renal q4w × 6mo / parotid + lacrimal q3mo × 12mo / marrow recovery q2w × 6mo / PSA + PSMA-PET 8w / 16w / 24w).
+   - Boundary on future-procurement remains permanent regardless of mode.
+
+4. **A4 `prompts/tasks/n1_cohort_projection.md` fallback chain (modify)** — Closes round-2 EVAL Patient #11 Hartwig DUA-raise + Patient #14 BRCA-NSCLC fallback miss. Schema changes:
+   - Inputs now declare `candidate_cohorts[]` ordered array (per-cancer planner hints: HCC → [Hartwig-HCC, ICGC-LIRI-JP, cBioPortal-LIHC, GEO-HCC-TACE-refractory pooled]; mCRPC → [Hartwig-PCa, ICGC-PROFILE, MSK-IMPACT, SU2C-PCF]; BRCA-NSCLC → [Hartwig-NSCLC-BRCA-subset, MSK-IMPACT-NSCLC, MSK-IMPACT-pan-cancer-BRCA, AACR-GENIE-BRCA]; AML R/R → [BeatAML 2.0, Hartwig-AML, TARGET-AML, OHSU-AML]).
+   - Procedure step 1 rewritten as ordered fallback loop: per candidate try retrieval → apply filter → compute match_score → decision (DUA-gated / empty / small_n / low_match → CONTINUE; pass → SELECT + STOP). Record every attempt to `cohort_alternatives_attempted[]` with `{dataset_id, ordinal, selected, n_after_filter, match_score, reason}` — surfaces the full attempt trail to the patient brief.
+   - If all candidates exhaust without selection → emit `projection: null` + speculative claim_layer + summary names every reason.
+
+5. **A5 `prompts/tasks/caregiver_filter_protocol.md` (new, ~205 lines)** — D5 domain; Sid + Henry L4; closes round-2 EVAL Patient #11 老公 "let me consume first" caregiver-as-filter gap. Adult-patient caveat (the pediatric guardian path is handled by `guardian_ack_protocol.md`). Inputs: `speaker_role: caregiver` + `patient_currently_competent` + `patient_consent_to_relay_decision: explicit | inferred | unknown`. Output: `caregiver_preview_mode: true` → emits `caregiver_brief.md` BUT **keeps `patient_brief.html` intact in delivery folder** (OPL does NOT suppress / hide / move / encrypt / rename — the boundary is structural). Mandatory explicit disclosure to caregiver: *"OPL cannot withhold from the patient — the patient brief will materialize the moment your wife / husband / family member opens the patient_root folder. Honest options: (a) talk to patient now with this material; (b) hand off to cancer-buddy-disclosure sibling skill to script the conversation; (c) accept that withholding is YOUR decision, not OPL's — OPL keeps patient brief intact"*. Sid explicitly **declines** to make the disclosure decision on the patient's behalf — preserves patient-sole-decision-authority invariant. Caregiver acks `preview_receipt` only; cannot ack L3/L4 cards on patient's behalf.
+
+### Priority B — round-2/3 P1 batch (6 items)
+
+6. **B1 `prompts/tasks/patient_pushback_handling.md` (new, ~195 lines)** — D5 domain; Sid + Henry L2; closes round-2 EVAL Patient #18 sister-physician zolbetuximab dissent + Patient #14 老婆 rechallenge disagreement gap. Inputs: `original_claim_id` + `pushback_text` (verbatim) + `pushback_role: patient | family_member | physician_audit` + `pushback_axis_hint`. Output: NEITHER concede (echo violates `memory/feedback_third_party_lens`) NOR paternalism (don't restate same number louder). Surfaces `alternative_read` honestly, `integrator_anchored_dissent[]` (SPOTLIGHT critics on absolute PFS Δ vs OS HR; NCCN Cat 1 vs 2A; ESMO MCBS dissent), `value_lattice_reframe` (maps original framing vs alternative framing to patient's stated value), `your_choices_optionful` (accept alternative / accept original / re-rank value lattice / ask Wave re-run as NEW_GOAL). NOT a Wave re-run (that's a new trigger); a re-frame + re-anchor of existing claim. Logged to `memory/feedback_log/` regardless of patient choice.
+
+7. **B2 `src/opl_cancer/integrators/hkctr.py` (new, ~165 lines)** — F3 family; closes round-2 EVAL Patient #20 NPC EBV CN/DE/HK three-jurisdiction registry gap. Real HTTP scrape of `https://www.hkclinicaltrials.com/` with fallback to Department of Health Drug Office `https://www.drugoffice.gov.hk/eps/`. Two layout regex patterns (linked-anchor cards + drug-office tabular rows) + de-duplication by hkctr_id. Schema-drift detection raises `IntegratorError` on markers-present-but-zero-rows. Both endpoints unreachable raises. Genuine empty (no markers) returns empty list. Registered in `integrators/__init__.py` + `cli.py preflight integrator_modules` (28 → 29) + status banner ("Integrators wired: 29 / + HKCTR"). 8 unit tests covering primary / fallback / drift / unreachable / genuine-empty / malformed-key / empty-term / family-classification.
+
+8. **B3 SKILL.md Step 4 — TNBC + LM planner row** — Closes round-2 EVAL Patient #13 TNBC + LM gap. Added row: *"TNBC + LM (leptomeningeal mets): Bert + Vince + Heddy + Aviv + Iain + Rick + Ted (HA-WBRT — NRG-CC003 backbone for TNBC LM) + Jen (LM palliative — TNBC LM median survival 2-4 months) + Frances (sacituzumab + IT-nivolumab compassionate — IT-trastuzumab N/A for TNBC, IT-MTX is canonical) + Tyler (wet-lab biomarker)."* Explicit chemistry note: TNBC LM-route chemistry differs from breast-HER2 LM (IT-trastuzumab N/A; IT-MTX canonical; IT-pembrolizumab emerging; HA-WBRT radiation backbone).
+
+9. **B4 `prompts/pi/intent_parser.md` — delivery_tone_hint extraction** — Closes round-2 EVAL Patient #13 "我不想被 sugar-coated" + Patient #16 parents "more padding" gap. New JSON output field `delivery_tone_hint: blunt | warm | clinical | unspecified`. Extraction rules:
+   - **blunt** triggers: ZH `直接告诉我 / 别 sugar coat / 别软话 / 实话实说 / 直说 / 不要绕弯子 / 坦白 / 别藏着掖着` + EN `give it to me straight / no sugar coating / blunt / honest / cut to the chase / unvarnished / no padding`.
+   - **warm** triggers: ZH `温柔点 / 委婉 / 不要直接说 / 轻一点 / 慢慢说 / 不要太冲击` + EN `gently / soft / careful / pace it / take it slow / easy on me`.
+   - **clinical** triggers: ZH `用医生的话说 / 给我临床版 / 我是医生 / 给我学术版` + EN `clinical voice / peer-physician / I'm a physician / expert mode`.
+   - **unspecified** = default, downstream `pi_delivery.md` heuristics-pick.
+   Persists to `pi_session/preferences.json.delivery_tone` with source-tracking (`user_explicit_set` wins over `intent_parser_extracted`; later parses overwrite earlier parses).
+
+10. **B5 Ack-batch UX — `cli.py acknowledge --batch <pattern>` + `pi_delivery.md ack_consolidation_card`** — Closes round-2 EVAL Patient #14 stacked 3+ acks repeatedly triggered. CLI:
+    - `opl-cancer acknowledge --batch L3-all` — ack all L3 cards.
+    - `opl-cancer acknowledge --batch L4-all` — ack all L4 cards.
+    - `opl-cancer acknowledge --batch Lall` — ack all L3+L4 pending.
+    - `opl-cancer acknowledge --batch by-drug:<inn>` — ack all cards mentioning the INN (case-insensitive substring scan of claim_text + known_serious_risks).
+    - `opl-cancer acknowledge --batch by-claim:<id_prefix>` — ack all cards with claim_id starting with prefix.
+    - `opl-cancer acknowledge --batch by-card-prefix:<prefix>` — ack all cards with card_id starting with prefix.
+    Each individual card is still acked atomically and audit-trail-recorded; the batch flag only reduces UX friction. `pi_delivery.md` adds an `ack_consolidation_card` section at the top (above the per-card risk-card render) when 3+ unacked cards exist — lists only baseline safety disclosure (irAE risks / EAP-is-not-approval / cross-border-is-not-continuity / off-label-is-off-label / L4-boundary), provides the batch CLI hint, but explicitly preserves drug-specific acks as individual cards (no consolidation of patient-conscious drug-specific risks into a single ack).
+
+11. **B6 `prompts/tasks/n1_cohort_projection.md` lab_trajectory feature (modify)** — Closes round-2 EVAL Patient #11 HCC AFP 240→8400 over 5mo (35x rise — strongest prognostic signal but v1.3.x modeled static labs only). Schema:
+    - Inputs `patient_features_extracted.lab_trajectory: {biomarker → {slope_per_month, doubling_time_mo, fold_change_x, baseline_value, latest_value, trajectory_span_months, trajectory_class}}`.
+    - Trajectory-eligible biomarker per cancer: HCC → AFP / AFP-L3 / DCP-PIVKA-II; PCa → PSA; TNBC + ER+/HER2- → CA15-3; HGSOC → CA-125; CRC → CEA; pancreatic → CA19-9; gastric → CA72-4 / CEA; AML → WBC / blast %; MM → M-protein / light chains / β2-microglobulin; DLBCL → LDH trajectory + sIL-2R; pancreatic NET → chromogranin A.
+    - Procedure step 2 updated: ≥2 serial measurements spanning ≥30 days REQUIRED to compute trajectory; single-measurement biomarkers emit `lab_trajectory.<biomarker>: null` + extrapolation_warning ("single measurement; trajectory not computable"). The LLM may NOT fabricate a trajectory from a single value (`memory/feedback_no_offline_only.md`).
+    - `patient_features_used[]` now includes `lab_trajectory:<biomarker>:slope_per_month` + `lab_trajectory:<biomarker>:doubling_time_mo` as Cox covariates.
+
+### Version bumps
+
+12. `pyproject.toml` — `version = "1.3.3"` → `"1.4.0"`.
+13. `SKILL.md` — `metadata.version: "1.3.3"` → `"1.4.0"` + v1.4.0 anchor narrative (lists A1-A5 + B1-B6 + integrator count 28 → 29).
+14. `src/opl_cancer/cli.py` — `VERSION = "1.3.3"` → `"1.4.0"`; `status` reports `Integrators wired: 29 ( … + HKCTR + …)`; preflight `integrator_modules` list grows by `"hkctr"`.
+15. `tests/test_cli.py` — asserts `v1.4.0` + `Integrators wired: 29` + retains `Mechanical gates: 23`.
+
+### ADR — Deferred table updated
+
+16. `docs/adr/0008-eval-panel-round-2-v1.3.2.md` — Deferred-to-v1.4+ table updated: D1 / D2 / D3 / D4 / D5 / D6 / D7 / D8 / D9 / D10 / D13 ✓ marked fixed in v1.4.0 with file refs; D11 (Bilingual delivery) + D12 (Expert-mode delivery channel) remain deferred to v1.5 (delivery-layer rewrite scope) with re-stated trigger conditions.
+
+### Test count delta
+
+- HKCTR: 8 new unit tests in `tests/test_integrators/test_hkctr.py`.
+- CLI: existing tests + status banner update validated.
+- Task-package count: 38 → 41 (surveillance_schedule + caregiver_filter_protocol + patient_pushback_handling).
+- Mechanical gates unchanged at 23 (G1-G20 + G22 + G23 + G24).
+- Integrators: 28 → 29.
+
+## [1.3.3] — 2026-05-25 — Round-3 verification follow-up (catalogue + recency completeness)
+
+After v1.3.2 SAFETY hot-fix, round-3 focused verification (3 patients: #21 SI, #22 pediatric guardian, #23 sister-physician audit) confirmed the 3 SAFETY P0 fixes (G24 crisis detection / guardian_ack_protocol / drilldown 4 classes) all PASS. Found 2 one-line gaps:
+
+- **`knowledge/serious_risks_per_drug.json`** — added 4 entries: **revumenib** (Revuforj / SNDX-5613, menin inhibitor; Differentiation syndrome BOXED + QTc + hepatotox + cytopenias), **ziftomenib** (KO-539 investigational, menin-i; class-effect DS), **bleximenib** (JNJ-75276617 Phase 2, menin-i; class-effect DS), **ceralasertib** (AZD6738 investigational Phase 3, ATR inhibitor; severe myelosuppression + transaminitis + IO-combo pneumonitis HUDSON/CAPRI). Closes Patient #22 FAIL: v1.3.2 added "Pediatric AML R/R" planner row pointing to revumenib EAP but the L3 known-serious-risk JSON lacked the entry → Henry would emit `[unknown drug]` for menin-i pediatric AML cases.
+- **`g23_recency_band.py FAST_MOVING_TOPICS`** — added ~30 DDR-targeting tokens (ATR-i: atr / atr-i / ceralasertib / azd6738 / berzosertib / m6620 / vx-970 / elimusertib / bay1895344 / camonsertib / rp-3500 / atrn-119 + CHK1-i: chk1 / chk1-i / prexasertib / ly2606368 + WEE1-i: adavosertib / azd1775 / wee1 / wee1-i + Polθ-i: novobiocin / polq / polθ inhibitor / art4215 / art-4215). Closes Patient #23 PARTIAL: G23 now fires recency-band WARN on stale ATR-i citations alongside the existing brca-reversion trigger.
+
+Both are one-line knowledge-file / regex-list additions. No architectural change. 977 tests still pass; ruff clean.
+
+**Verification verdict on v1.3.2 SAFETY paradigm**: round-3 confirms the 3 round-2 P0 drivers are mechanically closed (G24 fires on "想结束这一切" passive_SI · guardian_ack_protocol blocks treatment-decision authority for guardian-of-minor speaker · drilldown.md 4-class envelope handles compound sister-physician audits). v1.3.3 is the residual one-line catalogue / recency completeness pass; ship-ready.
+
+## [1.3.2] — 2026-05-25 — SAFETY hot-fix (round-2 EVAL response)
+
+Round-2 EVAL panel (seed 11-20) exposed 2 SAFETY P0 + 1 carry-over P0 + 3 critical P1 that cannot be deferred to v1.4. Ships as a same-day hot-fix.
+
+### Safety P0 — Suicidal-ideation crisis detection (round-2 Patient #17)
+
+v1.3.1 had no SI / self-harm keyword detection — phrases like "想结束这一切 / end it all / can't go on" fell through to EMOTION intent then trial-dumped to an ECOG-3 bedbound suicidal patient.
+
+1. `prompts/safety/crisis_detection.md` — new bilingual (ZH + EN) crisis-detection prompt. Three grades (`passive_SI` / `active_SI` / `active_plan`) over keyword banks A/B/C. Keyword-scan FIRST (no LLM-only path), LLM grades after. Outputs `{crisis_detected, crisis_grade, trigger_phrase, jurisdiction_inferred, speaker_role_echo, rationale}`.
+2. `src/opl_cancer/validators/gates/g24_crisis_detection.py` — new G24 gate. No-LLM keyword-scan over patient_text + caregiver_text. On hit → `GateStatus.FAIL + block=True` with payload `{crisis_grade, trigger_phrase, jurisdiction_inferred, recommended_handoff: [cancer-buddy-mind, jurisdiction-crisis-line:XX], wave_lock: true}`. Registered in `validators/gates/__init__.py` + `mechanical_gates.all_gate_classes()` (22 → 23 gates).
+3. `prompts/tasks/crisis_card_emission.md` — new owner-sid task package. Emits `pi_session/outstanding/crisis_card.json` with jurisdictional phone lines (CN 010-82951332 + 400-161-9995; US 988; UK Samaritans 116-123; DE Telefonseelsorge 0800-111-0-111; EU 116-123 international; JP TELL 03-5774-0992 + 0120-783-556; international Befrienders fallback). Founder-mode prose: acknowledge + name the moment + offer phone + hand off to `cancer-buddy-mind` (+ `cancer-buddy-caregiver` if speaker is caregiver / guardian). Wave runners must check + lock on `acknowledged_by: pending`.
+4. `SKILL.md` — "When NOT to invoke" adds **Acute psychiatric crisis** row with G24 auto-fire + Wave-lock description.
+5. `prompts/pi/intent_parser.md` — adds `crisis_grade: none|passive_SI|active_SI|active_plan` to output JSON; EMOTION intent gets a CRISIS subclass branch that forks to `crisis_card_emission` instead of soft handoff.
+6. `prompts/tasks/scope_handoff_routing.md` — adds "Crisis multi-handoff exception" overriding the single-sibling rule on `crisis_grade != none`.
+7. `tests/test_validators/test_g24_crisis_detection.py` — 12 cases: passive_SI ZH/EN, active_SI ZH/EN, active_plan ZH/EN, false-positive avoidance (advance directive / DNR / hospice), false-negative caregiver_text scan, grade-picks-highest, jurisdiction inference (explicit hint + UK location token).
+
+### Safety P0 — Pediatric guardian mode (round-2 Patient #16)
+
+v1.3.1 told a 7yo ALL R/R guardian to "wait for v1.4" — excludes pediatric patients from the "every patient" promise.
+
+8. `prompts/pi/intent_parser.md` — adds `guardian_of_minor` speaker_role (caregiver + patient_age<18 + first-degree relative + age-from-text inference rules).
+9. `prompts/tasks/guardian_ack_protocol.md` — new task package, sid + henry co-review. Guardian acks **information receipt only** (NOT treatment-decision authority — that routes to pediatric IRB-supervised slot). Emits `pediatric_caregiver_brief.md` + `pi_delivery_minor.md` (age-simplified for 5-12 yo if appropriate). Adult-only sibling skills activated with caveat.
+10. `SKILL.md` Step 4 — adds 4 pediatric planner rows: Pediatric ALL R/R (revumenib/menin-i + Lee CRS), Pediatric AML R/R, Pediatric DIPG / brain tumor (H3K27M + ONC201 + pediatric proton), Pediatric solid (Ewing / RMS / neuroblastoma).
+11. `SKILL.md` "When NOT to invoke" — replaces "wait for v1.4" with the guardian + child unit model + IRB-slot routing.
+
+### Safety P0 — drilldown.md depth (round-2 Patient #18 sister-physician audit)
+
+12. `prompts/pi/drilldown.md` — full rewrite from v1.2.0 stub. Four canonical drill-down classes: **claim_provenance** (PMID + quote + hash + notebook + reproduce_command), **reasoning** (expert's step-by-step chain + premise set + alternatives rejected), **statistical** (method + dataset + assumptions + sensitivity + interpretation), **disagreement** (round + experts + axis + Henry L2 verdict + tie-break). Output schema `drilldown_card.json` with `drilldown_type`, `original_claim_id`, `expanded_evidence`, `expanded_reasoning`, `expanded_statistics`, `expanded_disagreement`. Refuses to invent new claims; cross-routes to `intent_parser` for new territory.
+
+### Critical P1 (3 fixes)
+
+13. `src/opl_cancer/validators/gates/g22_ddr_zygosity.py` — adds `_NON_DDR_LINEAGE_CONTEXTS` (pediatric ALL / AML / lymphoma / NPC / thyroid / DIPG) + `_DDR_THERAPY_TOKENS` (PARPi class + ATR-i + platinum + DDR-trial names). If DDR gene mentioned but no therapy-token AND cancer-context is in non-DDR lineage list → SKIP (carve-out) instead of FAIL. BLOCK hint message now disease-context-aware (NSCLC → HUDSON/MEDIOLA-LUNG; ovarian → SOLO1/SOLO2/PRIMA; breast → OlympiA; pancreas → POLO) — no longer defaults to PROfound for non-prostate. 5 new test cases.
+14. `src/opl_cancer/validators/gates/g23_recency_band.py` — extends `FAST_MOVING_TOPICS` with menin / revumenib / ziftomenib / bleximenib / KMT2A-r / NPM1-mut AML / EBV / EBV-CTL / tab-cel / tabelecleucel / LMP1 / LMP2 / EBNA / NPC / HA-WBRT / NRG-CC003 / IT-nivolumab / IT-pembrolizumab / craniospinal proton / LM proton / Dato-DXd / datopotamab deruxtecan / tarlatamab / BiTE / KRAS G12D / G12V / MRTX1133 / BTK degrader / pirtobrutinib / nemtabrutinib. 4 new test cases.
+15. `SKILL.md` description — adds 14 cancer types (NPC/鼻咽癌, MEN1/多发性内分泌肿瘤, pancreatic NET/胰腺神经内分泌瘤, pituitary adenoma/垂体腺瘤, GIST/胃肠间质瘤, sarcoma/软组织肉瘤, thyroid/甲状腺, cholangiocarcinoma/胆管癌, mesothelioma/间皮瘤, head and neck/头颈, esophageal/食管, RCC/肾细胞癌, bladder/膀胱, glioma/胶质瘤, pediatric ALL/AML/DIPG/Ewing/RMS/neuroblastoma).
+
+### New ADR
+
+16. `docs/adr/0008-eval-panel-round-2-v1.3.2.md` — documents the round-2 panel (seed 11-20), the 2 P0 SAFETY + 1 P0 carry-over + 3 critical P1 fixed in v1.3.2, and the ~13 P1+P2 deferred to v1.4 with trigger conditions + effort estimates.
+
+### Bumps
+
+17. `pyproject.toml` — version 1.3.1 → 1.3.2.
+18. `SKILL.md` — `metadata.version` 1.3.1 → 1.3.2 + v1.3.2 anchor narrative.
+19. `src/opl_cancer/cli.py` — `VERSION = "1.3.2"` + `status` reports `Mechanical gates: 23 (G1-G20 + G22 + G23 + G24)`.
+20. `tests/test_cli.py` — asserts `v1.3.2` + `Mechanical gates: 23`.
+
+## [1.3.1] — 2026-05-25 — Post-EVAL hot-fix release
+
+Closes the v1.3.0.post1 "deferred to v1.3.1" batch from the 10-patient EVAL panel — 5 new task packages + 2 new gates + 7 new integrator stubs + ADR-0007 follow-up. See `docs/adr/0007-eval-panel-v1.3.0-followup.md` for the panel narrative + the deferred-to-v1.4 backlog.
+
+### New task packages (5)
+
+1. `prompts/tasks/boundary_unregulated_channel_disclosure.md` — D5, Sid + Dennis + Frances co-review. Mandatory `acknowledgement_of_existence: true` + `procurement_refusal: true` + L4 ack + permanent broker / clinic / price / procurement-logistics block flags (Patient #9).
+2. `prompts/tasks/n1_cohort_projection.md` — D3, Aviv + Iain. Cox fit + KM stratification + projected OS-12mo / PFS-XX with CI + extrapolation_warnings; G14 + G21 enforced. Consumed by `irae_rechallenge` + `intrathecal_therapy_navigation` (Patient #10).
+3. `prompts/tasks/intrathecal_therapy_navigation.md` — D1, Ted + Vince + Jen three-way. Chamberlain stratification + IT-MTX / IT-cytarabine / IT-trastuzumab (HER2-only) / IT-nivolumab (melanoma) / Ommaya + HA-WBRT + craniospinal-proton + mandatory `prognosis_band` with CI (Patient #10).
+4. `prompts/tasks/irae_rechallenge.md` — D1, Mark + Vince + Iain. Dolladille / Simonaggio / Pollack pooled HR + n1-projected rebound probability with CI + organ-specific absolute contraindications (myocarditis g3+ / encephalitis g3+) + L3 ack (Patient #4).
+5. `prompts/tasks/family_cascade_routing.md` — D5, Sid + Bert. Cancer-syndrome-cascade specialisation of `scope_handoff_routing`; variant-fidelity payload + at-risk-relative graph + handoff to `firefly-genetic-counseling` without auto-invocation (Patient #8).
+
+Task-package total: 31 → 36.
+
+### New mechanical gates (2)
+
+6. `src/opl_cancer/validators/gates/g22_ddr_zygosity.py` — Failure mode F7. BLOCK on any DDR/HRR/PARPi claim missing `ddr_gene + ddr_zygosity ∈ {biallelic, monoallelic, unknown, not_applicable} + trial_subgroup + pmid`. Hint message names canonical PROfound / PROpel / MAGNITUDE pairings (Patient #9 E3).
+7. `src/opl_cancer/validators/gates/g23_recency_band.py` — Failure mode F8. WARN (not BLOCK) when fast-moving-topic claim (PSMA-RLT / Lu-177 / AR-V7 / CAR-T / BTK-degrader / KRAS-G12C / MET-amp / BRCA-reversion / ADC / BiTE) cites PMID older than 18 months. Carries caveat into patient brief (Patient #9 E4).
+
+Both gates registered in `src/opl_cancer/validators/gates/__init__.py` and `mechanical_gates.all_gate_classes()`. Gate count: 20 → 22.
+
+### New integrator stubs (7)
+
+Per `memory/feedback_no_offline_only.md` — no training-data fabrication. Controlled-access integrators raise `IntegratorError` with the canonical access path; public-API integrators perform real HTML scrape / GraphQL fetch.
+
+8. `src/opl_cancer/integrators/hartwig.py` — F5, Hartwig Medical Foundation (DUA-gated). Raises with application URL + Priestley *Nature* 2019 descriptor PMID 31645765. TTL 30 days.
+9. `src/opl_cancer/integrators/beataml.py` — F5, BeatAML 2.0 (Vizome portal, DAR-gated for patient-level). Raises with Vizome URL + Bottomly *Cancer Cell* 2022 PMID 36055236 + Tyner *Nature* 2018 PMID 30333627. TTL 30 days.
+10. `src/opl_cancer/integrators/icgc.py` — F5/F6 hybrid, ICGC data portal (DCC public-aggregate + EGA controlled-access for patient-level). Raises with DCC + ARGO + EGA-DAC URLs + PCAWG *Nature* 2020 PMID 32025007. TTL 30 days.
+11. `src/opl_cancer/integrators/isrctn.py` — F3, ISRCTN UK trial registry. Real HTML scrape (no auth), 1-day TTL, schema-drift detection raises on parse-zero with non-empty page.
+12. `src/opl_cancer/integrators/eu_ctr.py` — F3, EU Clinical Trials Register. Real HTML scrape (no auth), 1-day TTL, schema-drift detection.
+13. `src/opl_cancer/integrators/ema_eap.py` — F8, EMA compassionate-use (Regulation 726/2004 Article 83). Real HTML scrape (no auth), 7-day TTL, Member-State-overlay note (AIFA / BfArM / ANSM / AEMPS).
+14. `src/opl_cancer/integrators/open_targets.py` — F9, Open Targets Platform GraphQL (no auth). 3 query shapes (target / disease / target_disease), 7-day TTL (Patient #2 E2).
+
+Integrator total: 21 → 28. Family coverage F1/F2/F3/F4/F5/F6/F7/F8/F9 complete. Re-exported from `src/opl_cancer/integrators/__init__.py`; CLI preflight `integrator_modules` list updated.
+
+### New ADR
+
+15. `docs/adr/0007-eval-panel-v1.3.0-followup.md` — documents the 10-patient EVAL panel, the 5 cross-cutting findings, the v1.3.1 fix mapping, and the v1.4 deferred backlog (LM expert / multi-language drilldown / IPD-meta task / hope-impact delivery modality / ack-batch UX / triplet-DDI schema / BRCA-reversion examples in Bert persona / AR-V7 splice-variant assay-source schema in Bert) with trigger conditions + effort estimates per item.
+
+### Bumps
+
+16. `CHANGELOG.md` — this `[1.3.1]` entry.
+17. `pyproject.toml` — version 1.3.0 → 1.3.1.
+18. `SKILL.md` — `metadata.version` 1.3.0 → 1.3.1 + `version 1.3.1` anchor in H1 paragraph + integrator-count narrative updated 22 → 28.
+19. `src/opl_cancer/cli.py` — `VERSION = "1.3.1"` + `status` command reports `Integrators wired: 28` + `Mechanical gates: 22 (G1-G20 + G22 + G23)`.
+20. `tests/test_cli.py` — asserts `v1.3.1` + `Mechanical gates: 22`.
+
+## [1.3.0.post1] — 2026-05-25 — Post-10-patient-EVAL hot-fix (main thread)
+
+This entry covers fixes applied **after** the v1.3.0 skill-form re-architecture, in response to a 10-patient EVAL panel run (seed 1-10) covering HCC TACE-refractory, NSCLC EGFR + LM, BRCA1+ TNBC + reversion, MSI-H CRC + irAE hepatitis, HER2+ gastric post-T-DXd, AML R/R IDH1 + triplet, pancreatic KRAS G12C, ovarian HRD+ post-niraparib + BRCA reversion, mCRPC AR-V7 + Lu-177 boundary, melanoma BRAF post-MAPKi + CNS+LM.
+
+### Cross-cutting EVAL findings (consolidated)
+
+1. **Trigger description vernacular gap** — real patients say "TACE 失败 / osimertinib 耐药 / BRCA reversion / 我等不了" not "我有 HCC 想要 AI 分析". Description now expanded with ~40 vernacular trigger phrases.
+2. **Cancer-type-aware planner hints** — Step 4 now lists which experts are starting brackets for 10 common scenarios (HCC TACE-refractory → +Riad +Hong; NSCLC LM → +Ted +Jen; ICI irAE rechallenge → Mark lead; HRD+ ovarian → +firefly-genetic-counseling handoff; etc).
+3. **G14 dataset-patient-match expanded** — added conditional axes `metastatic_site / cns_involvement / ethnicity / sex / age_bracket` with `_CONDITIONAL_FLOOR=0.4`. Cohort-ethnicity mismatch (e.g. MSK-IMPACT 70%-white projected to Chinese patient) now WARN-surfaces honestly.
+4. **G21 quantitative-anchor gate (new)** — Wave-3-evidenced claims must surface HR/OR/RR-with-CI / Cox-β / percentile-projection / median-OS / IC50 / log-rank-χ² etc; founder-mode "real prediction, not labels" promise now mechanically enforced, not aspirational.
+5. **intent_parser deepened** — added `PROGNOSIS_QUERY` intent + `speaker_role` (patient / caregiver / unknown) + `hope_impact` (low / moderate / high). High-hope-impact prognostic claims now force L3 ack regardless of base permission level + emit dual-track delivery (patient-paced `pi_delivery.md` + caregiver-detail `caregiver_brief.md`).
+6. **models.yaml reviewer-pairing comments fixed** — prior comment "iain: heddy — irAE reviewed by hepatology" was mislabel (Iain = Cochrane meta archetype, Heddy = radiology); now reads "meta-pooled effect sizes reviewed against imaging-response definitions" reflecting actual scope. NEW pairing `vince: iain` added for treatment-line ↔ pooled-evidence cross-review (Patient #4 irAE rechallenge surfaced the need).
+7. **knowledge/serious_risks_per_drug.json expanded** — 5 drugs → 25 drugs covering panel scenarios (T-DXd, sacituzumab govitecan, zolbetuximab, cabozantinib, regorafenib, lenvatinib, olaparib, niraparib, amivantamab, tepotinib, sotorasib, adagrasib, venetoclax, gilteritinib, ivosidenib, azacitidine, Lu-177-PSMA-617, encorafenib, binimetinib, ceralasertib, berzosertib, adavosertib, cabazitaxel, abiraterone, enzalutamide). Henry L3 known-serious-risk checklist now fires correctly across the panel — no more `[unknown drug]` UX hole.
+8. **scope_handoff_routing task package (new)** — Patient #8 (BRCA2+ mom asks about 36yo daughter cascade testing) showed OPL was silently refusing off-scope asks. New task package emits acknowledgement + in-scope partial anchor + named sibling skill (firefly-genetic-counseling, cancer-buddy-mind, etc) + copy-pasteable invocation phrasing. Founder-mode "I hear you, here's where to go" pattern, not silent refusal.
+
+### Files added / modified
+
+- `SKILL.md` — description expanded (~40 vernacular triggers), Step 4 cancer-type-aware planner hints (10 scenarios with expert brackets + handoff triggers).
+- `prompts/pi/intent_parser.md` — full rewrite (PROGNOSIS_QUERY + CAREGIVER + hope_impact + caregiver_brief routing).
+- `prompts/tasks/scope_handoff_routing.md` — new D5 task package.
+- `models.yaml` — reviewer_pairings comments cleaned; new vince⟂iain pairing.
+- `knowledge/serious_risks_per_drug.json` — schema v0.1.0 → v0.2.0 (5 → 25 drugs).
+- `src/opl_cancer/validators/gates/g14_dataset_patient_match.py` — conditional axes added.
+- `src/opl_cancer/validators/gates/g21_quantitative_anchor.py` — new gate.
+- `tests/test_validators/test_g14_dataset_patient_match.py` — 2 new test cases (conditional axis warn + emission-gated pass).
+
+### Deferred to v1.3.1 (batch-fix subagent in flight)
+
+5 new task packages (`boundary_unregulated_channel_disclosure` / `n1_cohort_projection` / `intrathecal_therapy_navigation` / `irae_rechallenge` / `family_cascade_routing`) + 2 new gates (G22 DDR zygosity, G23 PMID recency band for fast-moving topics) + 7 integrator stubs (Hartwig / BeatAML / ICGC / ISRCTN / EU-CTR / EMA-EAP / Open Targets) + ADR-0007 EVAL followup.
+
+## [1.3.0] — 2026-05-25 — Skill-form re-architecture (PRD §0 telos full alignment)
+
+### Headline
+
+OPL is now a true Claude-Code-skill: `npx skills add CancerDAO/opl-cancer-skill` clones into `~/.claude/skills/opl-cancer/`, conversation script in `SKILL.md` drives the patient experience, Python codebase serves as the execution substrate. **No more `pip install + CLI run`** — patient triggers the skill by natural language ("我有 NSCLC,想要 AI team 帮我分析"). All five Waves + Henry audit + Sid delivery rewrite + drill-down are wired through `scripts/cli.py` subcommands the SKILL.md invokes step-by-step.
+
+### Major
+
+- **R1** — `SKILL.md` completely rewritten (~250 lines) as conversational orchestration prompt modelled on `cancerdao-vmtb` blueprint:
+  - 11-step dialog (preflight → input → organize → readiness → plan → Wave 1-4 → Henry → render → drill-down)
+  - Trigger description optimised for natural-language match (D2/D3 hypothesis + bioinformatics keywords expanded)
+  - "When NOT to invoke" section added (emergency, non-patient, undiagnosed → firefly, pediatric → wait for v1.4)
+  - `Quick start` removed (no longer command-line driven)
+  - Patient data root standardised on `~/CancerDAO/patients/` (env override `OPL_PATIENT_DATA_ROOT`, CLI `--patient-root`)
+- **R2** — `scripts/cli.py` shim added so `python ~/.claude/skills/opl-cancer/scripts/cli.py …` works whether the package is pip-installed or only present in the skill directory.
+- **R3** — `scripts/install.sh` added — idempotent one-time installer (Python check + editable install + patient root + .env scaffold + preflight verdict).
+- **R4** — `.env.example` added covering LLM keys (Anthropic + MiniMax + optional OpenAI tertiary), integrator emails / API keys (NCBI, OncoKB, Unpaywall), compute (`OPL_BIXBENCH_IMAGE`), founder-mode discipline knobs (`OPL_REQUIRE_PMID_ANCHOR=1` etc).
+- **R5** — `src/opl_cancer/cli.py` extended with the subcommands SKILL.md invokes per Wave step: `preflight` `readiness` `plan` `wave1`/`wave2`/`wave3`/`wave4` `audit` `render` `withdraw` `reproduce`. Existing `status` `init-patient` `list-experts` `acknowledge` `list-pending-acks` retained. Every command takes `--json` for machine-readable parsing.
+- **R6** — `src/opl_cancer/compute/compose.yml` added so Wave 3 can `docker compose run --rm bixbench …` (Dockerfile was already shipped in v0.3.0-p3; compose is the ergonomic wrapper).
+- **R7** — `docs/landing/founder_mode_against_cancer.md` rewritten (79 → 177 lines) to fix 10 paradigm-misalignment deviations identified against the PRD:
+  D1+D2+D3 three-way Telos restored; PI single-conversational-surface added; Hybrid Lifecycle + Project Memory + 5 Triggers added; real statistical / bioinformatics prediction (HR/OR/RR + CI + Cox + KM + drug ranking with quantified efficacy) clearly stated; PR governance separated from patient-side L3/L4 ack; physicians moved from "service target" to "drill-down audience"; install repointed to `npx skills add`; 11-bucket names corrected; DISCLAIMER / governance paths fixed; archetype-not-impersonation wording softened.
+- **R8** — `references/` directory added with 8 offloaded reference docs (architecture / wave-lifecycle / expert-roster / integrator-catalog / mechanical-gates / permission-levels / founder-mode-philosophy / troubleshooting) so `SKILL.md` stays under 500 lines while deep readers can navigate.
+
+### Task packages (D2 + D4 + D5 completion)
+
+- **T1** — `prompts/tasks/drug_repurposing.md` added (D2, Co-Sci Evolution 6 strategies, expert portfolio: Aviv + Iain + Bert; preferred integrators F4 Genomics Knowledge + F1 Literature + F7 Cell/Drug).
+- **T2** — `prompts/tasks/literature_synthesis.md` added (D2, PaperQA2 anti-hallucination RAG, expert portfolio: Iain + Aviv; preferred integrators F1).
+- **T3** — `prompts/tasks/staging_workup.md` added (D1, TNM/AJCC + restaging recommendations, expert portfolio: Vince + Rosa + Heddy).
+- **T4** — `prompts/tasks/china_rwe_adjustment.md` added (D1, China RWE bias correction against NCCN, expert portfolio: Vince + Hong).
+- **T5** — `prompts/tasks/source_verification.md` added (D4 reviewer subtask, PMID online verify + quote match).
+- **T6** — `prompts/tasks/claim_audit.md` added (D4 reviewer subtask, claim-evidence consistency + numerical-hallucination detection).
+- **T7** — `prompts/tasks/cross_source_consistency.md` added (D4 reviewer subtask, NCCN-vs-CSCO-vs-NCI-PDQ + OncoKB-vs-CIViC level disagreements).
+- **T8** — `prompts/tasks/patient_brief_rendering.md` added (D5 PI task, three-tier labels + PMID anchor + provenance hash + risk-disclosure-card pin + model-disagreement table + G7 imperative-detector pre-write).
+- **T9** — `prompts/tasks/pi_delivery.md` added (D5 PI task, conversational rewrite — "team 跑了 X,发现 Y,Reviewer 在 Z 上分歧").
+
+Total task packages: 22 → 31. (PRD §2.4 v0 estimate ~34; remaining 3 are pure-PI-internal helpers that live in `prompts/pi/`.)
+
+### Mechanical gates (G1-G20 completion)
+
+- **G4** `g4_dose_unit_declared.py` — dose without explicit unit (mg/mcg/mg·kg⁻¹/m²/IU) + frequency (qd/bid/tid/q3w/q21d) → BLOCK. Failure mode A4.
+- **G5** `g5_patient_context_isolation.py` — claim.patient_code != run.patient_code → raise `CrossPatientContaminationError`. Failure modes B1, B3.
+- **G6** `g6_injection_scan.py` — prompt-injection scanner over raw patient input. Failure mode B2.
+- **G8** `g8_level34_disclosure.py` — Level-3/4 claim without risk-disclosure-card → BLOCK pre-render. Failure mode C2.
+- **G10** `g10_guideline_version.py` — NCCN/CSCO/ESMO citation without version + date OR > 12 months stale → reviewer flag. Failure mode D2.
+- **G12** `g12_memory_overflow.py` — Memory context > 80% window → trigger pruning, never silent truncate. Failure mode A6.
+- **G13** `g13_reviewer_model_distinct.py` — Reviewer model == Executor model → BLOCK. Per `models.yaml.reviewer_pairings`. Failure mode E6.
+- **G14** `g14_dataset_patient_match.py` — `dataset_acquisition` `match_score` < 0.6 (cancer / stage / platform / N) → reviewer reselect. Failure mode F1.
+- **G15** `g15_multiple_testing_correction.py` — bioinformatics notebook missing BH / Bonferroni / FDR cell → BLOCK. Failure mode F2.
+- **G16** `g16_batch_effect_declared.py` — bioinformatics task missing batch variable declaration → BLOCK. Failure mode F3.
+- **G17** `g17_meta_i2_policy.py` — meta_analysis I² > 50% must use random-effects; I² > 75% must tag "high heterogeneity, pooling suspect". Failure mode F4.
+- **G18** `g18_meta_search_strategy.py` — meta_analysis missing search strategy + PRISMA flow → BLOCK. Failure mode F5.
+- **G19** `g19_pi_imperative_detector.py` — PI prose with imperatives ("you should") → rewrite as options. Failure mode PI-C1.
+- **G20** `g20_pi_disagreement_surfacing.py` — Reviewer disagreement > 0.4 AND PI delivery lacks "team 内部分歧" marker → BLOCK render. Failure mode PI-C3.
+
+Total mechanical gates: 6 → 20 (full PRD §7 coverage).
+
+### Bumps
+
+- `pyproject.toml` 1.2.0 → 1.3.0
+- `SKILL.md` `metadata.version` 1.2.0 → 1.3.0
+- `README.md` install section repointed to `npx skills add`
+
+### Tests
+
+- 10-patient subagent panel scaffolded under `tests/test_e2e/panel/` (HCC TACE-refractory · NSCLC EGFR post-osimertinib · BRCA TNBC · MSI-H CRC · HER2+ gastric · AML R/R IDH1 · pancreatic KRAS G12C · ovarian HRD+ post-platinum · prostate AR-V7 · melanoma BRAF V600E post-MAPKi). See `tools/run_quad_evaluation.py` for invocation.
+
+### Deferred to v1.4+
+
+- guardian-mode (PRD §15 G4) for pediatric / cognitive impairment / language barrier cases.
+- web-wrapper (PRD §17.4) for non-CLI patients.
+- multi-language PI persona beyond zh-CN + en (PRD §17.4).
+- federated cross-patient learning protocol (PRD §15 G5).
+- cloud Jupyter alternative to local Docker for Wave 3 (PRD §15 G1).
+
 ## [1.2.0] — 2026-05-24 — Audit-fix release
 
 ### CRITICAL (patient-safety / legal)

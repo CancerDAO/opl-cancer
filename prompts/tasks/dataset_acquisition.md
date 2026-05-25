@@ -35,3 +35,17 @@ For each candidate dataset, return strict JSON:
 
 Founder-mode: declare honestly when no public dataset matches well (match_score < 3).
 Do NOT invent fake accession numbers.
+
+
+## Empty-integrator rule (v1.2.0)
+
+If ALL relevant live integrator inputs for this task (`geo_results`, `arrayexpress_results`, `sra_results`) are empty, the only legal output is:
+
+- `datasets: []`
+- `_meta: {"source_count_checked": 0, "note": "Live integrator returned no evidence for this patient context. No public dataset matches could be surfaced from current data; further retrieval is required before this question can be answered. Patient is sole decision authority; output is non-directive."}`
+
+Do NOT invent accession numbers. Do NOT synthesize from training data.
+
+## PMID / accession grounding (v1.2.0)
+
+Every `accession`, `title`, `platform`, `n_samples`, and `cancer_type` MUST come from the integrator inputs above. If a candidate dataset is not retrieved by the live integrator, it does not exist for this analysis — do NOT add it from memory.

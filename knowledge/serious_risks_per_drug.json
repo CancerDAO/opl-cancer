@@ -1,8 +1,9 @@
 {
   "_meta": {
-    "schema": "v0.1.0",
+    "schema": "v0.2.0",
     "purpose": "Spec §8 L3 forced known-serious-risk checklist source.",
-    "_note": "Stub catalogue — extend in P6 with curated FDA/NMPA label data."
+    "_note": "Curated for v1.3.0 from FDA labels + NCI CTCAE 5.0. Cancer-buddy memory:feedback_no_false_completion — every entry must reflect a real label warning, not LLM speculation. New entries flagged by 10-patient EVAL panel (v1.3.0).",
+    "extension_protocol": "To add a drug: include INN + class + known_serious_risks[] (each ≥ Grade 3 or FDA boxed warning). Brand names map to INN via integrators/rxnorm.py — do not duplicate by brand."
   },
   "atezolizumab": {
     "inn": "atezolizumab",
@@ -42,7 +43,8 @@
       "Immune-related adverse events (any organ)",
       "Pneumonitis",
       "Colitis",
-      "Endocrinopathies"
+      "Endocrinopathies",
+      "Hepatitis (Grade 3-4 rechallenge rebound ~28% per Dolladille 2020 + Simonaggio 2019 pooled)"
     ]
   },
   "trastuzumab": {
@@ -52,6 +54,320 @@
       "Cardiotoxicity (LVEF decline, CHF)",
       "Infusion reactions",
       "Pulmonary toxicity"
+    ]
+  },
+
+  "trastuzumab-deruxtecan": {
+    "inn": "trastuzumab deruxtecan",
+    "brand": "T-DXd / DS-8201 / Enhertu",
+    "class": "HER2 ADC (deruxtecan payload)",
+    "known_serious_risks": [
+      "Interstitial lung disease / pneumonitis (Grade 3-5, ~12-15%, BOXED WARNING)",
+      "Severe neutropenia",
+      "LVEF decrease",
+      "Embryo-fetal toxicity"
+    ]
+  },
+  "sacituzumab-govitecan": {
+    "inn": "sacituzumab govitecan",
+    "brand": "Trodelvy / IMMU-132",
+    "class": "TROP2 ADC (SN-38 payload)",
+    "known_serious_risks": [
+      "Severe neutropenia (Grade 3-4 ~50%, BOXED WARNING)",
+      "Severe diarrhea (~50%, BOXED WARNING)",
+      "Hypersensitivity / infusion reactions",
+      "UGT1A1*28/*28 patients at higher toxicity risk"
+    ]
+  },
+  "zolbetuximab": {
+    "inn": "zolbetuximab",
+    "brand": "Vyloy / IMAB362",
+    "class": "anti-CLDN18.2",
+    "known_serious_risks": [
+      "Severe nausea / vomiting (premedication required; Grade 3-4 vomiting 15-30%)",
+      "Hypersensitivity / infusion reactions"
+    ]
+  },
+  "cabozantinib": {
+    "inn": "cabozantinib",
+    "brand": "Cabometyx / Cometriq",
+    "class": "multi-kinase TKI (VEGFR/MET/AXL)",
+    "known_serious_risks": [
+      "Hemorrhage / GI perforation (BOXED WARNING)",
+      "Severe hypertension",
+      "Hand-foot syndrome",
+      "Hepatotoxicity"
+    ]
+  },
+  "regorafenib": {
+    "inn": "regorafenib",
+    "brand": "Stivarga",
+    "class": "multi-kinase TKI",
+    "known_serious_risks": [
+      "Hepatotoxicity (BOXED WARNING, Grade ≥3 ~10%, can be fatal)",
+      "Severe hand-foot syndrome",
+      "Hypertension",
+      "Severe diarrhea"
+    ]
+  },
+  "lenvatinib": {
+    "inn": "lenvatinib",
+    "brand": "Lenvima",
+    "class": "multi-kinase TKI",
+    "known_serious_risks": [
+      "Severe hypertension",
+      "Cardiac dysfunction",
+      "Arterial thromboembolic events",
+      "Hepatotoxicity / hepatic failure",
+      "Proteinuria"
+    ]
+  },
+  "olaparib": {
+    "inn": "olaparib",
+    "brand": "Lynparza",
+    "class": "PARP inhibitor",
+    "known_serious_risks": [
+      "Myelodysplastic syndrome / acute myeloid leukemia (secondary, ~1-2%, BOXED-equivalent risk)",
+      "Pneumonitis",
+      "Venous thromboembolism",
+      "Severe myelosuppression"
+    ]
+  },
+  "niraparib": {
+    "inn": "niraparib",
+    "brand": "Zejula",
+    "class": "PARP inhibitor",
+    "known_serious_risks": [
+      "MDS/AML (secondary)",
+      "Severe myelosuppression (thrombocytopenia ~34% Grade 3-4)",
+      "Hypertension (sometimes severe)",
+      "Pneumonitis"
+    ]
+  },
+  "amivantamab": {
+    "inn": "amivantamab",
+    "brand": "Rybrevant",
+    "class": "EGFR-MET bispecific",
+    "known_serious_risks": [
+      "Severe infusion reactions (66% first-dose) — split first dose mandatory",
+      "Interstitial lung disease",
+      "Severe dermatologic toxicity (paronychia, cellulitis)",
+      "Ocular toxicity"
+    ]
+  },
+  "tepotinib": {
+    "inn": "tepotinib",
+    "brand": "Tepmetko",
+    "class": "MET-TKI",
+    "known_serious_risks": [
+      "Edema (severe peripheral)",
+      "Interstitial lung disease",
+      "Hepatotoxicity"
+    ]
+  },
+  "sotorasib": {
+    "inn": "sotorasib",
+    "brand": "Lumakras / Lumykras",
+    "class": "KRAS G12C inhibitor",
+    "known_serious_risks": [
+      "Hepatotoxicity (Grade 3-4 ALT/AST elevation)",
+      "Interstitial lung disease",
+      "GI toxicity (diarrhea, nausea)"
+    ]
+  },
+  "adagrasib": {
+    "inn": "adagrasib",
+    "brand": "Krazati / MRTX849",
+    "class": "KRAS G12C inhibitor",
+    "known_serious_risks": [
+      "QTc prolongation (BOXED WARNING)",
+      "Hepatotoxicity",
+      "Interstitial lung disease",
+      "GI toxicity"
+    ]
+  },
+  "venetoclax": {
+    "inn": "venetoclax",
+    "brand": "Venclexta",
+    "class": "BCL-2 inhibitor",
+    "known_serious_risks": [
+      "Tumor lysis syndrome (BOXED WARNING — ramp-up + hydration + uric-acid lowering required)",
+      "Severe neutropenia",
+      "Severe infections"
+    ]
+  },
+  "revumenib": {
+    "inn": "revumenib",
+    "brand": "Revuforj / SNDX-5613",
+    "class": "menin inhibitor",
+    "known_serious_risks": [
+      "Differentiation syndrome (BOXED WARNING — class effect; can be life-threatening; corticosteroids + hydroxyurea on first signs)",
+      "QTc prolongation",
+      "Hepatotoxicity",
+      "Cytopenias (febrile neutropenia, thrombocytopenia)",
+      "Embryo-fetal toxicity"
+    ]
+  },
+  "ziftomenib": {
+    "inn": "ziftomenib",
+    "brand": "KO-539 (investigational, FDA accepted NDA 2025)",
+    "class": "menin inhibitor",
+    "known_serious_risks": [
+      "Differentiation syndrome (class effect — required pre-treatment dexamethasone + hydroxyurea protocol)",
+      "QTc prolongation",
+      "Cytopenias",
+      "Hepatotoxicity"
+    ]
+  },
+  "bleximenib": {
+    "inn": "bleximenib",
+    "brand": "JNJ-75276617 (investigational, Phase 2)",
+    "class": "menin inhibitor",
+    "known_serious_risks": [
+      "Differentiation syndrome (class effect)",
+      "QTc prolongation",
+      "Cytopenias",
+      "Investigational status — adverse-event profile partial"
+    ]
+  },
+  "ceralasertib": {
+    "inn": "ceralasertib",
+    "brand": "AZD6738 (investigational, Phase 3 for NSCLC + melanoma)",
+    "class": "ATR inhibitor",
+    "known_serious_risks": [
+      "Severe myelosuppression (Grade 3-4 thrombocytopenia + neutropenia + anemia, often dose-limiting)",
+      "Transaminitis (Grade 3-4 in ~10-15%)",
+      "Pneumonitis (when combined with PD-1; HUDSON + CAPRI)",
+      "Fatigue Grade 3+",
+      "Pregnancy contraindication"
+    ]
+  },
+  "gilteritinib": {
+    "inn": "gilteritinib",
+    "brand": "Xospata",
+    "class": "FLT3 inhibitor",
+    "known_serious_risks": [
+      "Differentiation syndrome (BOXED WARNING)",
+      "QTc prolongation",
+      "Hepatotoxicity",
+      "Posterior reversible encephalopathy syndrome (PRES)",
+      "Pancreatitis"
+    ]
+  },
+  "ivosidenib": {
+    "inn": "ivosidenib",
+    "brand": "Tibsovo",
+    "class": "IDH1 inhibitor",
+    "known_serious_risks": [
+      "Differentiation syndrome (BOXED WARNING)",
+      "QTc prolongation",
+      "Guillain-Barré-like syndrome",
+      "Severe leukocytosis"
+    ]
+  },
+  "azacitidine": {
+    "inn": "azacitidine",
+    "brand": "Vidaza / Onureg",
+    "class": "hypomethylating agent",
+    "known_serious_risks": [
+      "Severe myelosuppression",
+      "Severe diarrhea / nausea / vomiting",
+      "Hepatic dysfunction in pre-existing impairment",
+      "Renal toxicity"
+    ]
+  },
+  "lutetium-177-psma-617": {
+    "inn": "lutetium-177-PSMA-617",
+    "brand": "Pluvicto",
+    "class": "PSMA-targeted radioligand",
+    "known_serious_risks": [
+      "Severe myelosuppression (cytopenias, prolonged)",
+      "Renal toxicity (cumulative)",
+      "Risk to family/contacts from radiation",
+      "Xerostomia (salivary gland)"
+    ]
+  },
+  "encorafenib": {
+    "inn": "encorafenib",
+    "brand": "Braftovi",
+    "class": "BRAF inhibitor",
+    "known_serious_risks": [
+      "New primary cutaneous malignancies",
+      "Hemorrhage",
+      "Uveitis",
+      "QTc prolongation",
+      "Hepatotoxicity"
+    ]
+  },
+  "binimetinib": {
+    "inn": "binimetinib",
+    "brand": "Mektovi",
+    "class": "MEK inhibitor",
+    "known_serious_risks": [
+      "Cardiomyopathy (LVEF decline)",
+      "Retinal vein occlusion / serous retinopathy",
+      "Severe hepatotoxicity",
+      "Hemorrhage"
+    ]
+  },
+  "ceralasertib": {
+    "inn": "ceralasertib",
+    "brand": "AZD6738 (investigational)",
+    "class": "ATR inhibitor",
+    "known_serious_risks": [
+      "Severe myelosuppression (cytopenias, dose-limiting)",
+      "Transaminitis",
+      "GI toxicity"
+    ]
+  },
+  "berzosertib": {
+    "inn": "berzosertib",
+    "brand": "M6620 / VX-970 (investigational)",
+    "class": "ATR inhibitor",
+    "known_serious_risks": [
+      "Severe myelosuppression",
+      "Transaminitis",
+      "Photosensitivity"
+    ]
+  },
+  "adavosertib": {
+    "inn": "adavosertib",
+    "brand": "AZD1775 (investigational)",
+    "class": "WEE1 inhibitor",
+    "known_serious_risks": [
+      "Severe myelosuppression",
+      "Severe GI toxicity (diarrhea, nausea)",
+      "Renal toxicity"
+    ]
+  },
+  "cabazitaxel": {
+    "inn": "cabazitaxel",
+    "brand": "Jevtana",
+    "class": "taxane",
+    "known_serious_risks": [
+      "Severe neutropenia (BOXED WARNING)",
+      "Hypersensitivity reactions",
+      "Severe GI hemorrhage / perforation"
+    ]
+  },
+  "abiraterone": {
+    "inn": "abiraterone acetate",
+    "brand": "Zytiga",
+    "class": "CYP17 inhibitor",
+    "known_serious_risks": [
+      "Hypertension / hypokalemia / fluid retention (mineralocorticoid)",
+      "Adrenocortical insufficiency",
+      "Hepatotoxicity"
+    ]
+  },
+  "enzalutamide": {
+    "inn": "enzalutamide",
+    "brand": "Xtandi",
+    "class": "AR antagonist (2nd gen)",
+    "known_serious_risks": [
+      "Seizures",
+      "Posterior reversible encephalopathy syndrome (PRES)",
+      "Severe fatigue"
     ]
   }
 }

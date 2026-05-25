@@ -7,6 +7,43 @@
 
 ## Status
 
+**v1.4.0 — Round-2/3 deferred backlog closed. Production-grade founder-mode skill.**
+
+OPL is a true Claude-Code skill, not a pip-CLI. Install with `npx skills add`, trigger by natural language in Claude Code.
+
+```bash
+# Install once (clones into ~/.claude/skills/opl-cancer/):
+npx skills add CancerDAO/opl-cancer-skill
+
+# Then in Claude Code, just say:
+#   「我有 NSCLC,二线进展了,想要 AI team 帮我分析」
+#   「OPL,帮我跑一次 hypothesis tournament」
+#   「founder mode against cancer — 给我我的 AI 科研团队」
+```
+
+`SKILL.md` orchestrates the 11-step Wave lifecycle (preflight → ingest → readiness → plan → Wave 1 retrieval → Wave 2 hypothesis tournament → Wave 3 bioinformatics → Wave 4 validation → Henry IRB audit → render → drill-down). Python codebase under `src/opl_cancer/` is the execution substrate, exposed through `scripts/cli.py` subcommands the SKILL invokes step-by-step.
+
+**v1.4.0 inventory** (validated against 23-persona EVAL panel across 4 rounds, 28/28 verification PASS):
+
+- **18 named experts** + Sid PI + Henry IRB-substitute auditor
+- **42 task packages** (D1 临床解读 / D2 假设生成 / D3 数据-evidence / D4 验证 / D5 综合-交付)
+- **23 mechanical gates** (G1–G20 PRD-§7 complete + G21 quantitative-anchor + G22 DDR-zygosity + G23 fast-moving-recency + G24 crisis-detection)
+- **29 live integrators** (PubMed / NCCN / CT.gov / ChiCTR / ISRCTN / EU-CTR / HKCTR / FDA-EAP / NMPA-EAP / EMA-EAP / OncoKB / CIViC / cBioPortal / GDC / ClinVar / gnomAD / GEO / ArrayExpress / SRA / DepMap / CCLE / Hartwig / BeatAML / ICGC / Open Targets / RxNorm / RetractionDB / PaperQA2 / Unpaywall)
+- **34-drug L3 forced-known-serious-risk catalogue** (covers menin-i / ATR-i / CHK1-i / ADC / KRAS-i / IDH-i / FLT3-i / ARSi / radioligand classes with FDA boxed warnings)
+- **Safety floor**: G24 crisis detection (bilingual SI/SH keyword banks + jurisdictional crisis-line registry + Wave-lock) · `guardian_ack_protocol.md` for pediatric (guardian acks information-receipt only, NOT treatment authority — treatment routes to pediatric IRB-supervised slot)
+- **8 references** + 8 ADRs + 1 safety prompt
+- **997 tests pass · ruff clean** · mypy --strict on touched files
+
+**Read first** — `SKILL.md` (orchestration), `docs/landing/founder_mode_against_cancer.md` (founder-mode framing), `references/` (deep architecture / mechanical gates / permission levels / philosophy / troubleshooting), and `DISCLAIMER.md` (not clinical decision support; not for emergencies — call 120/911/112).
+
+### Version history
+
+- **v1.4.0** — Round-2/3 deferred backlog batch fix (ADR-0008 D1–D13 priority A + B). Adds: `surveillance_schedule.md` (MEN1/Lynch/LFS/HBOC syndrome-driven surveillance) · `irae_rechallenge.md` multi-organ schema (prior_irae_record list + cumulative_organ_load_index + myocarditis G2+ STRONG RELATIVE per Mahmood 2018 + Salem 2022) · `boundary_unregulated_channel_disclosure.md` retrospective mode (forensic eval offer for already-used grey-market) · `n1_cohort_projection.md` candidate_cohorts ordered fallback chain + lab_trajectory (AFP/PSA/CA-125/CEA/CA19-9/LDH not just static) · `caregiver_filter_protocol.md` (caregiver preview brief + Sid explicitly declines disclosure decision; patient_brief intact) · `patient_pushback_handling.md` (NEITHER concede NOR paternalism) · HKCTR integrator (28→29) · TNBC+LM planner row · delivery_tone_hint extraction (blunt/warm/clinical) · `acknowledge --batch` + ack_consolidation_card.
+- **v1.3.3** — Round-3 verification follow-up. revumenib/ziftomenib/bleximenib/ceralasertib added to serious_risks catalogue; G23 FAST_MOVING_TOPICS extended +30 ATR-i/CHK1-i/WEE1-i/Polθ-i tokens.
+- **v1.3.2** — SAFETY hot-fix (round-2 EVAL response). G24 crisis-detection gate + `prompts/safety/crisis_detection.md` + `crisis_card_emission.md` (SI/self-harm Wave-lock + jurisdictional crisis lines) · pediatric guardian mode via `guardian_ack_protocol.md` + 4 pediatric planner rows · full `drilldown.md` 4-class rewrite (claim_provenance / reasoning / statistical / disagreement) · G22 lineage-context SKIP carve-out · cancer-type description list +14 cancer types (NPC / MEN1 / NET / pituitary / GIST / sarcoma / thyroid / cholangiocarcinoma / etc).
+- **v1.3.1** — Post-10-patient-EVAL hot-fix. `scope_handoff_routing.md` (for off-scope asks like family genetic counseling → firefly handoff) · `serious_risks_per_drug.json` 5 → 25 drugs · G21 quantitative-anchor gate · G14 conditional axes (metastatic_site / ethnicity / cns_involvement / sex / age_bracket) · `intent_parser.md` with PROGNOSIS_QUERY + CAREGIVER speaker_role + hope_impact.
+- **v1.3.0** — Skill-form re-architecture (PRD §0 telos full alignment). SKILL.md completely rewritten as conversational orchestration prompt; `scripts/cli.py` shim + `install.sh` + `.env.example`; 9 new task packages (D1 staging_workup + china_rwe_adjustment; D2 drug_repurposing + literature_synthesis; D4 source_verification + claim_audit + cross_source_consistency; D5 patient_brief_rendering + pi_delivery); 14 new mechanical gates (G4-G6, G8, G10, G12-G20); 8 references/ files; landing rewritten to fix 10 paradigm deviations; v1.3 introduced 7 new integrators (Hartwig DUA-gated / BeatAML / ICGC / ISRCTN / EU-CTR / EMA-EAP / Open Targets).
+
 **v1.2.0 (Audit-fix release). Iterations completed: 20 + audit-fix pass.**
 
 Roster complete (**18/18 experts**). **781 tests + 3 env-gated live**, mypy --strict on touched files + ruff clean.
@@ -30,7 +67,7 @@ Roster complete (**18/18 experts**). **781 tests + 3 env-gated live**, mypy --st
 - `ProjectMemoryStore.acknowledge_insight()` propagates `patient_acknowledged_at` into `InsightCard`
 
 **v1.0.0-p6** highlights:
-- Multi-case Wave 1 E2E parametrised across **4 cancer types** (HCC / NSCLC / CRC / BRCA)
+- Multi-case Wave 1 E2E parametrised across **8 cancer types** (HCC / NSCLC / CRC / BRCA / Pancreatic / GBM / Pediatric ALL / Multiple Myeloma)
 - Legal: `NOTICE` (Apache-2.0 attribution + model-card acknowledgements) + `DISCLAIMER.md` (boundaries + safety pathway)
 - `tools/sign_contributor_agreement.py` first-time contributor signing flow
 - `docs/landing/founder_mode_against_cancer.md` landing copy for cancerdao-global
@@ -46,7 +83,7 @@ P5 highlights (CHANGELOG.md for full scope):
 - CLI: `opl-cancer acknowledge <card_id>` + `opl-cancer list-pending-acks`
 - `reviewer_pairings` populated for all 18 experts (cross-domain rotation)
 - `tools/reproduce.py` + `tools/verify_provenance.py` provenance integrity tools
-- Golden set: 4 synthetic patients (HCC/NSCLC/CRC/breast), 8 failure-mode inputs, 2 regression anchors, 3 boundary cases
+- Golden set: 8 synthetic patients (HCC / NSCLC / CRC / BRCA / Pancreatic / GBM / Pediatric ALL / Multiple Myeloma), 8 failure-mode inputs, 2 regression anchors, 3 boundary cases
 
 Previous: v0.4.5-p4.5 closeout (Batch E: 3 deferred experts + Wave4Runner + G7 ImperativeDetector).
 
@@ -158,7 +195,7 @@ Names are first-name homages — archetype personas, not impersonations of real 
 Planned for v1.1+ (no committed dates — community contributions welcome):
 
 - **v1.1 — Full BioLinkX integration.** Deeper coupling with `BioLinkX` for contribution graph / SBT identity, allowing physicians and patient-advocates to sign sections of a brief and have the signature carried through provenance.
-- **v1.2 — Additional cancer types.** Expand the golden-set corpus beyond HCC / NSCLC / CRC / BRCA / PDAC / GBM / ALL / MM to cover head-and-neck, prostate, ovarian, sarcoma, and paediatric solid tumours.
+- **Beyond v1.x — Additional cancer types.** The current golden-set corpus (v1.2.0) already covers HCC / NSCLC / CRC / BRCA / PDAC / GBM / ALL / MM. Future iterations expand to head-and-neck, prostate, ovarian, sarcoma, and paediatric solid tumours.
 - **v1.3 — Web UI.** A patient- and clinician-facing web layer for browsing the deliberation brief, acknowledging risk-disclosure cards, and tracking the provenance graph interactively. (Today everything ships through CLI + static HTML.)
 - **v1.4 — Multi-language briefs.** Native Chinese / Japanese / Spanish patient briefs (not machine-translated post-hoc), with locale-aware regulatory pointers (NMPA / PMDA / COFEPRIS in addition to FDA / EMA).
 - **Ongoing — Integrator breadth.** More omics / pharmacology integrators (e.g. cBioPortal study-level pulls, OncoKB level-of-evidence sync, ChEMBL pharmacophore lookups) and continual TTL tuning.

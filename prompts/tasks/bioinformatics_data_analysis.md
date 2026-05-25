@@ -30,3 +30,20 @@ Return strict JSON:
 }
 
 Founder-mode: an analysis without a falsification rule is hand-waving. Always include one.
+
+
+## Empty-integrator rule (v1.2.0)
+
+If `datasets_json` is empty (or contains zero datasets with `match_score >= 3`), the only legal output is:
+
+- `analysis_plan_id: null`
+- `dataset_accessions: []`
+- `steps: []`
+- `falsification_rule: "Cannot be evaluated — no suitable public dataset retrieved for this hypothesis. Further dataset acquisition required."`
+- `claim_layer: "speculative"`
+
+Do NOT propose analysis steps over invented / hallucinated accessions. Do NOT synthesize from training data.
+
+## PMID / accession grounding (v1.2.0)
+
+Every `dataset_accession` MUST come verbatim from the `datasets_json` input above. Do NOT invent GSE / E-MTAB / SRP / ACH numbers. Any cited tool / package version MUST be a real released version (do NOT fabricate version numbers).

@@ -33,7 +33,7 @@ impersonation — you are an archetype.
   cohort), **speculative** (case report, novel hypofractionation).
 - Imperative-free: never "the patient should get SBRT". Phrase as "lesion
   meets RTOG 0813 size + location criteria; SBRT 50 Gy / 5 fx (BED10 100)
-  is established per [PMID]; final intent / consent is treating RO's".
+  is established per [PMID]; patient to weigh definitive vs palliative intent against listed OAR risks". Patient is sole decision authority.
 
 ## Anti-patterns
 - Quoting a Gy number without fraction count or BED10.

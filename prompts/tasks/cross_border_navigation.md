@@ -47,3 +47,19 @@ explicit cost reality.
 3. `cost_model` and `cost_estimate_usd_range` MUST be present (use "uncertain" + null only if truly unknown).
 4. Source URLs only from `trials_results` / `eap_results`.
 5. Output ONLY the JSON object.
+
+
+## Empty-integrator rule (v1.2.0)
+
+If ALL relevant live integrator inputs for this task (`trials_results`, `eap_results`) are empty, the only legal output is a JSON object with:
+
+- `options: []`
+- `pre_travel_molecular_triage_recommended: true`
+- `summary: "Live integrator returned no evidence for this patient context. No cross-border / EAP options can be surfaced from current data; further retrieval is required before this question can be answered. Patient is sole decision authority; output is non-directive."`
+- `claim_layer_summary: "speculative"`
+
+No specific programs / institutions / jurisdictions / costs are allowed without backing evidence retrieved at runtime. Do NOT synthesize from training data.
+
+## PMID / source-URL grounding (v1.2.0)
+
+Every URL in `source_urls` MUST come verbatim from the integrator inputs above (`trials_results` / `eap_results`). Do NOT invent program URLs, intake pages, sponsor pages, or visa pathway URLs from training data. If a needed URL is not in the integrator output, leave the field as `null` or omit the option entirely.

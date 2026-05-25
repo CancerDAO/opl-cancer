@@ -60,29 +60,42 @@ per_task_routing:
 # domain so genomics is reviewed by clinical, trials by EAP, etc.
 # memory:feedback_review_via_parallel_subagents — independent third-party lens.
 reviewer_pairings:
-  # Genomics ↔ Pharmacology / Mechanism
-  bert: aviv      # somatic-genomics reviewed by mechanism-of-action expert
-  aviv: bert      # MoA reviewed by somatic-genomics
-  # Bioinformatics ↔ Pharmacology
-  mary: tyler     # ddi/adme reviewed by bioinformatics
-  tyler: mary     # bioinformatics reviewed by pharmacology
-  # Clinical ↔ Trial matching
-  rosa: rick      # clinical-judgment reviewed by trial-matching
-  rick: rosa      # trial-matching reviewed by clinical-judgment
-  # Toxicity ↔ Clinical
-  iain: heddy     # irAE reviewed by hepatology
-  heddy: iain     # hepatology reviewed by irAE
-  # Translational ↔ Mechanism
-  ted: aviv       # translational reviewed by MoA
-  vince: aviv     # immunotherapy reviewed by MoA
-  hong: bert      # cytokine-immuno reviewed by genomics
-  # Supportive ↔ Clinical
-  jen: rosa       # supportive-care reviewed by clinical-judgment
-  kieren: rosa    # neutropenic-fever reviewed by clinical-judgment
-  mark: iain      # endocrine irAE reviewed by general irAE
-  # EAP / Cross-border
+  # ── Genomics ↔ Bioinformatics ──
+  bert: aviv      # somatic-genomics (Vogelstein archetype) reviewed by bioinformatics/single-cell (Regev archetype)
+  aviv: bert      # bioinformatics reviewed by somatic-genomics
+  # ── Pharmacology ↔ Wet-lab biology ──
+  mary: tyler     # DDI / ADME (pharmacology) reviewed by wet-lab biology (Jacks archetype)
+  tyler: mary     # wet-lab biology reviewed by pharmacology
+  # ── Pathology ↔ Trial matching ──
+  rosa: rick      # pathology-judgment reviewed by trial-matching specialist
+  rick: rosa      # trial-matching reviewed by pathology-judgment
+  # ── Meta-analysis ↔ Radiology / Imaging response ──
+  # (Iain = Cochrane archetype, Heddy = Radiology / imaging response measurement)
+  # Cross-domain so pooled effect-sizes are sanity-checked against imaging-derived
+  # response definitions (e.g. RECIST 1.1 vs iRECIST endpoint heterogeneity in
+  # pooled cohorts). This pairing IS deliberate cross-domain (v1.3.0 EVAL panel
+  # flagged the prior "irAE reviewed by hepatology" comment as a mislabel — neither
+  # Iain nor Heddy is irAE / hepatology; comment fixed in v1.3.0 to match scope).
+  iain: heddy     # meta-pooled effect sizes reviewed against imaging-response definitions
+  heddy: iain     # imaging-response interpretation reviewed against meta-pool heterogeneity
+  # ── Treatment-line ↔ Meta-analysis ──
+  # NEW in v1.3.0 EVAL: Patient #4 (irAE rechallenge) needs Vince's clinical
+  # rechallenge judgment cross-reviewed against Iain's pooled rebound-rate meta.
+  # Vince is reviewed by Iain (replaces prior `vince: aviv` for the irAE-rechallenge
+  # path). For Wave 2/3 mechanism reviews Vince still routes to Aviv via the
+  # per-task override (see per_task_routing). Iain ⟂ Heddy carries the
+  # reverse direction when meta needs imaging-response sanity.
+  vince: iain     # treatment-line judgment reviewed against pooled-evidence meta
+  # ── Translational / Radiation ↔ Bioinformatics ──
+  ted: aviv       # radiation oncology (dose / fractionation) reviewed by bioinformatics
+  hong: bert      # TCM / herb-drug interaction reviewed by genomics (CYP impact)
+  # ── Supportive ↔ Pathology ──
+  jen: rosa       # palliative reviewed by pathology
+  kieren: rosa    # neutropenic-fever reviewed by pathology
+  mark: iain      # endocrine irAE reviewed against general irAE pooled evidence
+  # ── EAP ↔ Cross-border ──
   frances: dennis # EAP reviewed by cross-border navigator
   dennis: frances # cross-border reviewed by EAP
-  # Specialised
-  riad: ted       # data-driven hypothesis reviewed by translational
-  steve: tyler    # bioinformatic-pipeline reviewed by bioinformatics
+  # ── Interventional ↔ Radiation ──
+  riad: ted       # interventional (TARE / TACE) reviewed by radiation oncology
+  steve: tyler    # nutrition reviewed by wet-lab biology
