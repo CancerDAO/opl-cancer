@@ -54,7 +54,17 @@ def main() -> None:
 
 @main.command(help="Step 0: install self-check. Verify Python, LLM keys, integrators, optional Docker.")
 @click.option("--json", "json_mode", is_flag=True, help="Emit machine-readable JSON.")
-def preflight(json_mode: bool) -> None:
+@click.option(
+    "--allow-single-model",
+    is_flag=True,
+    default=False,
+    help=(
+        "Override G13 reviewer-distinct hard-fail. Use only for dev / smoke "
+        "tests. A real patient run without a reviewer-pool key violates the "
+        "founder-mode discipline — see docs/ANTI_PATTERNS_v1.4.md AP-10."
+    ),
+)
+def preflight(json_mode: bool, allow_single_model: bool) -> None:
     result: dict[str, Any] = {"version": VERSION, "ok": True, "checks": {}, "issues": []}
 
     # Python ≥ 3.11
@@ -101,22 +111,36 @@ def preflight(json_mode: bool) -> None:
         ("gpt-5", openai_ok),
         ("gemini", gemini_ok),
     ] if ok]
+    # v1.5 P0-3+P0-10: G13 reviewer-distinct is a hard-fail by default
+    # (docs/ANTI_PATTERNS_v1.4.md AP-10 — Henry detected the violation in
+    # v1.4 runs but issued only "future improvement plan"; never fired the
+    # real cross-model review. We now refuse to start a run without a
+    # reviewer-pool key unless --allow-single-model is explicitly passed.)
+    g13_ok = bool(reviewer_pool_keys) or allow_single_model
     result["checks"]["llm"] = {
         "executor_default": "claude-code-main-thread (user CC subscription, no key required)",
-        "anthropic_standalone_key": anthropic_ok,  # optional; only if user wants out-of-band API runs
+        "anthropic_standalone_key": anthropic_ok,
         "reviewer_pool_keys_present": reviewer_pool_keys,
-        "ok": True,  # Never block — main thread is the default executor
+        "g13_reviewer_distinct_ok": g13_ok,
+        "allow_single_model_override": allow_single_model,
+        "ok": g13_ok,
     }
-    if not reviewer_pool_keys:
-        # Warn (don't block) — main thread executor still works; cross-model
-        # G13 reviewer will be skipped or use a single-model fallback. The
-        # full founder-mode discipline requires a reviewer-pool key.
+    if not reviewer_pool_keys and not allow_single_model:
+        result["ok"] = False
         result["issues"].append(
-            "[warn] No reviewer-pool API key configured (MINIMAX_API_KEY / "
-            "OPENAI_API_KEY / GEMINI_API_KEY). Main-thread Claude executor "
-            "works without one, but G13 cross-model reviewer cannot fire "
-            "(reviewer == executor would be Anthropic-vs-Anthropic). "
-            "Recommend MINIMAX_API_KEY — see .env.example."
+            "[block] G13 reviewer-distinct unmet — no reviewer-pool API key "
+            "found (MINIMAX_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY). The "
+            "main-thread Claude executor would be reviewed by another Claude "
+            "instance, violating cross-model decorrelation. To proceed:\n"
+            "  1. Get a free MiniMax key — see .env.example for the link.\n"
+            "  2. Set MINIMAX_API_KEY=sk-... in your shell / .env.\n"
+            "  3. Re-run `opl-cancer preflight`.\n"
+            "Dev override (NOT for patient runs): pass --allow-single-model."
+        )
+    if not reviewer_pool_keys and allow_single_model:
+        result["issues"].append(
+            "[warn] --allow-single-model bypass active — G13 not enforced. "
+            "Do NOT use for patient runs."
         )
 
     # Integrator presence — verify each module is importable without leaving unused names.
@@ -142,16 +166,46 @@ def preflight(json_mode: bool) -> None:
     else:
         result["checks"]["integrators"] = {"ok": True, "count": len(integrator_modules), "list": integrator_modules}
 
-    # Docker (optional — Wave 3 only)
+    # Wave 3 compute readiness — v1.5 makes Wave 3 non-skippable (P0-1+P0-8).
+    # Default path is NativeAnalysisRunner (jupyter on PATH). Docker /
+    # bixbench is opt-in for users with heavy R / bioconductor needs.
+    # If neither is available the run cannot proceed
+    # (docs/ANTI_PATTERNS_v1.4.md AP-1).
+    jupyter_path = shutil.which("jupyter")
     docker_path = shutil.which("docker")
+    docker_daemon_ok = False
     if docker_path:
         try:
             subprocess.run([docker_path, "info"], check=True, capture_output=True, timeout=5)
-            result["checks"]["docker"] = {"ok": True, "path": docker_path, "wave3_ready": True}
+            docker_daemon_ok = True
         except (subprocess.SubprocessError, subprocess.TimeoutExpired):
-            result["checks"]["docker"] = {"ok": False, "path": docker_path, "wave3_ready": False, "note": "docker daemon not running — Wave 3 will skip bixbench analysis"}
-    else:
-        result["checks"]["docker"] = {"ok": False, "wave3_ready": False, "note": "docker not installed — Wave 3 bixbench analysis unavailable; Wave 1/2/5 still work"}
+            docker_daemon_ok = False
+    native_ready = jupyter_path is not None
+    bixbench_ready = docker_path is not None and docker_daemon_ok
+    wave3_ready = native_ready or bixbench_ready
+    result["checks"]["wave3_compute"] = {
+        "ok": wave3_ready,
+        "native_runner_ready": native_ready,
+        "jupyter_path": jupyter_path,
+        "bixbench_runner_ready": bixbench_ready,
+        "docker_path": docker_path,
+        "docker_daemon_running": docker_daemon_ok,
+        "default_runner": "native" if native_ready else ("bixbench" if bixbench_ready else None),
+        "note": (
+            "Wave 3 uses NativeAnalysisRunner by default (v1.5+). Docker is "
+            "opt-in for the bixbench notebook image."
+        ),
+    }
+    if not wave3_ready:
+        result["ok"] = False
+        result["issues"].append(
+            "[block] Wave 3 compute unavailable — neither jupyter (native) "
+            "nor docker (bixbench) is on PATH. Wave 3 is critical-path and "
+            "cannot be skipped (AP-1). Install one of:\n"
+            "  - Native (recommended): pip install jupyter\n"
+            "  - Docker: install Docker Desktop + start daemon\n"
+            "Then re-run `opl-cancer preflight`."
+        )
 
     # Patient root
     pr = _patient_root()
