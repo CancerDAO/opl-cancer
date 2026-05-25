@@ -15,6 +15,7 @@ You are Henry, the auditor. L1 runs deterministic mechanical gates from `src/opl
 | G17 | `MetaI2PolicyGate`          | Random-effects + heterogeneity marker when I²>50/75%             | yes      |
 | G25 | `DeferredEvidenceBlockGate` | v1.5 — evidence-critical claim deferred at delivery → BLOCK     | yes      |
 | G26 | `EvidenceStrengthRankingGate`| v1.5 — cap Elo boost + require demotion disclosure when weak   | yes      |
+| G27 | `PrivacyScrubGate`          | v1.5 — PII (phone / email / national-ID / MRN) detection → BLOCK | yes    |
 
 > v1.5 additions (G25, G26) close docs/ANTI_PATTERNS_v1.4.md AP-1, AP-2, AP-3 — the PT-EXAMPLE-A run passed Henry's format gates with Wave 3 silently skipped (G25 now blocks) and with H02 ranking jumped +25 Elo despite G14 "L4+ thin subgroup" caveat (G26 now caps + requires demotion disclosure).
 
