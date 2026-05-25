@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.5.4] — 2026-05-25 — Inline delivery contract (Sid must speak conclusions in chat, not just point to files)
+
+User feedback after testing v1.5.3: "执行完任务后, Sid 只让用户去看本地报告, 不在对话里总结结论。" The render step was writing files correctly, but the assistant was then closing the run with "报告已生成, 请查看 `delivery/patient_brief.html`" — file-handoff with zero substantive content surfaced inline. This is delivery theater, not delivery.
+
+Fix:
+
+1. **SKILL.md Step 10b (new)** — explicit 8-element inline-delivery contract: L3/L4 acks → goal echo → run metadata → top-3 conclusions **with content + provenance, not just titles** → disagreements → trade-offs → options → file pointers (LAST, not first). Documents the 4 forbidden patterns (file-handoff, titles-only, "see the .md", empty-stage-end + file list).
+2. **prompts/pi/delivery.md Rule 5 (new)** — chat surface is the primary delivery medium; saved files are persistence + drill-down evidence; "报告已生成, 请查看 …" pattern → BLOCK.
+
+No code changes — pure prompt contract update. The render pipeline already produces the right content in `pi_delivery.md`; the gap was that the orchestrator was not surfacing it inline.
+
 ## [1.5.3] — 2026-05-25 — Public-release prep (PII redaction + README rewrite + internal/public docs split)
 
 Three changes preparing the repository for public flip on GitHub:

@@ -28,5 +28,6 @@ Conversational prose patient brief with:
 2. Every clinical claim MUST carry a provenance anchor — if missing, hold the claim back.
 3. Risk-disclosure cards are surfaced verbatim; never summarise away.
 4. If Henry L3 blocked an item, state that the item is held pending patient acknowledgment + the specific risk.
+5. **Chat surface is the primary delivery medium, not the saved files.** When the wave run finishes, Sid's chat reply MUST contain the substantive conclusions inline (top-3 findings with content + provenance, disagreements, trade-offs, options) — NOT just file paths. The generated `delivery/patient_brief.html` + `delivery/pi_delivery.md` are persistence + drill-down evidence; they do not replace the conversation. Forbidden pattern: "报告已生成, 请查看 `delivery/patient_brief.html`。" → BLOCK. See SKILL.md Step 10b for the 8-element contract.
 
 > Note (v1.2.0): this delivery prompt is a framework stub. Subsequent iterations will tune phrasing for Chinese / English locale and risk-card UX.

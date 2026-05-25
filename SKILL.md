@@ -4,7 +4,7 @@ description: "OPL for Cancer (智愈 AI 科研团队) — open-source AI scienti
 license: Apache-2.0
 metadata:
   author: CancerDAO Contributors
-  version: "1.4.0"
+  version: "1.5.4"
   tags: oncology precision-medicine ai-scientist-team founder-mode hypothesis-generation co-scientist robin bixbench meta-analysis clinical-trials evidence-grounded
 ---
 
@@ -366,6 +366,35 @@ Three artefacts:
   > Risk-card 在顶部:Frances 的 EAP 路径有 L3 风险卡,需要你 ack 才能往下走。"
 
 If any L3/L4 risk-card is unacked, Sid leads with it.
+
+---
+
+**Step 10b — Inline delivery to the chat (MANDATORY).** After `render` writes the files, the assistant (Sid) MUST speak the conclusions **inline in the chat reply** — the `pi_delivery.md` file is the *saved record* of the conversation, NOT a substitute for it. Files are persistence + drill-down evidence; the chat surface is the primary delivery medium.
+
+Concrete contract — every patient run ends with a chat reply that contains, **in this order**:
+
+1. **L3/L4 unacked risk-card** verbatim at top (if any), with `opl-cancer acknowledge <card_id>` hint — same content as the head of `pi_delivery.md`.
+2. **Goal echo + value echo** (1-2 sentences) — "你这次的问题是 X, 你说过你的 value 排序是 Y, team 是按这个顺序跑的。"
+3. **What team did this run** (1 short paragraph) — experts engaged, wave count, integrators called, wall-time. Run-metadata transparency.
+4. **Top-3 conclusions with full content** — each with `[established]`/`[exploratory]`/`[speculative]` label + 1-2 sentences of substantive finding + provenance anchor (`[PMID: ...]`/`[NCT: ...]`/`[notebook: ...]`). **Not just titles** — the patient must read the conclusion in the chat, not in the file.
+5. **Reviewer disagreement / cross-source conflict** (if any) — both positions named, no collapsing.
+6. **Trade-off framed against `patient_value`** — option A vs B vs C, with axis-of-difference.
+7. **Optionful next steps** — 2+ options + "ask team to do X" path. Never a single imperative.
+8. **Drill-down + file pointers (LAST, not first)** — only AFTER the substantive content, list:
+   - `delivery/patient_brief.html` — full clinician-grade report (PMID links + drill-down handles)
+   - `delivery/patient_plain_brief.html` — plain-language 2-page brief
+   - `delivery/pi_delivery.md` — this conversation, saved
+   - `opl-cancer drilldown --run-id <id> --claim <id>` for evidence-chain
+   - `opl-cancer reproduce --run-id <id>` for bit-exact rerun
+
+**FORBIDDEN delivery patterns** (these are AP-13 anti-patterns, gate-blockable):
+
+- ❌ "报告已生成,请查看 `delivery/patient_brief.html`。" (file-handoff without conclusions — this is the bug the patient reported)
+- ❌ "Top-3 conclusions: (1) RB1 mut, (2) WNT pathway, (3) ICI candidate. 详见报告。" (titles without substance — patient must read content in chat)
+- ❌ "完整结论在 pi_delivery.md 里。" (pointing to file as substitute for chat reply — the .md IS the chat content, not a replacement for it)
+- ❌ Empty stage-end + file list — every run must end with the 8-step inline reply above, even for empty-evidence runs (in which case substitute the empty-integrator surface from `pi_delivery.md`'s "Empty-integrator handling" block).
+
+**Implementation note**: after `cli.py render` succeeds, the assistant reads `delivery/pi_delivery.md` and pastes its full content (or a faithful rewrite respecting the 8-step shape above) into the chat. This is non-negotiable per `feedback_no_false_completion` — generating a file and then telling the user to read it is "delivery theater," not delivery.
 
 ---
 
