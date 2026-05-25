@@ -1,0 +1,134 @@
+{
+  "_meta": {
+    "schema": "clinical_stop_rules v1.5",
+    "purpose": "Shared per-organ stop-rules every clinical persona (Bert / Vince / Mark / Mary / Riad / Heddy) reads. v1.4 retro (AP-7) found these thresholds scattered across personas with soft language; v1.5 makes them a single source of truth.",
+    "source": "docs/RETROSPECTIVE_v1.4_PT-EXAMPLE-A_run-20260525.md §1 Cross-cutting expert-prompt failure #7.",
+    "applicable_runner": "wave1_runner + wave3_runner read this when assembling each expert context; experts may cite the JSON path directly in their reports.",
+    "review_cadence": "review at each v1.x release; persona prompts must inline the thresholds — do not rely on memory."
+  },
+  "stop_rules": [
+    {
+      "id": "STOP-RENAL-1",
+      "trigger": "eGFR < 30 mL/min/1.73m² OR Cys-C-derived eGFR < 30",
+      "action_class": "exclude_nephrotoxic",
+      "affected_drugs": [
+        "raltitrexed", "TAS-102/tipiracil", "regorafenib", "fruquintinib",
+        "VEGF-TKI class", "TROP2-ADC class"
+      ],
+      "consult_role": "nephrology",
+      "exception_paths": [
+        "dose-reduced raltitrexed 50% per EMA SmPC if eGFR 30-40",
+        "TAS-102 35→30 mg/m² start per PMID 34097100 if eGFR 30-60"
+      ],
+      "evidence": ["EMA Tomudex SmPC", "PMID 34097100", "PMID 9820178"]
+    },
+    {
+      "id": "STOP-CARDIAC-1",
+      "trigger": "LVEF < 40% OR drop ≥ 10pp from baseline",
+      "action_class": "exclude_cardiotoxic",
+      "affected_drugs": [
+        "anthracycline class", "anti-HER2 monoclonals", "HER2-ADC class",
+        "anti-VEGF class (bevacizumab / aflibercept / ramucirumab)",
+        "VEGF-TKI class", "fluoropyrimidine high-dose continuous infusion"
+      ],
+      "consult_role": "cardio-oncology",
+      "exception_paths": [
+        "low-dose cardio-protective regimen + serial troponin / NT-proBNP / ECHO q4w may be considered after cardio-onc clearance"
+      ],
+      "evidence": ["PMID 30442497", "PMID 29442540", "ESMO 2022 PMID 36055877 §3.7"]
+    },
+    {
+      "id": "STOP-HEPATIC-1",
+      "trigger": "Albumin < 28 g/L OR Child-Pugh class B/C OR ALT/AST > 3× ULN",
+      "action_class": "exclude_hepatic_burden",
+      "affected_drugs": [
+        "regorafenib", "fruquintinib", "Y90 SIRT", "DEBIRI", "HAIC-oxaliplatin",
+        "irinotecan high-dose"
+      ],
+      "consult_role": "hepatology + IR",
+      "exception_paths": [
+        "nutritional rescue (PN / albumin replacement) to push ALB > 32 before re-evaluation",
+        "Y90 + DEBIRI: defer until liver-reserve recovers"
+      ],
+      "evidence": ["PMID 21287531", "PMID 28376151", "Wasan 2017 (cited E)"]
+    },
+    {
+      "id": "STOP-ACTIVE-IRAE-1",
+      "trigger": "Any active immune-related AE Grade ≥ 2 (CTCAE) OR ongoing steroid taper for AE",
+      "action_class": "hold_ICI_rechallenge",
+      "affected_drugs": [
+        "anti-PD-1 monoclonals", "anti-PD-L1 monoclonals", "anti-CTLA-4 class",
+        "bispecific T-cell engagers (TCBs)"
+      ],
+      "consult_role": "endocrinology / cardio-onc / pneumonology (organ-specific)",
+      "exception_paths": [
+        "single-organ rechallenge with intensified monitoring per Allouchery rechallenge meta (PMID 33428586) — case-by-case",
+        "myocarditis G2+ → STRONG RELATIVE block per Mahmood 2018 (PMID 29567210) + Salem 2022 (PMID 30442497)"
+      ],
+      "evidence": [
+        "PMID 33428586 (rechallenge meta)",
+        "PMID 32525514 (Dolladille ICI rechallenge)",
+        "PMID 29567210 (Mahmood myocarditis)",
+        "PMID 30442497 (Salem cardiac irAE)"
+      ]
+    },
+    {
+      "id": "STOP-MARROW-1",
+      "trigger": "ANC < 1.0 × 10⁹/L OR PLT < 50 × 10⁹/L OR Hb < 80 g/L without transfusion plan",
+      "action_class": "exclude_myelotoxic_continuation",
+      "affected_drugs": [
+        "TAS-102", "irinotecan", "regorafenib", "carbozanitib",
+        "high-dose chemo class"
+      ],
+      "consult_role": "hematology",
+      "exception_paths": [
+        "G-CSF support per ESMO supportive care guideline",
+        "Hb < 80 may be transfused before continuing fluoropyrimidine class"
+      ],
+      "evidence": ["PMID 39506021", "PMID 39800823", "ESMO supportive care 2023"]
+    },
+    {
+      "id": "STOP-NEURO-1",
+      "trigger": "Grade ≥ 2 peripheral neuropathy from oxaliplatin OR baseline neuropathy precluding new neurotoxic agent",
+      "action_class": "exclude_neurotoxic",
+      "affected_drugs": [
+        "oxaliplatin", "vincristine", "taxanes",
+        "trabectedin (potentially)", "lurbinectedin (potentially)"
+      ],
+      "consult_role": "neurology",
+      "exception_paths": [
+        "weekly oxaliplatin 65 mg/m² with calcium/magnesium prophylaxis (limited evidence)"
+      ],
+      "evidence": ["ASCO neuropathy guideline 2020"]
+    },
+    {
+      "id": "STOP-BLEED-1",
+      "trigger": "Active bleeding OR recent (≤30d) major surgical procedure OR DAPT in CKD 3b+",
+      "action_class": "exclude_bleeding_risk",
+      "affected_drugs": [
+        "bevacizumab", "ramucirumab", "aflibercept", "VEGF-TKI class",
+        "NSAID class", "low-MW heparin > prophylactic dose"
+      ],
+      "consult_role": "cardio-onc + GI",
+      "exception_paths": [
+        "bridge antiplatelet to single-agent ASA 30d before high-bleed-risk regimen — patient/cardio decides",
+        "weekly bev 2.5 mg/kg with monitoring (off-label)"
+      ],
+      "evidence": ["FDA bev label", "ESMO supportive care 2023"]
+    },
+    {
+      "id": "STOP-QTC-1",
+      "trigger": "QTcF > 480 ms baseline OR QTc-prolonging co-medication stack > 3 agents",
+      "action_class": "exclude_qtc_prolong",
+      "affected_drugs": [
+        "adagrasib", "regorafenib (mild)", "fluconazole class (azole)",
+        "ondansetron > 8 mg/d"
+      ],
+      "consult_role": "cardio-electrophysiology",
+      "exception_paths": [
+        "magnesium / potassium repletion + co-med reduction may reopen the gate"
+      ],
+      "evidence": ["KRYSTAL-1 PMID 36546659 G≥3 QTc 6%"]
+    }
+  ]
+}
