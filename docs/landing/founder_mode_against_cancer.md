@@ -146,7 +146,7 @@ skill 自检通过后，Sid 上线：
 - **不开方**，不算剂量，不发起任何治疗。
 - **不是 emergency** —— 肿瘤急症请立刻拨打急救电话。
 - **L3/L4 风险卡** 必须由患者本人 acknowledge 才进最终交付（`opl-cancer acknowledge <risk_card_id>`），可以随时 withdraw（级联回滚下游 insight）。
-- 发现可能危害患者的输出 → safety@cancerdao.org，72 小时内响应。
+- 发现可能危害患者的输出 → 在 https://github.com/CancerDAO/opl-cancer/issues 提交 issue，72 小时内响应。
 - 完整免责声明见 `/DISCLAIMER.md`。
 
 ---

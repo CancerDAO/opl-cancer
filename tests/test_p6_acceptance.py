@@ -50,7 +50,7 @@ def test_disclaimer_present_and_explicit_boundaries() -> None:
     # patient decision authority
     assert "sole decision" in txt.lower() or "patient" in txt.lower()
     # safety pathway
-    assert "safety@cancerdao.org" in txt or "issues" in txt.lower()
+    assert "issues" in txt.lower()
 
 
 # ---------------------------------------------------------------------------

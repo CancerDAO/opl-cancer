@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.5] — 2026-05-25 — Remove wrong safety email + fix post-rename DISCLAIMER URLs
+
+`safety@cancerdao.org` was not a real intake — removed from `DISCLAIMER.md`, `CHANGELOG.md` (historical mention redacted to "GitHub Issues"), `docs/landing/founder_mode_against_cancer.md`, and the `test_p6_acceptance.py` assertion (which had an OR fallback to "issues", so coverage is preserved). The two `opl-cancer-skill` URLs in `DISCLAIMER.md` (still pointing to the pre-rename repo) are also updated to `opl-cancer`. Other `opl-cancer-skill` references across README/CONTRIBUTING/install.sh/etc. are left for a separate rename-sweep commit.
+
 ## [1.5.4] — 2026-05-25 — Inline delivery contract (Sid must speak conclusions in chat, not just point to files)
 
 User feedback after testing v1.5.3: "执行完任务后, Sid 只让用户去看本地报告, 不在对话里总结结论。" The render step was writing files correctly, but the assistant was then closing the run with "报告已生成, 请查看 `delivery/patient_brief.html`" — file-handoff with zero substantive content surfaced inline. This is delivery theater, not delivery.
@@ -790,7 +794,7 @@ mypy --strict on touched files + ruff clean across all 20 iters.
   (PubMed, ClinicalTrials.gov, ChiCTR, NCCN, OpenFDA, CIViC) per spec §17.6
 - **`DISCLAIMER.md`** (root) — explicit "not clinical decision support, not
   doctor substitute, patient sole decision authority" per spec §17.6, with
-  safety reporting pathway (`safety@cancerdao.org`, 72-hour response)
+  safety reporting pathway (GitHub Issues, 72-hour response)
 - **`tools/sign_contributor_agreement.py`** — first-time contributor signing
   flow per spec §16; writes `governance/contributors/<handle>.json` with
   SHA-256 of agreement text, ISO-8601 UTC timestamp; supports `--dry-run` and

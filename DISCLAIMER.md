@@ -46,7 +46,7 @@ Every claim emitted by this software:
 - Carries a three-tier label: `established` / `exploratory` / `speculative`
 - Is rebutted, where applicable, by Henry's L1 (mechanical), L2 (reviewer cross-check), L3 (Permission-Level gate), L4 (rollback registry) audit chain
 
-If a claim arrives without these, **do not trust it**. File an issue at https://github.com/CancerDAO/opl-cancer-skill/issues — that is a bug, not a feature.
+If a claim arrives without these, **do not trust it**. File an issue at https://github.com/CancerDAO/opl-cancer/issues — that is a bug, not a feature.
 
 ## Liability
 
@@ -58,8 +58,7 @@ You use this software at your own risk. If you are uncertain whether to use it, 
 
 If you believe this software contributed to patient harm, or could plausibly do so, please report immediately:
 
-- Open a public issue: https://github.com/CancerDAO/opl-cancer-skill/issues
-- Email: safety@cancerdao.org
+- Open a public issue: https://github.com/CancerDAO/opl-cancer/issues
 
 We treat safety reports as P0 and will investigate within 72 hours.
 

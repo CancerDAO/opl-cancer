@@ -4,7 +4,7 @@ description: "OPL for Cancer (智愈 AI 科研团队) — open-source AI scienti
 license: Apache-2.0
 metadata:
   author: CancerDAO Contributors
-  version: "1.5.4"
+  version: "1.5.5"
   tags: oncology precision-medicine ai-scientist-team founder-mode hypothesis-generation co-scientist robin bixbench meta-analysis clinical-trials evidence-grounded
 ---
 
