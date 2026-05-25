@@ -99,9 +99,9 @@ OPL 不是一个查数据的工具，是**一支真正在做科研的团队**。
 
 **Wave 1 — 准备 (世界已知的信息)**: Bert 比对 OncoKB / CIViC / ClinVar 标出可成药变异；Rick 在 ClinicalTrials.gov + ChiCTR + HKCTR 同时搜在招试验；Vince 拉 NCCN / CSCO 当前线诊疗指南；Iain 在 PubMed 跑 PaperQA2 锚定 RAG；其它专家按需被 Sid 调度。
 
-**Wave 2 — 想办法 (主动产生世界未知的信息)**: 这里 OPL 真正区别于"查数据工具"。Aviv 跑 Co-Sci Elo 联赛 (Google Co-Scientist 论文方法)，让 17 个候选假设互相 PK 4 轮；Robin 反思器 (Future House 论文方法) 每轮注入"如果错了/如果换框架/缺什么数据/边界冲突"6 种 lens；产出有依据排名的 top-3 方案。
+**Wave 2 — 想办法 (主动产生世界未知的信息)**: 这里 OPL 真正区别于"查数据工具"。Aviv 跑 Co-Sci Elo 联赛 ([Google Co-Scientist 论文方法](https://www.nature.com/articles/s41586-026-10652-y))，让 17 个候选假设互相 PK 4 轮；[Robin 反思器](https://www.nature.com/articles/s41586-026-10658-6) (Future House 论文方法) 每轮注入"如果错了/如果换框架/缺什么数据/边界冲突"6 种 lens；产出有依据排名的 top-3 方案。
 
-**Wave 3 — 查数据 (真定量证据)**: 不是再次检索。Aviv 把 top-3 假设拉进 cBioPortal / GEPIA3 / GDC 跑真实 TCGA-GTEx 差异表达；Iain 跑随机效应 meta-analysis (DerSimonian-Laird) 产出 pooled ORR 和 I² 异质性；Aviv 跑 Cox PH 把患者投到匹配队列做 N=1 生存预测；GEPIA3 单次批量 70+ 基因查询。**这不是 LLM 想象的数字，是公开数据库的真实数据**。
+**Wave 3 — 查数据 (真定量证据)**: 不是再次检索。Aviv 把 top-3 假设拉进 cBioPortal / GEPIA3 / GDC 跑真实 TCGA-GTEx 差异表达；Iain 跑随机效应 meta-analysis (DerSimonian-Laird) 产出 pooled ORR 和 I² 异质性；Aviv 跑 Cox PH 把患者投到匹配队列做 N=1 生存预测；GEPIA3 单次批量 70+ 基因查询。重型 bioinformatics 笔记本通过 [Finch / BixBench 框架](https://www.nature.com/articles/s41586-026-10644-y) (Future House) 调度。**这不是 LLM 想象的数字，是公开数据库的真实数据**。
 
 **Wave 4 — 审核 (Henry IRB-substitute)**: 26 道机械门 (G1-G24 PRD-§7 完整 + v1.5 新增 G25 deferred-evidence-block / G26 evidence-strength-ranking / G27 privacy-scrub)。每条结论必须带 PMID + provenance SHA-256 + 三级标签 (established / exploratory / speculative)。G13 强制 reviewer LLM ≠ executor LLM (跨模型家族复核)。任何一条没 PMID / 引用错误 / 撤稿 / 命令式语气都会被门拦下。
 
@@ -150,7 +150,15 @@ opl-cancer preflight
 
 ### 模型层
 
-主 executor 跑在 Claude Code 主线程 (token 来自您订阅的 Claude Code，不需要单独 API key)。Reviewer pool 需要一个非 Anthropic 的外部 key (默认 MiniMax-M2.7，免费申请) — 这是 v1.5 强制的 G13 跨家族复核规则。
+主 executor 跑在 Claude Code 主线程 (token 来自您订阅的 Claude Code，不需要单独 API key)。
+
+Reviewer pool 需要您**自己申请并提供一个非 Anthropic 家族的 API key** — 这是 v1.5 强制的 G13 跨家族复核规则 (避免 Claude 审 Claude 自己的同源偏差)。支持任一：
+
+- **MiniMax-M2.7** (推荐，国内可直接申请) — 见 [`.env.example`](.env.example) 链接
+- OpenAI key (GPT-5)
+- Google Gemini key
+
+任一一个就够了；preflight 会检查 `MINIMAX_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` 三个环境变量,任一存在就放行。完全没 key 时 preflight 会硬失败并给您 3 步申请引导。
 
 > **隐私优先：可替换的本地 OCR**。默认走云端 OCR；如果您希望病历完全不离本机，安装姊妹 skill [`cancer-buddy-organize-local-skill`](https://github.com/CancerDAO/cancer-buddy-organize-local-skill) (PaddleOCR + 本地 NER + 双层 PII 脱敏)，输出契约完全兼容，下游所有 OPL 模块无需改动。
 
