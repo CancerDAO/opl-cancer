@@ -22,6 +22,7 @@ from typing import Any
 from opl_cancer.compute.native_runner import NativeAnalysisRunner
 from opl_cancer.compute.runner import BixbenchRunner
 from opl_cancer.experts._common import LLMBackedExpert
+from opl_cancer.glue.progress_reporter import ProgressReporter
 from opl_cancer.provenance.hasher import hash_claim
 from opl_cancer.provenance.journal import ProvenanceJournal
 
@@ -49,11 +50,15 @@ class Wave3Runner:
         aviv: LLMBackedExpert,
         bixbench: ComputeRunner,
         tyler: LLMBackedExpert | None = None,
+        reporter: ProgressReporter | None = None,
     ) -> None:
         self.out_dir = Path(out_dir)
         self.aviv = aviv
         self.tyler = tyler
         self.bixbench: ComputeRunner = bixbench
+        # v1.5.2: optional plain-language progress reporter — drives the
+        # "[3/5 查数据 / Cross-checking]" stage. None = no-op for back-compat.
+        self.reporter = reporter
 
     async def run(
         self,
@@ -68,6 +73,17 @@ class Wave3Runner:
 
         hypotheses = wave2_outputs.get("hypotheses", [])
         top_k_ids = [hid for hid, _ in wave2_outputs.get("top_k", [])][:3]
+
+        # v1.5.2: stage-3 start (lay label "查数据 / Cross-checking").
+        # Internal Wave 3 has three sub-stages (dataset / analysis /
+        # validation) but the user sees one "查数据" stage with heartbeats.
+        if self.reporter is not None:
+            self.reporter.start_stage(
+                3,
+                action_zh=(
+                    "在公开数据库 (TCGA / cBioPortal 这种)里对照您的肿瘤特征"
+                ),
+            )
 
         # Stage 1 — dataset_acquisition (Aviv)
         ds_context = {
@@ -87,6 +103,13 @@ class Wave3Runner:
                 "hash": hash_claim({"out": datasets_out}),
             }
         )
+        if self.reporter is not None:
+            n_top = len(top_k_ids)
+            self.reporter.heartbeat(
+                3,
+                f"匹配的公开数据集找到了, 准备拿您的前 {n_top} 个方案逐个去对照",
+                force=True,
+            )
 
         # Stage 2 — bioinformatics_data_analysis (Aviv) — one plan per top-hyp
         analysis_runs: list[dict[str, Any]] = []
@@ -125,6 +148,14 @@ class Wave3Runner:
                     "bix_mode": bix_result.mode,
                 }
             )
+            # Heartbeat per analyzed top-K hypothesis (only fires if
+            # ≥ heartbeat_interval since the last emit — protects
+            # against spammy chat in fast batches).
+            if self.reporter is not None:
+                self.reporter.heartbeat(
+                    3,
+                    f"第 {len(analysis_runs)} / {len(top_k_ids)} 个方案的数据对照已完成",
+                )
 
         # Stage 3 — hypothesis_validation (Tyler if present, else Aviv)
         validator = self.tyler if self.tyler is not None else self.aviv
@@ -165,4 +196,16 @@ class Wave3Runner:
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        # v1.5.2: stage-3 end. Surface a lay summary; next stage is "审核".
+        if self.reporter is not None:
+            n_validated = len(validations)
+            self.reporter.end_stage(
+                3,
+                summary_zh=(
+                    f"{n_validated} 个方案都用公开数据库对照过了, 部分结论有了新的支撑"
+                ),
+                next_stage_preview_zh=(
+                    "审核 — 我们的内部审查员会一条一条核对证据强不强"
+                ),
+            )
         return payload

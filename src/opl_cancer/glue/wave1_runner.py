@@ -27,6 +27,7 @@ from typing import Any, Callable
 
 from opl_cancer.experts.base import Expert
 from opl_cancer.glue.case_loader import PatientCaseLoader
+from opl_cancer.glue.progress_reporter import ProgressReporter
 from opl_cancer.glue.renderer import PatientBriefRenderer
 from opl_cancer.llm.base import LLMClient, LLMRequest
 from opl_cancer.llm.prompts import PromptTemplate, find_prompts_root
@@ -130,6 +131,8 @@ class Wave1Runner:
         reviewer_model_id: str,
         expert_factory: Callable[..., Expert],
         gates: list[Gate],
+        *,
+        reporter: ProgressReporter | None = None,
     ) -> None:
         self.patient_root = Path(patient_root)
         self.out_dir = Path(out_dir)
@@ -141,29 +144,78 @@ class Wave1Runner:
         self.reviewer_model_id = reviewer_model_id
         self.expert_factory = expert_factory
         self.gates = gates
+        # v1.5.2: optional plain-language progress reporter. When None,
+        # silently no-op (back-compat with v1.4 / v1.5 callers).
+        self.reporter = reporter
 
     # ---- pipeline -------------------------------------------------------
 
     async def run(self, patient_text: str) -> dict[str, Any]:
         _t0 = time.monotonic()
+        # v1.5.2: stage-1 start (lay label "准备 / Getting ready").
+        if self.reporter is not None:
+            self.reporter.start_stage(
+                1,
+                action_zh=(
+                    "读您的病历 + 找匹配的指南 + 在公开试验库里搜适合您的研究"
+                ),
+            )
         ctx = PatientCaseLoader(self.patient_root).load()
         # Always promote profile_json (json-encoded profile) for templates
         ctx["profile_json"] = json.dumps(ctx["profile"], ensure_ascii=False)
+        if self.reporter is not None:
+            self.reporter.heartbeat(
+                1,
+                "已经把您的病历读完, 正在判断这次的目标 (新方案 / 复查 / 副作用问题)",
+                force=True,
+            )
 
         # 1. Intent classification
         intent = await self._classify_intent(patient_text, ctx)
         if intent != "NEW_GOAL":
+            if self.reporter is not None:
+                self.reporter.end_stage(
+                    1,
+                    summary_zh=(
+                        "您的请求不需要团队完整跑一遍, 我可以直接回答"
+                    ),
+                )
             return {"status": "no_team_run", "intent": intent}
+        if self.reporter is not None:
+            self.reporter.heartbeat(
+                1,
+                "已经判定为新方案咨询, 正在让 PI 选哪几位专家上场",
+                force=True,
+            )
 
         # 2. Plan
         plan, plan_dict = await self._build_plan(patient_text, ctx)
+        if self.reporter is not None:
+            experts_count = len(plan_dict.get("experts", []))
+            self.reporter.heartbeat(
+                1,
+                f"计划好了, 这次让 {experts_count} 位专家上场, 准备并行开工",
+                force=True,
+            )
 
         # 3. Instantiate experts + populate per-task integrator results
         handlers, expert_instances = self._build_handlers(plan_dict["experts"], plan)
         await self._prefetch_integrators(plan, expert_instances, ctx)
+        if self.reporter is not None:
+            self.reporter.heartbeat(
+                1,
+                "专家们已经各自查到了背景资料, 现在开始写各自的报告",
+                force=True,
+            )
 
         # 4. Dispatch wave 1 concurrently
         outputs = await dispatch_wave(plan, 1, handlers, context=ctx)
+        if self.reporter is not None:
+            self.reporter.heartbeat(
+                1,
+                f"{len(outputs)} 位专家都交报告了, 正在做内部核对",
+                force=True,
+            )
 
         # 5. Gate enforcement + provenance hash + render
         run_dir = self.out_dir
@@ -209,6 +261,25 @@ class Wave1Runner:
             }, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+
+        # v1.5.2: stage-1 end (lay summary, next-stage preview).
+        if self.reporter is not None:
+            n_experts = len(rendered_experts)
+            n_risk_cards = len(risk_cards)
+            risk_phrase = (
+                f", 其中 {n_risk_cards} 处会附加风险说明"
+                if n_risk_cards
+                else ""
+            )
+            self.reporter.end_stage(
+                1,
+                summary_zh=(
+                    f"{n_experts} 位专家的初步资料都齐了{risk_phrase}"
+                ),
+                next_stage_preview_zh=(
+                    "想办法 — 团队会列 10-20 种可能的方案让它们互相比一比"
+                ),
+            )
 
         return {"status": "ok", "run_id": plan.run_id, "out_dir": str(run_dir)}
 
