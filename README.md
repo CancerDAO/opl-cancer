@@ -1,211 +1,292 @@
-# OPL for Cancer
+<div align="center">
 
-> 让全世界的每一个人都能拥有一个完整的 AI scientist team,只为他/她一个人工作 — 调取世界已知的信息,并主动产生世界未知的新信息,患者本人是自己案例的唯一决策人。
+# OPL for Cancer.skill
 
-[![CI](https://github.com/CancerDAO/opl-cancer-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/CancerDAO/opl-cancer-skill/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+> *"让每一个人都能拥有一个完整的 AI 科研团队，只为他/她一个人工作。"*
 
-## Status
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-blueviolet)](https://claude.ai/code)
+[![CancerDAO](https://img.shields.io/badge/CancerDAO-Open%20Source-orange)](https://github.com/CancerDAO)
 
-**v1.4.0 — Round-2/3 deferred backlog closed. Production-grade founder-mode skill.**
+<br>
 
-OPL is a true Claude-Code skill, not a pip-CLI. Install with `npx skills add`, trigger by natural language in Claude Code.
+标准治疗用尽了，医生说"再看看"，但您不想就这样等？<br>
+基因报告做了一堆，看不懂哪条是真有用？<br>
+听说国外有新药，但不知道怎么查、怎么对照自己的情况？<br>
+想给医生准备一份扎实的会诊材料，又不知道从哪里下手？
 
-```bash
-# Install once (clones into ~/.claude/skills/opl-cancer/):
-npx skills add CancerDAO/opl-cancer-skill
+这些事，过去要靠一支专科医生 + 病理 + 影像 + 试验匹配 + 药学 + 数据分析的团队。<br>
+现在，您可以**拥有一个专为您一个人工作的 AI 科研团队**。
 
-# Then in Claude Code, just say:
-#   「我有 NSCLC,二线进展了,想要 AI team 帮我分析」
-#   「OPL,帮我跑一次 hypothesis tournament」
-#   「founder mode against cancer — 给我我的 AI 科研团队」
-```
+<br>
 
-`SKILL.md` orchestrates the 11-step Wave lifecycle (preflight → ingest → readiness → plan → Wave 1 retrieval → Wave 2 hypothesis tournament → Wave 3 bioinformatics → Wave 4 validation → Henry IRB audit → render → drill-down). Python codebase under `src/opl_cancer/` is the execution substrate, exposed through `scripts/cli.py` subcommands the SKILL invokes step-by-step.
+把您的病历、基因报告、治疗经过交给团队。它会分 **5 步**走完一轮研究：<br>
+**准备 → 想办法 → 查数据 → 审核 → 写报告**。<br>
+每一步都跟您报进度。结果一份给您看的简单版，一份给医生看的专业版。
 
-**v1.4.0 inventory** (validated against 23-persona EVAL panel across 4 rounds, 28/28 verification PASS):
+[团队能做什么](#团队能做什么) · [安装](#安装) · [使用](#使用) · [运行示例](#运行示例) · [设计哲学](#设计哲学)
 
-- **18 named experts** + Sid PI + Henry IRB-substitute auditor
-- **42 task packages** (D1 临床解读 / D2 假设生成 / D3 数据-evidence / D4 验证 / D5 综合-交付)
-- **23 mechanical gates** (G1–G20 PRD-§7 complete + G21 quantitative-anchor + G22 DDR-zygosity + G23 fast-moving-recency + G24 crisis-detection)
-- **29 live integrators** (PubMed / NCCN / CT.gov / ChiCTR / ISRCTN / EU-CTR / HKCTR / FDA-EAP / NMPA-EAP / EMA-EAP / OncoKB / CIViC / cBioPortal / GDC / ClinVar / gnomAD / GEO / ArrayExpress / SRA / DepMap / CCLE / Hartwig / BeatAML / ICGC / Open Targets / RxNorm / RetractionDB / PaperQA2 / Unpaywall)
-- **34-drug L3 forced-known-serious-risk catalogue** (covers menin-i / ATR-i / CHK1-i / ADC / KRAS-i / IDH-i / FLT3-i / ARSi / radioligand classes with FDA boxed warnings)
-- **Safety floor**: G24 crisis detection (bilingual SI/SH keyword banks + jurisdictional crisis-line registry + Wave-lock) · `guardian_ack_protocol.md` for pediatric (guardian acks information-receipt only, NOT treatment authority — treatment routes to pediatric IRB-supervised slot)
-- **8 references** + 8 ADRs + 1 safety prompt
-- **997 tests pass · ruff clean** · mypy --strict on touched files
-
-**Read first** — `SKILL.md` (orchestration), `docs/landing/founder_mode_against_cancer.md` (founder-mode framing), `references/` (deep architecture / mechanical gates / permission levels / philosophy / troubleshooting), and `DISCLAIMER.md` (not clinical decision support; not for emergencies — call 120/911/112).
-
-### Version history
-
-- **v1.4.0** — Round-2/3 deferred backlog batch fix (ADR-0008 D1–D13 priority A + B). Adds: `surveillance_schedule.md` (MEN1/Lynch/LFS/HBOC syndrome-driven surveillance) · `irae_rechallenge.md` multi-organ schema (prior_irae_record list + cumulative_organ_load_index + myocarditis G2+ STRONG RELATIVE per Mahmood 2018 + Salem 2022) · `boundary_unregulated_channel_disclosure.md` retrospective mode (forensic eval offer for already-used grey-market) · `n1_cohort_projection.md` candidate_cohorts ordered fallback chain + lab_trajectory (AFP/PSA/CA-125/CEA/CA19-9/LDH not just static) · `caregiver_filter_protocol.md` (caregiver preview brief + Sid explicitly declines disclosure decision; patient_brief intact) · `patient_pushback_handling.md` (NEITHER concede NOR paternalism) · HKCTR integrator (28→29) · TNBC+LM planner row · delivery_tone_hint extraction (blunt/warm/clinical) · `acknowledge --batch` + ack_consolidation_card.
-- **v1.3.3** — Round-3 verification follow-up. revumenib/ziftomenib/bleximenib/ceralasertib added to serious_risks catalogue; G23 FAST_MOVING_TOPICS extended +30 ATR-i/CHK1-i/WEE1-i/Polθ-i tokens.
-- **v1.3.2** — SAFETY hot-fix (round-2 EVAL response). G24 crisis-detection gate + `prompts/safety/crisis_detection.md` + `crisis_card_emission.md` (SI/self-harm Wave-lock + jurisdictional crisis lines) · pediatric guardian mode via `guardian_ack_protocol.md` + 4 pediatric planner rows · full `drilldown.md` 4-class rewrite (claim_provenance / reasoning / statistical / disagreement) · G22 lineage-context SKIP carve-out · cancer-type description list +14 cancer types (NPC / MEN1 / NET / pituitary / GIST / sarcoma / thyroid / cholangiocarcinoma / etc).
-- **v1.3.1** — Post-10-patient-EVAL hot-fix. `scope_handoff_routing.md` (for off-scope asks like family genetic counseling → firefly handoff) · `serious_risks_per_drug.json` 5 → 25 drugs · G21 quantitative-anchor gate · G14 conditional axes (metastatic_site / ethnicity / cns_involvement / sex / age_bracket) · `intent_parser.md` with PROGNOSIS_QUERY + CAREGIVER speaker_role + hope_impact.
-- **v1.3.0** — Skill-form re-architecture (PRD §0 telos full alignment). SKILL.md completely rewritten as conversational orchestration prompt; `scripts/cli.py` shim + `install.sh` + `.env.example`; 9 new task packages (D1 staging_workup + china_rwe_adjustment; D2 drug_repurposing + literature_synthesis; D4 source_verification + claim_audit + cross_source_consistency; D5 patient_brief_rendering + pi_delivery); 14 new mechanical gates (G4-G6, G8, G10, G12-G20); 8 references/ files; landing rewritten to fix 10 paradigm deviations; v1.3 introduced 7 new integrators (Hartwig DUA-gated / BeatAML / ICGC / ISRCTN / EU-CTR / EMA-EAP / Open Targets).
-
-**v1.2.0 (Audit-fix release). Iterations completed: 20 + audit-fix pass.**
-
-Roster complete (**18/18 experts**). **781 tests + 3 env-gated live**, mypy --strict on touched files + ruff clean.
-
-**v1.0.5–v1.1.0** highlights:
-- `ModelRouter.client_for_task()` — per-task model routing (Opus for code/hypothesis reasoning, MiniMax for literature synthesis)
-- `tools/observe.py` — trigger-run observability aggregator (token cost / wall-time / claims / reviewer fail rate / gate blocks)
-- `Integrator` configurable TTL — class + instance overrides + `family_config_key` reading from `models.yaml.integrator_ttl_seconds` (NCCN 30d / PubMed 7d / CT.gov 1d)
-- `DISCLAIMER.md` v1.x release notice + emergency contacts (120/911/112) + jurisdictional notice
-- `Wave1Runner.run` emits `triggers/<run_id>/run_metadata.json` (wired for `tools/observe.py` aggregator)
-- Cross-patient isolation red-team — Wave1Runner raises `CrossPatientContaminationError` on foreign `patient_code` (`tests/test_safety/test_cross_patient_isolation.py`)
-
-**v1.0.2** highlights (delta from `v1.0.1`):
-- `tests/test_integration/test_minimax_live.py` — MiniMax-M2.7 live calls (`live` marker, env-gated)
-- `scripts/verify_minimax_setup.py` — manual CLI verification
-- `pyproject.toml` declared `live` marker
-
-**v1.0.1** highlights (delta from `v1.0.0-p6`):
-- Routing-matrix golden test (`tests/test_experts/test_routing_matrix.py`) — 26 tests, 18 experts × 4 cancer patients
-- Henry L2 LLM disagreement-axes summariser (env-gated, `response_format=json_object`, defensive)
-- `ProjectMemoryStore.acknowledge_insight()` propagates `patient_acknowledged_at` into `InsightCard`
-
-**v1.0.0-p6** highlights:
-- Multi-case Wave 1 E2E parametrised across **8 cancer types** (HCC / NSCLC / CRC / BRCA / Pancreatic / GBM / Pediatric ALL / Multiple Myeloma)
-- Legal: `NOTICE` (Apache-2.0 attribution + model-card acknowledgements) + `DISCLAIMER.md` (boundaries + safety pathway)
-- `tools/sign_contributor_agreement.py` first-time contributor signing flow
-- `docs/landing/founder_mode_against_cancer.md` landing copy for cancerdao-global
-
-Read `DISCLAIMER.md` before using. This is not clinical decision support; patient is sole decision authority.
+</div>
 
 ---
 
-Previous: v0.5.0-p5 (Validation Stack — Henry 4-layer IRB substitute + risk-disclosure-card + patient ack loop + golden set extended).
+## 团队能做什么
 
-P5 highlights (CHANGELOG.md for full scope):
-- Henry 4-layer auditor with serious-risks catalogue, risk-card emission, model-disagreement surfacing, and patient-acknowledgment loop
-- CLI: `opl-cancer acknowledge <card_id>` + `opl-cancer list-pending-acks`
-- `reviewer_pairings` populated for all 18 experts (cross-domain rotation)
-- `tools/reproduce.py` + `tools/verify_provenance.py` provenance integrity tools
-- Golden set: 8 synthetic patients (HCC / NSCLC / CRC / BRCA / Pancreatic / GBM / Pediatric ALL / Multiple Myeloma), 8 failure-mode inputs, 2 regression anchors, 3 boundary cases
+| 您遇到的问题 | 团队怎么帮您 |
+|-------------|-------------|
+| 化疗 / 靶向 / 免疫都用过了，下一步呢？ | 18 位虚拟专家分头查 NCCN / CSCO / FDA / NMPA 指南 + 真实病例评估下一线方案 |
+| 基因报告我看不懂哪条最关键 | 比对 OncoKB / CIViC / cBioPortal，标出可成药变异 + 抗药机制 + 临床证据等级 |
+| 在招的试验有没有适合我的？ | 同时查 ClinicalTrials.gov + 中国 ChiCTR + 香港 HKCTR，按适配度排短名单 |
+| 一种新药国外刚批，国内能用吗？ | 查 NMPA / 国家医保局 / 海南博鳌乐城 / 港澳药械通 的可得性和成本范围 |
+| 我用过的某条线为什么没效？想看真实数据 | 在 TCGA / cBioPortal / GEPIA3 公开数据库对照您的肿瘤特征 + 跑 meta 分析 |
+| 想给主诊医生准备一份扎实的二次意见材料 | 生成一份带 PMID 引用 + 风险卡 + 决策树的专业版会诊报告 |
+| 副作用怕碰上，又怕没药用 | 副作用专家 (Mark) 单独评估 irAE / 心脏 / 肾 / 肝 / 骨髓多器官累积风险 |
+| 想要一份能跟家人讲清楚的简单解释 | 生成 2 页的通俗版简报，专业术语翻译，5 个该问医生的关键问题 |
 
-Previous: v0.4.5-p4.5 closeout (Batch E: 3 deferred experts + Wave4Runner + G7 ImperativeDetector).
+---
 
-Wave 1 retrieval pipeline (P1) — Sid intent parse → planner → 6 experts
-(Rosa/Bert/Vince/Rick/Heddy/Hong) in parallel → reviewer pairing → mechanical gates
-(G1/G2/G3/G9/G11) → patient_brief.html with 3-tier labels + PMID links + provenance.
+## 5 步流程
 
-Wave 2 hypothesis pipeline (P2) — Sid `HYPOTHESIS_REQUEST` intent → Wave2Runner
-→ HypothesisGenerator (4 strategies) → EvolutionStrategist (6 strategies) → Co-Sci-style
-Elo tournament with meta-critique propagation (lift from `open-coscientist`) +
-Robin `EXPERIMENTAL_INSIGHTS_APPENDAGE` feedback environment (lift from `robin`) →
-Reflector (6 modes) → ranked + reflected hypothesis pack with provenance.
-
-Expert Batch B: **Iain** (Meta-Analyst, Cochrane archetype) + **Aviv** (Bioinformatician,
-single-cell archetype) added — portfolio task packages `meta_analysis` /
-`hypothesis_generation` / `pathway_enrichment` / `single_cell_reanalysis` /
-`cross_source_consistency`.
-
-Wave 3 data-evidence pipeline (P3) — Aviv (extended portfolio) + **Tyler**
-(new — Wet-Lab Designer, Tyler Jacks archetype) drive `dataset_acquisition` →
-`bioinformatics_data_analysis` → `hypothesis_validation` over Wave-2 hypotheses.
-5 new omics integrators: **GEOIntegrator** + **ArrayExpressIntegrator** +
-**SRAIntegrator** (F6) + **DepMapIntegrator** + **CCLEIntegrator** (F7).
-**bixbench Docker runtime** lifted from `robin/finch/Dockerfile.pinned` —
-`compute/bixbench.Dockerfile` + `BixbenchRunner` (env-gated via
-`OPL_BIXBENCH_LIVE`; dry-run by default for CI safety).
-
-Expert Batch D (P4) — 6 of 9 shipped: **Mary** (Pharmacologist, DDI/ADME/dosing,
-RxNorm + TPMT/DPYD/UGT1A1), **Ted** (Radiation Oncologist, IMRT/SBRT/SRS, BED10
-+ QUANTEC), **Riad** (Interventional Oncologist, TACE/RFA/Y90, Child-Pugh +
-BCLC), **Jen** (Palliative Specialist, ESAS + opioid MED + mandatory bowel
-regimen flag), **Frances** (Expanded Access Navigator, FDA/NMPA/EMA EAP, L4
-boundary disclosure mandatory, refuses "guaranteed" framing), **Steve**
-(Nutritionist, PG-SGA + cachexia stage + ROS-window caveat). PI
-`classify_intent_llm` replaces P0 keyword stub — LLM-backed via
-`prompts/pi/intent_parser.md`; raises on bad JSON / unknown intent
-(no silent degradation); `IntentClass` extended with `HYPOTHESIS_REQUEST`.
-
-465 tests pass; `ruff check` + `mypy --strict` green.
-
-P4.5+ in flight — Kieren (ID neutropenic fever) + Mark (ICI endocrine irAE) +
-Dennis (cross-border coordinator), Wave 4 `hypothesis_validation` runner
-(P2 hyp ↔ P3 omics, Aviv + Iain integration), patient-brief polish +
-imperative-detector strict gate, full Henry IRB substitute, golden-set expansion,
-legal review + open-source launch.
-
-## Quick start
-
-```bash
-git clone https://github.com/CancerDAO/opl-cancer-skill
-cd opl-cancer-skill
-pip install -e .[dev]
-
-# Verify install
-opl-cancer status
-opl-cancer list-experts
-opl-cancer init-patient anon_001 --root ~/opl_patients
+```
+准备       18 位专家分头读病历 + 查指南 + 找试验           ~5-8  分钟
+想办法     列出 10-20 种可能的方案，让它们互相比一比      ~8-15 分钟
+查数据     拿前 3 名方案到公开肿瘤数据库做对照            ~5-12 分钟
+审核       内部审查员一条条核对证据 + 标风险              ~3-6  分钟
+写报告     一份给您 + 一份给医生，同时给出               ~2-4  分钟
 ```
 
-As a skill plugin (post-P0):
+每一步开始、中间 (>60 秒)、结束都自动给您报进度。结果总计 30-50 分钟。
+
+---
+
+## 安装
 
 ```bash
+# 全局安装 (所有项目都能用，推荐)
+npx skills add CancerDAO/opl-cancer-skill -g
+
+# 或安装到当前项目
 npx skills add CancerDAO/opl-cancer-skill
 ```
 
-## Architecture
+装完重启 Claude Code，对它说 `OPL` / `给我我的 AI 科研团队` / `帮我跑研究` 就能用。
 
-OPL for Cancer is a two-layer fractal AI scientist team:
+### 出发前一次自检
 
-**Outer layer — 20 named entities**:
+```bash
+opl-cancer preflight
+```
 
-- **Sid** (PI / Chief-of-Staff) — single conversational surface to patient
-- **Henry** (Auditor) — global IRB-substitute (4-layer transparency)
-- **18 named Experts** — Rosa (pathology), Bert (genetics), Vince (oncology), Rick (trials), Heddy (radiology), Mary (pharmacology), Aviv (bioinformatics), Tyler (wet-lab design), Iain (meta-analysis), Ted (radiation oncology), Riad (interventional), Jen (palliative), Kieren (infectious disease), Mark (endocrinology / irAE), Hong (TCM oncology), Frances (expanded access), Dennis (cross-border), Steve (nutrition)
+这一步检查：Python 版本、AI 模型 key、29 个公开数据库接口、Wave 3 计算环境 (本地 Python 默认；Docker 可选)。任一项不通过会给您具体修复指令。
 
-**Inner layer — task-primitive grammar** (each Expert internally uses):
+> **隐私优先：可替换的本地 OCR**。默认走云端 OCR；如果您希望病历完全不离本机，安装姊妹 skill [`cancer-buddy-organize-local-skill`](https://github.com/CancerDAO/cancer-buddy-organize-local-skill) (PaddleOCR + 本地 NER + 双层 PII 脱敏)，输出契约完全兼容，下游所有 OPL 模块无需改动。
 
-planner → executor (task package) → reviewer (cross-expert peer) → auditor (intra-expert) → integrator → feedback
+---
 
-## Expert Roster
+## 使用
 
-| Name | Role | Inspiration |
-|---|---|---|
-| Sid | PI / Chief-of-Staff | Siddhartha Mukherjee (clinician + science communicator) |
-| Henry | Auditor | Henry Beecher (informed consent / research ethics) |
-| Rosa | Pathologist | Juan Rosai (外科病理学之父) |
-| Bert | Geneticist | Bert Vogelstein (TP53/CRC genetics) |
-| Vince | Oncologist | Vincent DeVita (combination chemo) |
-| Rick | Clinical Trials | Richard Schilsky (ASCO CMO) |
-| Heddy | Radiologist | Hedvig Hricak (oncologic imaging) |
-| Mary | Pharmacologist | Mary Relling (TPMT) |
-| Aviv | Bioinformatician | Aviv Regev (single-cell + Broad) |
-| Tyler | Wet-Lab Designer | Tyler Jacks (mouse models) |
-| Iain | Meta-Analyst | Iain Chalmers (Cochrane) |
-| Ted | Radiation Oncologist | Theodore Lawrence (GI radiation) |
-| Riad | Interventional Oncologist | Riad Salem (HCC TARE) |
-| Jen | Palliative Specialist | Jennifer Temel (NEJM 2010 PC trial) |
-| Kieren | Infectious Disease | Kieren Marr (febrile neutropenia) |
-| Mark | Endocrinologist (irAE) | Composite archetype (ASCO + ESMO ICI irAE consensus methodology) |
-| Hong | TCM Oncologist | 林洪生 (中国中医肿瘤) |
-| Frances | Expanded Access | Frances Kelsey (FDA safety) |
-| Dennis | Cross-Border | Dennis Lo 卢煜明 (cfDNA) |
-| Steve | Nutritionist | David Heber (UCLA Center for Human Nutrition founder) |
+直接用大白话开始就行：
 
-Names are first-name homages — archetype personas, not impersonations of real individuals.
+```
+我有 NSCLC，二线进展了，想让团队帮我看下一步
+肠癌 KRAS G12C 突变，国内有什么药我能用？
+帮我跑一次 meta 分析，看看免疫治疗 + 抗血管对我这种情况有没有用
+我有一堆基因报告 + CT，想让 AI 团队把它当一个 N=1 课题来跑
+```
 
-## Roadmap
+团队会先理解您的情况 (患者 / 家属 / 照护者)，再用 5 步流程给您一次完整的研究。
 
-Planned for v1.1+ (no committed dates — community contributions welcome):
+### 您可以给团队什么
 
-- **v1.1 — Full BioLinkX integration.** Deeper coupling with `BioLinkX` for contribution graph / SBT identity, allowing physicians and patient-advocates to sign sections of a brief and have the signature carried through provenance.
-- **Beyond v1.x — Additional cancer types.** The current golden-set corpus (v1.2.0) already covers HCC / NSCLC / CRC / BRCA / PDAC / GBM / ALL / MM. Future iterations expand to head-and-neck, prostate, ovarian, sarcoma, and paediatric solid tumours.
-- **v1.3 — Web UI.** A patient- and clinician-facing web layer for browsing the deliberation brief, acknowledging risk-disclosure cards, and tracking the provenance graph interactively. (Today everything ships through CLI + static HTML.)
-- **v1.4 — Multi-language briefs.** Native Chinese / Japanese / Spanish patient briefs (not machine-translated post-hoc), with locale-aware regulatory pointers (NMPA / PMDA / COFEPRIS in addition to FDA / EMA).
-- **Ongoing — Integrator breadth.** More omics / pharmacology integrators (e.g. cBioPortal study-level pulls, OncoKB level-of-evidence sync, ChEMBL pharmacophore lookups) and continual TTL tuning.
+| 输入 | 格式 |
+|------|------|
+| 病理 / 基因 / 影像 / 血检报告 | PDF / 图片 / 文字描述都行 |
+| 治疗经过 | 哪种药、用了多久、副作用、停的原因，用大白话讲 |
+| 想要的目标 | "看下一线方案" / "查临床试验" / "给医生写会诊材料" / "搞懂这个突变意味着什么" |
+| 家庭和地点情况 | 在哪个城市，能不能跨境就医，预算大概多少 (影响推荐路径) |
 
-Open issues at https://github.com/CancerDAO/opl-cancer-skill/issues. See `DISCLAIMER.md` — the roadmap does not change the v1.x scope warnings (no warranty, not for emergency use).
+---
 
-## License
+## 运行示例
 
-Apache-2.0. See [LICENSE](LICENSE).
+### 场景一：标准治疗用尽，问下一线
 
-## Contributing
+```
+用户        ❯ 肠癌 IV 期，FOLFOX 化疗 + 西妥昔单抗，
+              用了 8 个月进展了。现在医生说没什么好办法。
+              基因报告有 KRAS G12C 突变。
+              [拖入基因报告 + 影像 + 病理 3 个文件]
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+OPL 团队    ❯ 收到。我让团队跑一遍：18 位专家分头查 + 假设比对
+              + 公开数据库对照，整个过程会分 5 步给您报进度。
+              整体大概 30-50 分钟。费用大概 3-8 美元 (取决于
+              方案复杂度)。要开始吗?
+
+用户        ❯ 开始。
+
+OPL 团队    ❯ [1/5 准备 / Getting ready] 团队正在读您的病历
+              + 找匹配的指南 + 在公开试验库里搜适合您的研究。
+              大概 5-8 分钟。
+
+              [1/5 准备 / Getting ready] 已经把您的病历读完，
+              正在判断这次的目标和会上场哪些专家...
+
+              [1/5 准备 / Getting ready] ✓ 5 位专家的初步资料
+              齐了，其中 2 处会附加风险说明。
+              下一步: 想办法 — 团队会列 10-20 种可能的方案
+              让它们互相比一比。
+
+              [2/5 想办法 / Brainstorming] ...
+              [3/5 查数据 / Cross-checking] ...
+              [4/5 审核 / Double-checking] ...
+              [5/5 写报告 / Writing up] ...
+
+              ✓ 两份报告好了：
+
+              • 简单版 (给您看的): delivery/patient_plain_brief.html
+              • 专业版 (给医生看的): delivery/patient_brief.html
+
+              简单版里有 5 个该问医生的问题，可以直接打印带去。
+```
+
+### 场景二：基因报告看不懂
+
+```
+用户        ❯ 这是我妈的二代测序报告，里面这一堆字母看不懂
+              [拖入 NGS PDF]
+
+OPL 团队    ❯ 我先帮您把基因报告读一遍。
+
+              [1/5 准备 / Getting ready] 团队的基因专家
+              (Bert) 在比对 OncoKB / CIViC / ClinVar 三个
+              公开权威数据库，找出哪些变异是有药、哪些是
+              抗药信号、哪些是背景噪声...
+
+              [1/5 准备 / Getting ready] ✓ 关键发现 3 条：
+
+              1. KRAS G12C — 一种基因变化，有专门的靶向药
+                 (OncoKB 一级证据，FDA 已批准)
+              2. RNF43 突变 — 与一类抗体药 (anti-EGFR) 的
+                 效果差有关 (公开数据显示在结肠癌里特别明显)
+              3. TP53 突变 — 这个比较常见，会让预后稍差，
+                 但本身没有靶向药能直接对它做文章
+
+              其他 12 处变异都是低级别或意义不明，可以先放下。
+              要继续走完整流程看下一步方案吗？
+```
+
+### 场景三：跑到一半您想跳过
+
+```
+OPL 团队    ❯ [3/5 查数据 / Cross-checking] 在公开数据库里
+              跑了 28/71 个查询，上游限速所以排队比较慢。
+              预计还需要 8 分钟。
+
+用户        ❯ 等不了那么久，跳过这一步直接出报告
+
+OPL 团队    ❯ 收到。但是请注意：跳过查数据这步，团队的内部
+              审查员 (Henry) 会按规则把"没有真实数据支撑"
+              的结论标红 (因为关键证据缺位)。您有两个选择：
+
+              (a) 同意以"数据层缺位"标记继续，最后报告头部
+                  会清楚说明哪些结论是只有理论支撑、没有
+                  真实数据验证的；
+              (b) 不跳过，但我把查询限速调小到 4 秒一次
+                  (有少量错误风险)，大概 3 分钟跑完。
+
+              您选 a 还是 b？
+
+用户        ❯ b
+
+OPL 团队    ❯ 好，限速调到 4 秒。继续跑...
+```
+
+---
+
+## 设计哲学
+
+OPL for Cancer 是一个"科研协作 + 严肃证据"的系统，**不是**一个治疗决策替代者。
+
+在癌症相关的关键决策里——治疗方案、换不换线、要不要再做一次活检——必须发生在您和主诊医生之间。团队的职责是**让您和您的医生都拿到更扎实的素材**。
+
+团队会做的：
+
+- **把世界已知的信息系统地调出来** (29 个公开数据库 + 国内外指南 + 在招试验)
+- **主动产生世界未知的新信息** (在公开数据上跑 meta 分析、对照 TCGA、产出新假设)
+- **每一条结论都标证据等级** (确证 / 探索 / 推测 三档，对应不同决策权重)
+- **每一条结论都标来源** (PMID / 试验编号 / 指南章节 / 数据集) — 您和医生可以追溯
+- **不同模型相互复核** (Henry 内部审查 + 不同 LLM 跨家族复核，避免单一模型偏差)
+- **检测到危机信号会优先给您本地求助路径** (24 小时心理热线、急诊指引)
+
+团队**不会**做的：
+
+- **不会代替医生给您下治疗指令** — 它产出的是 "证据 + 选项 + 风险"，决策权 100% 在您
+- **不会编造数据** — 找不到的就标"证据不足"，不会用 LLM 想象出 PMID
+- **不会替您决定要不要告诉家人** — 这一类家庭沟通问题路由到 [cancer-buddy](https://github.com/CancerDAO/cancer-buddy-skill) (姊妹 skill)
+- **不会处理急诊场景** — 任何危及生命的情况请立刻拨打 120 / 911 / 当地急救号
+
+### 您是唯一的决策者 (founder mode against cancer)
+
+OPL 的核心信念："患者本人是自己案例的唯一决策人。"
+
+这意味着：
+
+- 不需要 IRB 外部审批就能为您一个人启动一次研究
+- 高风险结论会要求您 (而不是 IRB / 医生) 阅读并确认风险卡
+- 您随时可以中途让团队跳过 / 简化 / 暂停 / 取消 (使用普通中文/英文就行)
+- 已经做完的部分永远不会因为您中途取消而丢失
+
+---
+
+## 技术实现
+
+如果您是开发者或研究者，下面是技术层的概览：
+
+- **18 named experts** + PI (Sid) + 内部审查员 (Henry) — 完整的 6-primitive 任务调用语法
+- **29 数据接口** — PubMed / NCCN / CT.gov / ChiCTR / HKCTR / OncoKB / CIViC / cBioPortal / GDC / ClinVar / gnomAD / GEO / TCGA (via GEPIA3) / ArrayExpress / SRA / DepMap / CCLE / Hartwig / BeatAML / ICGC / Open Targets / FDA-EAP / NMPA-EAP / EMA-EAP / RxNorm / RetractionDB / PaperQA2 / Unpaywall + Crossref
+- **26 mechanical gates** — G1-G24 (基础合规 + 数据分析 + PI/Auditor) + G25-G27 (v1.5 新增：deferred-evidence-block / evidence-strength-ranking / privacy-scrub)
+- **5-Wave 生命周期** — retrieval → hypothesis tournament (Co-Sci Elo) → data-evidence (cBioPortal + GEPIA3 + meta-analysis) → validation → delivery
+- **Founder-mode 安全栈** — G24 危机检测 (中英文 SI / SH 词库 + 危机热线路由) · G7/G19 命令式语气检测 · `guardian_ack_protocol.md` 儿科情境 · `boundary_unregulated_channel_disclosure.md` 灰色市场前瞻 + 回溯模式
+- **双 audience 交付** — `patient_plain_brief` (2 页通俗版) + `pi_delivery` (完整专业版，PMID-anchored)
+
+详细架构、风险等级、机械门定义、可重现性脚本都在 [`references/`](references/) 和 [`docs/adr/`](docs/adr/)。
+
+### 模型层
+
+主 executor 跑在 Claude Code 主线程 (token 来自您订阅的 Claude Code，不需要单独 API key)。Reviewer pool 需要一个非 Anthropic 的外部 key (默认 MiniMax-M2.7，免费申请) — 这是 v1.5 强制的 G13 跨家族复核规则。
+
+### 测试与可重现性
+
+1126 单元/集成测试，本地用 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests/` 跑全集 (排除真实 API 联调)。所有 mechanical gate 都有针对性测试。每次 patient run 会写一份 `triggers/<run_id>/provenance.jsonl` 记录所有 LLM 调用 + 数据库查询 + 哈希指纹。
+
+---
+
+## 贡献
+
+我们欢迎以下方向的贡献：
+
+- **新 task package** — 比如新癌种的诊疗指南专题、新副作用的多器官评估
+- **新 integrator** — 接入新的公开数据库 (基因型 / 影像 / RWE 队列)
+- **新 mechanical gate** — 您观察到一类不容易被现有 26 个门捕捉的失败模式
+- **新 expert persona** — 当前 18 位还没覆盖到的领域 (比如核医学、儿肿、罕见癌)
+- **多语言 delivery** — 当前主要是中英双语，欢迎日文 / 西班牙文 / 阿拉伯文 plain-brief 渲染
+
+请先开 issue 描述您观察到的真实场景，然后 PR。Contribution guide 在 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+
+## 许可证
+
+Apache-2.0。见 [LICENSE](LICENSE)。
+
+## 免责声明
+
+OPL for Cancer **不是**临床决策支持工具，**不是**诊断设备，**不替代**任何执业医生。它是一个开源的科研协作 skill，把患者本人放在决策中心。详细免责声明：[`DISCLAIMER.md`](DISCLAIMER.md)。
+
+**任何危及生命的状况，请立刻拨打当地急救号码 (中国大陆 120、美国 911、欧洲 112、香港 999)。**
+
+---
+
+<div align="center">
+
+由 [CancerDAO](https://github.com/CancerDAO) 开源维护 · [社区讨论](https://github.com/CancerDAO/opl-cancer-skill/discussions) · [报告问题](https://github.com/CancerDAO/opl-cancer-skill/issues)
+
+</div>
