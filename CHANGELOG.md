@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.5.3] — 2026-05-25 — Public-release prep (PII redaction + README rewrite + internal/public docs split)
+
+Three changes preparing the repository for public flip on GitHub:
+
+1. **PII redaction** — every canonical leak token from the v1.4 case
+   study (real patient name, family phone, patient code, location)
+   replaced with placeholders across tracked files. Git history rewritten
+   via `git-filter-repo` so the leak tokens are unreachable in any
+   commit diff or commit message. Verified zero hits across all files
+   and full history.
+2. **README rewrite** — old 211-line internal-feeling README replaced
+   with cancer-buddy-skill-style public-facing README: centered header
+   + badges, pain-point opening, 8-row problem/solution table, 5-step
+   lifecycle (using plain-language stage labels from v1.5.1), 3 dialog
+   scenarios, design philosophy with explicit "won't do" list,
+   founder-mode framing, technical-implementation overview for
+   developers, contribution vectors, visible emergency routing.
+3. **docs/internal/ + tests/internal/ split** — the v1.5 iteration
+   scaffolding (retrospective / anti-patterns / PRD / P2 deferrals)
+   plus their contract test moved to gitignored `docs/internal/` and
+   `tests/internal/`. Lessons from these docs are already encoded in
+   the v1.5 code (G25/G26/G27 gates, persona_prefix auto-prepend,
+   progress_reporter, interrupt_handling). Public surface retains:
+   ADRs (9 files, OSS standard), landing page, governance docs,
+   technical report, vmtb-skill diff.
+
+1126/1126 public-tracked tests + 4/4 internal tests green.
+
+---
+
 ## [1.5.2] — 2026-05-25 — UX patch round 2 (reporter wired + auto-prefix + interrupt protocol)
 
 User follow-up after v1.5.1: three explicit "didn't finish" items needed to land before user testing. v1.5.2 closes all three on the same `iter/v1.5` branch.

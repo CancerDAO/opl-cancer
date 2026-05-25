@@ -40,3 +40,8 @@ docs/superpowers/
 .env
 *.key
 secrets/
+
+# v1.5.3 — internal development docs (kept locally for archeology;
+# not part of the public OSS surface)
+docs/internal/
+tests/internal/
