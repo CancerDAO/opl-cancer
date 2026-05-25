@@ -9,6 +9,8 @@ from typing import Any
 
 import httpx
 
+from ._http import request_with_retry
+from ._ncbi import with_ncbi_identity
 from .base import Integrator, IntegratorError
 
 _BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
@@ -32,14 +34,17 @@ class GEOIntegrator(Integrator):
     async def _esearch_then_summary(self, term: str) -> dict[str, Any]:
         try:
             async with httpx.AsyncClient(timeout=30.0) as http:
-                r = await http.get(
+                r = await request_with_retry(
+                    http,
+                    "GET",
                     f"{_BASE}/esearch.fcgi",
-                    params={
+                    family="geo",
+                    params=with_ncbi_identity({
                         "db": "gds",
                         "term": term,
                         "retmode": "json",
                         "retmax": 5,
-                    },
+                    }),
                 )
         except (httpx.HTTPError, ConnectionError, OSError) as e:
             raise IntegratorError(f"GEO esearch transport: {e}") from e
@@ -54,13 +59,16 @@ class GEOIntegrator(Integrator):
         # Use term-search to resolve accession -> uid first
         try:
             async with httpx.AsyncClient(timeout=30.0) as http:
-                r = await http.get(
+                r = await request_with_retry(
+                    http,
+                    "GET",
                     f"{_BASE}/esearch.fcgi",
-                    params={
+                    family="geo",
+                    params=with_ncbi_identity({
                         "db": "gds",
                         "term": f"{accession}[Accession]",
                         "retmode": "json",
-                    },
+                    }),
                 )
         except (httpx.HTTPError, ConnectionError, OSError) as e:
             raise IntegratorError(f"GEO accession lookup transport: {e}") from e
@@ -76,9 +84,12 @@ class GEOIntegrator(Integrator):
     async def _esummary(self, uid: str) -> dict[str, Any]:
         try:
             async with httpx.AsyncClient(timeout=30.0) as http:
-                r = await http.get(
+                r = await request_with_retry(
+                    http,
+                    "GET",
                     f"{_BASE}/esummary.fcgi",
-                    params={"db": "gds", "id": uid, "retmode": "json"},
+                    family="geo",
+                    params=with_ncbi_identity({"db": "gds", "id": uid, "retmode": "json"}),
                 )
         except (httpx.HTTPError, ConnectionError, OSError) as e:
             raise IntegratorError(f"GEO esummary transport: {e}") from e

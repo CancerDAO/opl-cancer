@@ -27,6 +27,8 @@ B rationale: {hyp_b_rationale}
 
 Inherited meta-critique from prior rounds (may be empty): {meta_critique}
 
+Experimental insights from the prior round (Robin lit-loop feedback, may be empty): {experimental_insights}
+
 Judge on:
 1. Novelty (is the hypothesis world-unknown vs literature already says it?)
 2. Plausibility (mechanism + biology consistency)
@@ -56,6 +58,7 @@ class DebateJudge:
         hyp_b: Hypothesis,
         context: dict[str, Any] | None = None,
         meta_critique: str = "",
+        experimental_insights: str = "",
     ) -> dict[str, str]:
         ctx = context or {}
         prompt = self.judge_prompt.format(
@@ -65,6 +68,7 @@ class DebateJudge:
             hyp_b_text=hyp_b.text,
             hyp_b_rationale=hyp_b.rationale or "(none)",
             meta_critique=meta_critique or "(none)",
+            experimental_insights=experimental_insights or "(none)",
         )
         req = LLMRequest(
             model=self.reviewer_model_id,

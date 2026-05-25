@@ -61,9 +61,13 @@ class Integrator(ABC):
             if candidate.is_file():
                 try:
                     data = yaml.safe_load(candidate.read_text(encoding="utf-8"))
-                except (yaml.YAMLError, OSError):
-                    Integrator._models_yaml_ttls_cache = {}
-                    return {}
+                except (yaml.YAMLError, OSError) as exc:
+                    raise IntegratorError(
+                        f"models.yaml at {candidate} is unreadable or malformed: {exc!r}. "
+                        "Refusing to silently fall back to class-default TTLs "
+                        "(memory:feedback_no_offline_only / G11 no_silent_fallback). "
+                        "Fix the file or remove it from the discovery path."
+                    ) from exc
                 ttls = data.get("integrator_ttl_seconds", {}) if isinstance(data, dict) else {}
                 resolved: dict[str, int] = {
                     str(k): int(v) for k, v in ttls.items() if isinstance(v, (int, float))

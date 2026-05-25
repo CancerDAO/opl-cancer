@@ -90,3 +90,49 @@ async def test_emits_experimental_insights_chain() -> None:
     out = await run_tournament(hyps, judge, agg, max_rounds=1)
     assert len(out["experimental_insights_chain"]) == 1
     assert "Top hypotheses" in out["experimental_insights_chain"][0]
+
+
+class _CapturingClient:
+    """Captures every request body so we can assert prompt content per round."""
+
+    provider = "fake"
+
+    def __init__(self, responses: list[str]) -> None:
+        self.responses = responses
+        self.idx = 0
+        self.requests: list[LLMRequest] = []
+
+    async def complete(self, request: LLMRequest) -> LLMResponse:
+        self.requests.append(request)
+        body = self.responses[self.idx % len(self.responses)]
+        self.idx += 1
+        return LLMResponse(content=body, model=request.model)
+
+
+async def test_insights_injected_into_next_round_judge_prompt() -> None:
+    """P1-7: Robin lit-loop — round-N experimental_insights must reach round-N+1 judge prompt.
+
+    Previously written to insights_chain but never read; only meta_critique
+    crossed the round boundary. This test asserts the wire is live.
+    """
+    judge_client = _CapturingClient(['{"winner": "A", "reason": "r"}'] * 10)
+    judge = DebateJudge(judge_client, reviewer_model_id="minimax-m2-7")
+    agg = MetaCritiqueAggregator(_SeqClient(['{"meta_critique": "round-meta"}'] * 10), reviewer_model_id="minimax-m2-7")
+    hyps = [Hypothesis(id="h1", text="alpha"), Hypothesis(id="h2", text="beta")]
+    await run_tournament(
+        hyps, judge, agg, max_rounds=2, convergence_window=99, convergence_threshold=0.001
+    )
+    assert len(judge_client.requests) == 2  # 1 judge call per round (only one pair)
+    round1_prompt = judge_client.requests[0].messages[0]["content"]
+    round2_prompt = judge_client.requests[1].messages[0]["content"]
+
+    # Round 1: no prior insights, placeholder shows (none). The label sits on
+    # the same line; strip to the colon and inspect the next ~10 chars.
+    assert "Experimental insights from the prior round" in round1_prompt
+    after_label = round1_prompt.split("Experimental insights from the prior round", 1)[1]
+    # The line is "...prior round (...explanation...): (none)\n..." — find ": " then check.
+    assert ": (none)" in after_label.splitlines()[0]
+
+    # Round 2: round-1's insights must be in the prompt — "Top hypotheses" is
+    # the prose template's section header so its presence proves the wire is live.
+    assert "Top hypotheses" in round2_prompt

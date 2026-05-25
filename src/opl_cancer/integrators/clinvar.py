@@ -5,6 +5,8 @@ from typing import Any
 
 import httpx
 
+from ._http import request_with_retry
+from ._ncbi import with_ncbi_identity
 from .base import Integrator, IntegratorError
 
 
@@ -21,14 +23,17 @@ class ClinVarIntegrator(Integrator):
         term = key[8:].strip()
         try:
             async with httpx.AsyncClient(timeout=30.0) as http:
-                r1 = await http.get(
+                r1 = await request_with_retry(
+                    http,
+                    "GET",
                     f"{_BASE}/esearch.fcgi",
-                    params={
+                    family="clinvar",
+                    params=with_ncbi_identity({
                         "db": "clinvar",
                         "term": term,
                         "retmode": "json",
                         "retmax": 1,
-                    },
+                    }),
                 )
                 if r1.status_code >= 400:
                     raise IntegratorError(f"ClinVar esearch HTTP {r1.status_code}")
@@ -36,9 +41,12 @@ class ClinVarIntegrator(Integrator):
                 if not ids:
                     raise IntegratorError(f"ClinVar: no records for {term!r}")
                 uid = ids[0]
-                r2 = await http.get(
+                r2 = await request_with_retry(
+                    http,
+                    "GET",
                     f"{_BASE}/esummary.fcgi",
-                    params={"db": "clinvar", "id": uid, "retmode": "json"},
+                    family="clinvar",
+                    params=with_ncbi_identity({"db": "clinvar", "id": uid, "retmode": "json"}),
                 )
                 if r2.status_code >= 400:
                     raise IntegratorError(f"ClinVar esummary HTTP {r2.status_code}")

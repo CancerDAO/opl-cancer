@@ -16,6 +16,7 @@ Hard rules (per memory + spec):
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -24,6 +25,16 @@ from opl_cancer.llm.errors import LLMResponseParseError
 from opl_cancer.llm.prompts import PromptTemplate, find_prompts_root
 
 from .base import Expert, ExpertProfile
+
+
+class StubMethodWarning(UserWarning):
+    """Raised when an Expert primitive that ships as a P1 stub is invoked.
+
+    Spec §2.2 promises 6 task-primitive grammar; through v1.5.5 plan(),
+    audit(), feedback() return deterministic constants without an LLM call.
+    Callers can `warnings.simplefilter("error", StubMethodWarning)` to fail
+    tests that rely on real behaviour from these primitives.
+    """
 
 
 class LLMBackedExpert(Expert):
@@ -125,7 +136,17 @@ class LLMBackedExpert(Expert):
         return task_package in self.portfolio
 
     async def plan(self, sub_goal: str, context: dict[str, Any]) -> dict[str, Any]:
-        """Expert-local decomposition. P1: deterministic stub; P2 will use LLM."""
+        """Expert-local decomposition. STUB — see spec §2.2; P2 will use LLM.
+
+        Returns the static portfolio without LLM-driven sub-goal decomposition.
+        Emits StubMethodWarning so callers don't mistake this for real planning.
+        """
+        warnings.warn(
+            f"{self.profile.name}.plan() is a P1 stub (spec §2.2); "
+            "returning static portfolio without LLM decomposition",
+            StubMethodWarning,
+            stacklevel=2,
+        )
         return {
             "expert": self.profile.name,
             "sub_goal": sub_goal,
@@ -210,7 +231,16 @@ class LLMBackedExpert(Expert):
         return verdict
 
     async def audit(self, claim: dict[str, Any]) -> dict[str, Any]:
-        """Intra-expert pre-audit. P1: marker; P2 will run domain-specific checks."""
+        """Intra-expert pre-audit. STUB — see spec §2.2; P2 will run domain checks.
+
+        Returns a constant 'ok' marker. Emits StubMethodWarning.
+        """
+        warnings.warn(
+            f"{self.profile.name}.audit() is a P1 stub (spec §2.2); "
+            "returning 'ok' without domain-specific checks",
+            StubMethodWarning,
+            stacklevel=2,
+        )
         return {
             "intra_expert_audit": "ok",
             "expert": self.profile.name,
@@ -227,5 +257,14 @@ class LLMBackedExpert(Expert):
         return result
 
     def feedback(self, event: dict[str, Any]) -> None:
-        """P1: no-op. P2 hooks event into expert working memory + planner adjustments."""
+        """STUB — spec §2.2; P2 hooks event into working memory + planner.
+
+        Currently a no-op; emits StubMethodWarning so callers can detect.
+        """
+        warnings.warn(
+            f"{self.profile.name}.feedback() is a P1 stub (spec §2.2); "
+            "event not routed to working memory or planner",
+            StubMethodWarning,
+            stacklevel=2,
+        )
         return None

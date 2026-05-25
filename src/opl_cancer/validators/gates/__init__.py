@@ -1,4 +1,9 @@
-"""Concrete mechanical gates. Spec §7 (G1-G24) + v1.5 epistemic gates (G25-G26)."""
+"""Concrete mechanical gates. Spec §7 (G1-G27).
+
+Registered in `mechanical_gates.all_gate_classes()` (P0-3 fix bumped count
+from 23 → 27 by adding G21/G25/G26/G27 to the registry; previously only
+G25-G27 were re-exported but never picked up by the orchestrator loop).
+"""
 from __future__ import annotations
 
 from .g1_pmid_existence import G1PMIDExistenceGate
@@ -24,6 +29,7 @@ from .g17_meta_i2_policy import G17MetaI2PolicyGate
 from .g18_meta_search_strategy import G18MetaSearchStrategyGate
 from .g19_pi_imperative_detector import G19PIImperativeDetectorGate
 from .g20_pi_disagreement_surfacing import G20PIDisagreementSurfacingGate
+from .g21_quantitative_anchor import G21QuantitativeAnchorGate
 from .g22_ddr_zygosity import G22DDRZygosityGate
 from .g23_recency_band import G23RecencyBandGate
 from .g24_crisis_detection import G24CrisisDetectionGate
@@ -53,6 +59,7 @@ __all__ = [
     "G18MetaSearchStrategyGate",
     "G19PIImperativeDetectorGate",
     "G20PIDisagreementSurfacingGate",
+    "G21QuantitativeAnchorGate",
     "G22DDRZygosityGate",
     "G23RecencyBandGate",
     "G24CrisisDetectionGate",

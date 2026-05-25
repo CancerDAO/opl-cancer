@@ -6,6 +6,8 @@ from typing import Any
 
 import httpx
 
+from ._http import request_with_retry
+from ._ncbi import with_ncbi_identity
 from .base import Integrator, IntegratorError
 
 
@@ -28,14 +30,17 @@ class PubMedIntegrator(Integrator):
     async def _esearch_then_efetch(self, term: str) -> dict[str, Any]:
         try:
             async with httpx.AsyncClient(timeout=30.0) as http:
-                r = await http.get(
+                r = await request_with_retry(
+                    http,
+                    "GET",
                     f"{_BASE}/esearch.fcgi",
-                    params={
+                    family="pubmed",
+                    params=with_ncbi_identity({
                         "db": "pubmed",
                         "term": term,
                         "retmode": "json",
                         "retmax": 5,
-                    },
+                    }),
                 )
         except (httpx.HTTPError, ConnectionError, OSError) as e:
             raise IntegratorError(f"PubMed esearch transport: {e}") from e
@@ -49,14 +54,17 @@ class PubMedIntegrator(Integrator):
     async def _efetch(self, pmid: str) -> dict[str, Any]:
         try:
             async with httpx.AsyncClient(timeout=30.0) as http:
-                r = await http.get(
+                r = await request_with_retry(
+                    http,
+                    "GET",
                     f"{_BASE}/efetch.fcgi",
-                    params={
+                    family="pubmed",
+                    params=with_ncbi_identity({
                         "db": "pubmed",
                         "id": pmid,
                         "rettype": "abstract",
                         "retmode": "xml",
-                    },
+                    }),
                 )
         except (httpx.HTTPError, ConnectionError, OSError) as e:
             raise IntegratorError(f"PubMed efetch transport: {e}") from e

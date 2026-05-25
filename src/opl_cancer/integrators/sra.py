@@ -10,6 +10,8 @@ from typing import Any
 
 import httpx
 
+from ._http import request_with_retry
+from ._ncbi import with_ncbi_identity
 from .base import Integrator, IntegratorError
 
 _BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
@@ -28,13 +30,16 @@ class SRAIntegrator(Integrator):
             )
         try:
             async with httpx.AsyncClient(timeout=30.0) as http:
-                r = await http.get(
+                r = await request_with_retry(
+                    http,
+                    "GET",
                     f"{_BASE}/esearch.fcgi",
-                    params={
+                    family="sra",
+                    params=with_ncbi_identity({
                         "db": "sra",
                         "term": accession,
                         "retmode": "json",
-                    },
+                    }),
                 )
         except (httpx.HTTPError, ConnectionError, OSError) as e:
             raise IntegratorError(f"SRA esearch transport: {e}") from e
@@ -47,9 +52,12 @@ class SRAIntegrator(Integrator):
         # efetch returns ExpXml-style XML
         try:
             async with httpx.AsyncClient(timeout=30.0) as http:
-                r2 = await http.get(
+                r2 = await request_with_retry(
+                    http,
+                    "GET",
                     f"{_BASE}/efetch.fcgi",
-                    params={"db": "sra", "id": uid, "rettype": "runinfo", "retmode": "csv"},
+                    family="sra",
+                    params=with_ncbi_identity({"db": "sra", "id": uid, "rettype": "runinfo", "retmode": "csv"}),
                 )
         except (httpx.HTTPError, ConnectionError, OSError) as e:
             raise IntegratorError(f"SRA efetch transport: {e}") from e

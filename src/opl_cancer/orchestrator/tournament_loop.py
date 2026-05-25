@@ -68,6 +68,7 @@ async def run_tournament(
                 hyps_by_id[b_id],
                 context=context,
                 meta_critique=meta_chain[-1] if meta_chain else "",
+                experimental_insights=insights_chain[-1] if insights_chain else "",
             )
             outcomes_raw.append({"a": a_id, "b": b_id, "winner": verdict["winner"], "reason": verdict["reason"]})
             outcomes_models.append(
