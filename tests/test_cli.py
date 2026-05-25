@@ -21,7 +21,7 @@ def test_cli_status_runs() -> None:
     assert "OPL for Cancer" in r.output
     assert "v1.4.0" in r.output
     assert "Experts active: 18" in r.output
-    assert "Mechanical gates: 23" in r.output
+    assert "Mechanical gates: 25" in r.output  # v1.5: +G25 +G26 epistemic gates
     assert "Integrators wired: 29" in r.output
 
 

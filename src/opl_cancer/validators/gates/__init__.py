@@ -1,4 +1,4 @@
-"""Concrete mechanical gates. Spec §7 (G1-G24)."""
+"""Concrete mechanical gates. Spec §7 (G1-G24) + v1.5 epistemic gates (G25-G26)."""
 from __future__ import annotations
 
 from .g1_pmid_existence import G1PMIDExistenceGate
@@ -27,6 +27,8 @@ from .g20_pi_disagreement_surfacing import G20PIDisagreementSurfacingGate
 from .g22_ddr_zygosity import G22DDRZygosityGate
 from .g23_recency_band import G23RecencyBandGate
 from .g24_crisis_detection import G24CrisisDetectionGate
+from .g25_deferred_evidence_block import G25DeferredEvidenceBlockGate
+from .g26_evidence_strength_ranking import G26EvidenceStrengthRankingGate
 
 __all__ = [
     "CrossPatientContaminationError",
@@ -53,4 +55,6 @@ __all__ = [
     "G22DDRZygosityGate",
     "G23RecencyBandGate",
     "G24CrisisDetectionGate",
+    "G25DeferredEvidenceBlockGate",
+    "G26EvidenceStrengthRankingGate",
 ]

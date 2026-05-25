@@ -359,7 +359,7 @@ def status() -> None:
     click.echo(f"  Experts active: {len(ROSTER)} (Sid PI + Henry Auditor + 18 named experts)")
     click.echo("  Wave runners ready: Wave1 / Wave2 / Wave3 / Wave4 / Wave5 (render)")
     click.echo("  Integrators wired: 29 (NCCN / PubMed / CT.gov / ChiCTR / ISRCTN / EU-CTR / HKCTR / FDA-EAP / NMPA-EAP / EMA-EAP / RxNorm / GEO / Open Targets / Hartwig / BeatAML / ICGC / etc.)")
-    click.echo("  Mechanical gates: 23 (G1-G20 + G22 DDR-zygosity + G23 recency-band + G24 crisis-detection)")
+    click.echo("  Mechanical gates: 25 (G1-G20 + G22 DDR-zygosity + G23 recency-band + G24 crisis-detection + v1.5 G25 deferred-evidence-block + G26 evidence-strength-ranking)")
     click.echo("  License: Apache-2.0")
     click.echo("  Read DISCLAIMER.md before use — not clinical decision support; not for emergencies.")
     click.echo(f"  Patient data root: {_patient_root()}")
