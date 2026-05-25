@@ -97,11 +97,11 @@ OPL 不是一个查数据的工具，是**一支真正在做科研的团队**。
 
 ### 每一步实际在做什么
 
-**Wave 1 — 准备 (世界已知的信息)**: Bert 比对 OncoKB / CIViC / ClinVar 标出可成药变异；Rick 在 ClinicalTrials.gov + ChiCTR + HKCTR 同时搜在招试验；Vince 拉 NCCN / CSCO 当前线诊疗指南；Iain 在 PubMed 跑 PaperQA2 锚定 RAG；其它专家按需被 Sid 调度。
+**Wave 1 — 准备 (世界已知的信息)**: Bert 比对 OncoKB / CIViC / ClinVar 标出可成药变异；Rick 在 ClinicalTrials.gov + ChiCTR + HKCTR 同时搜在招试验；Vince 拉 NCCN / CSCO 当前线诊疗指南；Iain 在 PubMed 跑 [PaperQA2 锚定 RAG](https://www.nature.com/articles/s41586-026-10644-y) (Future House)；其它专家按需被 Sid 调度。
 
 **Wave 2 — 想办法 (主动产生世界未知的信息)**: 这里 OPL 真正区别于"查数据工具"。Aviv 跑 Co-Sci Elo 联赛 ([Google Co-Scientist 论文方法](https://www.nature.com/articles/s41586-026-10652-y))，让 17 个候选假设互相 PK 4 轮；[Robin 反思器](https://www.nature.com/articles/s41586-026-10658-6) (Future House 论文方法) 每轮注入"如果错了/如果换框架/缺什么数据/边界冲突"6 种 lens；产出有依据排名的 top-3 方案。
 
-**Wave 3 — 查数据 (真定量证据)**: 不是再次检索。Aviv 把 top-3 假设拉进 cBioPortal / GEPIA3 / GDC 跑真实 TCGA-GTEx 差异表达；Iain 跑随机效应 meta-analysis (DerSimonian-Laird) 产出 pooled ORR 和 I² 异质性；Aviv 跑 Cox PH 把患者投到匹配队列做 N=1 生存预测；GEPIA3 单次批量 70+ 基因查询。重型 bioinformatics 笔记本通过 [Finch / BixBench 框架](https://www.nature.com/articles/s41586-026-10644-y) (Future House) 调度。**这不是 LLM 想象的数字，是公开数据库的真实数据**。
+**Wave 3 — 查数据 (真定量证据)**: 不是再次检索。Aviv 把 top-3 假设拉进 cBioPortal / GEPIA3 / GDC 跑真实 TCGA-GTEx 差异表达；Iain 跑随机效应 meta-analysis (DerSimonian-Laird) 产出 pooled ORR 和 I² 异质性；Aviv 跑 Cox PH 把患者投到匹配队列做 N=1 生存预测；GEPIA3 单次批量 70+ 基因查询。重型 bioinformatics 笔记本通过 [BixBench 框架](https://arxiv.org/abs/2503.00096) (Future House) 调度。**这不是 LLM 想象的数字，是公开数据库的真实数据**。
 
 **Wave 4 — 审核 (Henry IRB-substitute)**: 26 道机械门 (G1-G24 PRD-§7 完整 + v1.5 新增 G25 deferred-evidence-block / G26 evidence-strength-ranking / G27 privacy-scrub)。每条结论必须带 PMID + provenance SHA-256 + 三级标签 (established / exploratory / speculative)。G13 强制 reviewer LLM ≠ executor LLM (跨模型家族复核)。任何一条没 PMID / 引用错误 / 撤稿 / 命令式语气都会被门拦下。
 
