@@ -15,11 +15,13 @@ def test_readme_has_required_sections() -> None:
     required = [
         # Branding + license + framing
         "OPL for Cancer",
+        "One Person Lab",  # v1.5.3 paradigm framing
         "AI 科研团队",  # the v1.5.3 plain-language framing
         "Apache-2.0",
-        # Mandatory top-level sections
-        "团队能做什么",
-        "5 步流程",
+        # Mandatory top-level sections (v1.5.3 README)
+        "什么是 OPL",
+        "遇见您的实验室",
+        "实验室在做什么",
         "安装",
         "使用",
         "运行示例",
@@ -27,12 +29,27 @@ def test_readme_has_required_sections() -> None:
         "技术实现",
         "贡献",
         "免责声明",
-        # Named roles still surfaced (just translated for lay audience)
+        # Named roles + paradigm framing
         "Sid",
         "Henry",
+        "founder mode against cancer",
+        # OPC → OPL paradigm explicitly explained
+        "One Person Company",
     ]
     for r in required:
         assert r in text, f"README missing {r!r}"
+
+
+def test_readme_introduces_all_18_named_experts() -> None:
+    """README must surface all 18 named scientists by name so the user
+    can see what the team looks like (per v1.5.3 user feedback)."""
+    text = (REPO_ROOT / "README.md").read_text()
+    for name in (
+        "Rosa", "Bert", "Vince", "Rick", "Heddy", "Mary", "Aviv", "Tyler",
+        "Iain", "Ted", "Riad", "Jen", "Kieren", "Mark", "Hong", "Frances",
+        "Dennis", "Steve",
+    ):
+        assert name in text, f"README missing expert name {name!r}"
 
 
 def test_readme_has_install_command() -> None:
