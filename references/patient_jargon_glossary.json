@@ -1,0 +1,170 @@
+{
+  "_meta": {
+    "schema": "patient_jargon_glossary v1.5",
+    "purpose": "Lay-language translations used by patient_plain_brief_rendering. Each term has zh + en plain synonyms; renderer either replaces (preferred) or parenthesizes on first use. v1.5 P0-4.",
+    "source": "docs/RETROSPECTIVE_v1.4_PT-EXAMPLE-A_run-20260525.md §3h F5 — 60+ untranslated medical terms identified in v1.4 patient_brief output.",
+    "extend": "Add new entries when a Henry G-jargon gate violation surfaces. Never delete — old runs may still reference."
+  },
+  "terms": {
+    "KRAS": {
+      "zh": "KRAS 基因 (决定肿瘤生长的一个关键开关)",
+      "en": "KRAS gene (a key switch driving tumor growth)"
+    },
+    "KRAS G12C": {
+      "zh": "KRAS 基因的一种特定变化 (有专门的靶向药)",
+      "en": "a specific KRAS mutation (it has its own targeted drug)"
+    },
+    "mCRC": {
+      "zh": "转移性结直肠癌 (已经扩散的肠癌)",
+      "en": "metastatic colorectal cancer (colorectal cancer that has spread)"
+    },
+    "MSS": {
+      "zh": "微卫星稳定型 (一种基因稳定状态; 决定免疫治疗效果不大)",
+      "en": "microsatellite-stable (a stability marker; means immunotherapy likely won't work as well)"
+    },
+    "pMMR": {
+      "zh": "错配修复正常 (与 MSS 类似的稳定状态)",
+      "en": "mismatch-repair proficient (similar stable status as MSS)"
+    },
+    "HER2": {
+      "zh": "HER2 蛋白 (乳腺癌和胃癌常用的一个生长信号)",
+      "en": "HER2 protein (a common growth signal in breast and gastric cancer)"
+    },
+    "PD-L1": {
+      "zh": "PD-L1 蛋白 (与免疫治疗效果相关的肿瘤指标)",
+      "en": "PD-L1 protein (a tumor marker linked to immunotherapy response)"
+    },
+    "TMB": {
+      "zh": "肿瘤突变负荷 (肿瘤里有多少基因变化的指标)",
+      "en": "tumor mutational burden (how many gene changes the tumor has)"
+    },
+    "VAF": {
+      "zh": "突变丰度 (这个基因变化在肿瘤里占多少)",
+      "en": "variant allele frequency (how prevalent this mutation is in the tumor)"
+    },
+    "ORR": {
+      "zh": "客观缓解率 (吃药后肿瘤明显缩小的患者比例)",
+      "en": "objective response rate (the percentage of patients whose tumor visibly shrank)"
+    },
+    "mPFS": {
+      "zh": "中位无进展生存期 (一半患者用药多久后病情才开始进展)",
+      "en": "median progression-free survival (how long until half of patients see progression)"
+    },
+    "mOS": {
+      "zh": "中位总生存期 (一半患者从用药开始能活多久)",
+      "en": "median overall survival (how long half of patients live from start of treatment)"
+    },
+    "HR": {
+      "zh": "风险比 (新疗法相对旧疗法的相对风险, 小于 1 表示更好)",
+      "en": "hazard ratio (relative risk vs. the comparator; less than 1 is better)"
+    },
+    "CI": {
+      "zh": "置信区间 (这个数字可能波动的范围)",
+      "en": "confidence interval (the range this number could fall within)"
+    },
+    "ctDNA": {
+      "zh": "循环肿瘤 DNA (血液里抽到的肿瘤碎片, 用来跟踪疗效)",
+      "en": "circulating tumor DNA (tumor fragments in the blood used to track response)"
+    },
+    "ADC": {
+      "zh": "抗体偶联药物 (一种把化疗药精准送到肿瘤上的新药)",
+      "en": "antibody-drug conjugate (a class of drugs that delivers chemo precisely to tumor cells)"
+    },
+    "TKI": {
+      "zh": "酪氨酸激酶抑制剂 (一类口服靶向药)",
+      "en": "tyrosine kinase inhibitor (a class of oral targeted drugs)"
+    },
+    "ICI": {
+      "zh": "免疫检查点抑制剂 (常说的免疫治疗)",
+      "en": "immune-checkpoint inhibitor (the common form of immunotherapy)"
+    },
+    "irAE": {
+      "zh": "免疫相关不良反应 (免疫治疗时身体某些部位发炎的副作用)",
+      "en": "immune-related adverse event (a side effect where immunotherapy causes inflammation)"
+    },
+    "FOLFOX": {
+      "zh": "FOLFOX 方案 (一套经典的化疗组合)",
+      "en": "FOLFOX (a classic chemotherapy combination)"
+    },
+    "FOLFIRI": {
+      "zh": "FOLFIRI 方案 (另一套常用化疗组合)",
+      "en": "FOLFIRI (another common chemotherapy combination)"
+    },
+    "log2FC": {
+      "zh": "表达倍数变化 (基因在肿瘤里比正常组织高多少, 数字越大越高)",
+      "en": "log2 fold change (how much higher a gene is expressed in tumor vs normal — bigger means higher)"
+    },
+    "DerSimonian-Laird": {
+      "zh": "(一种把多份小型临床数据合并起来计算的方法)",
+      "en": "(a statistical method to pool results from multiple small trials)"
+    },
+    "I²": {
+      "zh": "异质性指标 (合并的不同数据之间差异多大, 大于 50% 表示差异较大)",
+      "en": "heterogeneity index (how different the pooled studies are; >50% means notably different)"
+    },
+    "RECIST": {
+      "zh": "RECIST 评估 (国际通用的影像学疗效评价标准)",
+      "en": "RECIST assessment (the international standard for evaluating tumor response on imaging)"
+    },
+    "eGFR": {
+      "zh": "肾小球滤过率 (肾功能指标, 数字越高越好)",
+      "en": "estimated glomerular filtration rate (a kidney function indicator; higher is better)"
+    },
+    "LVEF": {
+      "zh": "左心室射血分数 (心脏泵血能力的指标, 正常 ≥ 55%)",
+      "en": "left ventricular ejection fraction (heart pumping ability; ≥ 55% is normal)"
+    },
+    "CKD": {
+      "zh": "慢性肾病",
+      "en": "chronic kidney disease"
+    },
+    "CAD": {
+      "zh": "冠心病",
+      "en": "coronary artery disease"
+    },
+    "PCI": {
+      "zh": "冠脉支架手术",
+      "en": "coronary stent procedure"
+    },
+    "ECOG": {
+      "zh": "体力状态评分 (0-4 分; 0 是完全自如, 4 是卧床)",
+      "en": "performance status score (0-4; 0 is fully active, 4 is bedridden)"
+    },
+    "NCCN": {
+      "zh": "美国 NCCN 指南 (国际权威的癌症治疗规范)",
+      "en": "the NCCN guidelines (US-based authoritative cancer treatment standards)"
+    },
+    "CSCO": {
+      "zh": "中国 CSCO 指南 (中国本土的癌症治疗规范)",
+      "en": "the CSCO guidelines (China's domestic cancer treatment standards)"
+    },
+    "NMPA": {
+      "zh": "国家药监局 (中国的药品监管机构, 类似美国 FDA)",
+      "en": "China's National Medical Products Administration (the regulator, similar to US FDA)"
+    },
+    "EAP": {
+      "zh": "扩展准入 (在药未正式上市前的特殊用药通道)",
+      "en": "expanded access (a special pathway to use drugs before formal approval)"
+    },
+    "NGS": {
+      "zh": "二代测序 (一次性检测肿瘤里很多基因的检查)",
+      "en": "next-generation sequencing (a test that screens many tumor genes at once)"
+    },
+    "IHC": {
+      "zh": "免疫组化染色 (病理科用来检测特定蛋白的染色检查)",
+      "en": "immunohistochemistry (a pathology stain that checks for specific proteins)"
+    },
+    "RNF43": {
+      "zh": "RNF43 基因 (与抗 EGFR 治疗效果相关的一个基因)",
+      "en": "RNF43 gene (a gene linked to anti-EGFR therapy response)"
+    },
+    "TROP2": {
+      "zh": "TROP2 蛋白 (一种肿瘤标志物, 有专门的靶向药)",
+      "en": "TROP2 protein (a tumor marker with its own targeted drug)"
+    },
+    "Cox": {
+      "zh": "(一种生存数据的统计分析方法)",
+      "en": "(a statistical method for analyzing survival data)"
+    }
+  }
+}
