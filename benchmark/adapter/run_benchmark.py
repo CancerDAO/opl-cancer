@@ -186,6 +186,12 @@ def main() -> int:
     parser.add_argument("--arms", default="baseline,mtb")
     parser.add_argument("--concurrency", type=int, default=3)
     parser.add_argument("--surface", default="crc_case", choices=["crc_case", "nccn_structured"])
+    parser.add_argument(
+        "--resume-from",
+        type=Path,
+        default=None,
+        help="Existing raw_outputs.jsonl: skip (item_id, arm) pairs whose latest record has json_parse_ok=true.",
+    )
     args = parser.parse_args()
 
     if not os.environ.get("OPENROUTER_API_KEY"):
@@ -196,12 +202,31 @@ def main() -> int:
 
     arms = [a.strip() for a in args.arms.split(",") if a.strip()]
 
+    # If --resume-from is given, build a set of (item_id, arm) pairs whose
+    # latest record already has json_parse_ok=true — those will be skipped.
+    skip: set[tuple[str, str]] = set()
+    if args.resume_from is not None and args.resume_from.exists():
+        latest: dict[tuple[str, str], dict[str, Any]] = {}
+        with args.resume_from.open(encoding="utf-8") as fh:
+            for line in fh:
+                if not line.strip():
+                    continue
+                rec = json.loads(line)
+                model_tag = (rec.get("model") or "")
+                arm_prefix = model_tag.split("::")[0]
+                item_id = str(rec.get("item_id") or "")
+                latest[(item_id, arm_prefix)] = rec
+        skip = {key for key, rec in latest.items() if rec.get("json_parse_ok")}
+        print(f"[resume] loaded {len(latest)} prior records; skipping {len(skip)} (item, arm) pairs that already have json_parse_ok=true")
+
     tasks: list[dict[str, Any]] = []
     if args.surface == "crc_case":
         items = select_crc_items(args.benchmark_root, args.n)
         for item in items:
             case_id, case_facts = build_case_facts(item)
             for arm in arms:
+                if (case_id, arm) in skip:
+                    continue
                 tasks.append({"arm": arm, "case_id": case_id, "case_facts": case_facts})
     else:  # nccn_structured
         items = select_nccn_crc_items(args.benchmark_root, args.n)
@@ -213,6 +238,8 @@ def main() -> int:
                 "__cancer_type_hint": cancer_hint,
             }
             for arm in arms:
+                if (item_id, arm) in skip:
+                    continue
                 tasks.append({"arm": arm, "case_id": item_id, "case_facts": facts_bundle})
 
     manifest = {
