@@ -38,6 +38,12 @@ class LLMBackedExpert(Expert):
     preferred_families: ClassVar[tuple[str, ...]] = ()
     persona_version: ClassVar[str] = "v0.1.0"
 
+    # v1.5.2-2: process-wide cache of the canonical persona prefix so we
+    # do not re-read the file for every expert invocation. Invalidated
+    # by restart; the prefix is committed alongside this code so it is
+    # stable within a process.
+    _persona_prefix_cache: ClassVar[str | None] = None
+
     def __init__(
         self,
         profile: ExpertProfile,
@@ -46,6 +52,8 @@ class LLMBackedExpert(Expert):
         executor_model_id: str,
         reviewer_model_id: str,
         integrators: dict[str, Any] | None = None,
+        *,
+        skip_persona_prefix: bool = False,
     ) -> None:
         self.profile = profile
         self.executor_client = executor_client
@@ -53,11 +61,59 @@ class LLMBackedExpert(Expert):
         self.executor_model_id = executor_model_id
         self.reviewer_model_id = reviewer_model_id
         self.integrators: dict[str, Any] = integrators or {}
+        # v1.5.2-2: escape hatch for tests that want to validate persona
+        # behavior in isolation. Production callers leave this False.
+        self.skip_persona_prefix = skip_persona_prefix
 
     # ---- internal helpers --------------------------------------------------
 
     def _persona_path(self) -> Path:
         return find_prompts_root() / "experts" / self.profile.name / "persona.md"
+
+    def _persona_prefix_path(self) -> Path:
+        return find_prompts_root() / "experts" / "_shared" / "persona_prefix.md"
+
+    @classmethod
+    def _load_persona_prefix(cls) -> str:
+        """Read + cache the canonical persona prefix (v1.5 P1-A). All 18
+        personas inherit this block so G7 voice, evidence-tier rubric,
+        patient-anchor checklist, traceability footer, and privacy
+        hygiene are enforced upstream rather than relying solely on
+        post-hoc gates (docs/ANTI_PATTERNS_v1.4.md AP-7)."""
+        if cls._persona_prefix_cache is not None:
+            return cls._persona_prefix_cache
+        path = find_prompts_root() / "experts" / "_shared" / "persona_prefix.md"
+        if not path.exists():
+            # Hard error: the prefix is v1.5 mandatory infrastructure.
+            # Returning an empty string would silently degrade persona
+            # quality across the entire skill (memory:feedback_no_offline_only).
+            raise FileNotFoundError(
+                f"persona prefix missing at {path}. v1.5+ requires this "
+                "file. If you intentionally want to skip it (tests only), "
+                "pass skip_persona_prefix=True to LLMBackedExpert."
+            )
+        cls._persona_prefix_cache = path.read_text(encoding="utf-8")
+        return cls._persona_prefix_cache
+
+    def _compose_system_prompt(self) -> str:
+        """Return the system-prompt body the LLM sees: canonical prefix
+        + the expert-specific persona.md. v1.5.2-2.
+
+        Check the prefix first — it is the v1.5 mandatory infrastructure
+        and missing it is a louder failure than a missing persona body
+        (which usually means a typo in the expert name).
+        """
+        if not self.skip_persona_prefix:
+            prefix = self._load_persona_prefix()
+        else:
+            prefix = ""
+        persona_body = self._persona_path().read_text(encoding="utf-8")
+        if not prefix:
+            return persona_body
+        # Separator: 2 blank lines + a visible boundary so a downstream
+        # reader can tell where the shared block ends and the persona
+        # begins. Persona body is appended verbatim.
+        return f"{prefix}\n\n---\n\n{persona_body}"
 
     def _task_template(self, task_package: str) -> PromptTemplate:
         path = find_prompts_root() / "tasks" / f"{task_package}.md"
@@ -87,7 +143,10 @@ class LLMBackedExpert(Expert):
                 f"{self.profile.name!r} cannot handle task_package {task_package!r}; "
                 f"portfolio={self.portfolio}"
             )
-        persona = self._persona_path().read_text(encoding="utf-8")
+        # v1.5.2-2: system prompt = canonical persona prefix (v1.5 P1-A,
+        # G7 voice + evidence rubric + patient-anchor + traceability +
+        # privacy) + this expert's persona.md.
+        persona = self._compose_system_prompt()
         template = self._task_template(task_package)
         prompt_text = template.render(**context)
         req = LLMRequest(

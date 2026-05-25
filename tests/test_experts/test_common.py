@@ -59,21 +59,34 @@ class _DummyExpert(LLMBackedExpert):
 
 @pytest.fixture()
 def dummy_task_prompt(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """Create a dummy_task.md under a tmp prompts root + dummy persona file."""
+    """Create a dummy_task.md under a tmp prompts root + dummy persona file.
+
+    v1.5.2-2: also writes a minimal _shared/persona_prefix.md so the
+    auto-prepend introduced in this iteration can find it. Real persona
+    runs always have the full v1.5 P1-A prefix; this stub satisfies the
+    loader.
+    """
     prompts_root = tmp_path / "prompts"
     (prompts_root / "tasks").mkdir(parents=True)
     (prompts_root / "experts" / "dummy").mkdir(parents=True)
+    (prompts_root / "experts" / "_shared").mkdir(parents=True)
     (prompts_root / "tasks" / "dummy_task.md").write_text(
         "Task body with {{ key }}.", encoding="utf-8"
     )
     (prompts_root / "experts" / "dummy" / "persona.md").write_text(
         "You are dummy.", encoding="utf-8"
     )
+    (prompts_root / "experts" / "_shared" / "persona_prefix.md").write_text(
+        "# G7 voice + Patient-anchor + Source-traceability\nTest stub.",
+        encoding="utf-8",
+    )
 
     def _fake_root() -> Path:
         return prompts_root
 
     monkeypatch.setattr("opl_cancer.experts._common.find_prompts_root", _fake_root)
+    # v1.5.2-2: reset class-level cache so the tmp_path is picked up
+    LLMBackedExpert._persona_prefix_cache = None
     return prompts_root
 
 
@@ -146,7 +159,12 @@ async def test_execute_uses_persona_as_system_prompt(dummy_task_prompt: Path) ->
     )
     await exp.execute("dummy_task", plan={}, context={"key": "val"})
     assert fake.last_request is not None
-    assert fake.last_request.system == "You are dummy."
+    # v1.5.2-2: system prompt now = canonical prefix + persona body.
+    # The persona body must be present as a substring; the prefix
+    # (stubbed in the fixture) precedes it.
+    assert fake.last_request.system is not None
+    assert "You are dummy." in fake.last_request.system
+    assert "G7 voice" in fake.last_request.system  # prefix stub marker
     # prompt was rendered with context vars
     assert "Task body with val" in fake.last_request.messages[0]["content"]
 
