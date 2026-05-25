@@ -246,10 +246,16 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
     pdir = Path(patient_dir)
     out_path = Path(out) if out else pdir / "triggers" / run_id / "plan.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    # Delegate to orchestrator/plan path. v1.3 ships a deterministic skeleton plan
-    # (full LLM-driven planning is wired through wave1_runner.py for the initial wave).
+    # v1.5 P0-6: skeleton is the floor, not the ceiling. We read the
+    # patient profile and expand with triggered-expert tasks
+    # (Mark / Mary / Frances / Riad / Dennis / Heddy) when the patient's
+    # phenotype matches the multi-comorbid / L4+ / cross-border /
+    # active-irAE / cardiac / CKD / polypharmacy criteria. The expansion
+    # is deterministic + narrated; v1.6 will hand the LLM-driven
+    # planner the wheel. See `plan/comorbid_planner.py`.
+    from opl_cancer.plan.comorbid_planner import maybe_expand_for_comorbid
     from opl_cancer.plan.schemas import Plan, Task, WaveAssignment
-    tasks = [
+    base_tasks = [
         Task(id="t1", expert="rosa", task_package="pathology_interpretation", sub_goal="read pathology report"),
         Task(id="t2", expert="bert", task_package="molecular_ngs_interpretation", sub_goal="extract actionable variants from NGS"),
         Task(id="t3", expert="rick", task_package="trial_matching", sub_goal="match patient to CT.gov + ChiCTR trials"),
@@ -260,20 +266,50 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
         Task(id="t8", expert="iain", task_package="meta_analysis", sub_goal="pool effect sizes across cohorts"),
         Task(id="t9", expert="aviv", task_package="hypothesis_validation", sub_goal="retest hypotheses vs measured data", dependencies=["t4", "t7"]),
     ]
+    # Read profile.json if present; safe to proceed without (just no
+    # expansion triggers fire).
+    profile_path = pdir / "profile.json"
+    profile_data: dict[str, Any] = {}
+    if profile_path.exists():
+        try:
+            profile_data = json.loads(profile_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            profile_data = {}
+    tasks, fired = maybe_expand_for_comorbid(base_tasks, profile_data)
+    expanded_task_ids = [t.id for t in tasks if t.id not in {b.id for b in base_tasks}]
+    # Newly-added tasks all go to Wave 1 (retrieval) by default — the
+    # LLM-driven planner in v1.6 will redistribute. Heddy + Frances +
+    # Dennis + Riad are retrieval-shaped tasks; Mary's polypharmacy /
+    # cardiac / CKD scans likewise read the patient + drug labels.
+    wave1_ids = ["t1", "t2", "t3"] + expanded_task_ids
     skeleton = Plan(
         run_id=run_id,
         patient_code=pdir.name,
         goal=goal,
         tasks=tasks,
         waves=[
-            WaveAssignment(wave_number=1, task_ids=["t1", "t2", "t3"]),
+            WaveAssignment(wave_number=1, task_ids=wave1_ids),
             WaveAssignment(wave_number=2, task_ids=["t4", "t5"]),
             WaveAssignment(wave_number=3, task_ids=["t6", "t7", "t8"]),
             WaveAssignment(wave_number=4, task_ids=["t9"]),
         ],
     )
     out_path.write_text(skeleton.model_dump_json(indent=2), encoding="utf-8")
-    _emit({"ok": True, "plan_path": str(out_path), "run_id": run_id, "waves": 4, "tasks": len(tasks)}, json_mode)
+    triggers_payload = [
+        {"name": t.name, "rationale": t.rationale, "task_id": t.task.id, "expert": t.task.expert}
+        for t in fired
+    ]
+    _emit(
+        {
+            "ok": True,
+            "plan_path": str(out_path),
+            "run_id": run_id,
+            "waves": 4,
+            "tasks": len(tasks),
+            "comorbid_expansion_triggers_fired": triggers_payload,
+        },
+        json_mode,
+    )
 
 
 # ─── Step 5-8: Waves ──────────────────────────────────────────────────────
