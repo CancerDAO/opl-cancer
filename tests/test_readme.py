@@ -66,22 +66,26 @@ def test_readme_includes_emergency_routing() -> None:
     assert "911" in text
 
 
-def test_readme_uses_pseudonym_for_case_studies() -> None:
-    """README must reference case studies via pseudonymized identifiers
-    (e.g. PT-EXAMPLE-A) only — never a real-format identifier. Runtime
-    PII enforcement is G27 (validators/gates/g27_privacy_scrub.py);
-    this is the doc-layer sanity check."""
+def test_readme_does_not_use_real_case_codes() -> None:
+    """README must not contain a real-format patient code (PT- prefix
+    followed by mixed letters+digits resembling an institutional code).
+    Pseudonyms like PT-EXAMPLE-A are fine; a real-looking PT-XX12345678
+    is not. Runtime PII enforcement is G27
+    (validators/gates/g27_privacy_scrub.py); this is the doc-layer
+    sanity check.
+
+    Note: we do NOT enumerate any historical leak token here — listing
+    it as a string literal would re-introduce it into source.
+    """
+    import re
+
     text = (REPO_ROOT / "README.md").read_text()
-    # If a case study is referenced, the pseudonym form must be used.
-    if "case study" in text.lower() or "案例" in text:
-        # Either no specific case study identifier is named, or the
-        # pseudonym pattern is used. We do NOT enumerate the historical
-        # forbidden tokens in this file — listing them would re-leak.
-        # G27 enforces at runtime; we just confirm the pseudonym
-        # convention is visible.
-        assert "PT-EXAMPLE" in text or "<patient_code>" in text or "patient_code" in text, (
-            "case study referenced without pseudonym convention"
-        )
+    # A "real-looking" code matches PT-<letters><digits...> with enough
+    # entropy to look institutional (e.g. PT-XX12345678). EXAMPLE codes
+    # are explicitly allowed.
+    candidates = re.findall(r"\bPT-[A-Z]{0,4}\d{4,}[A-Z0-9]*\b", text)
+    real_looking = [c for c in candidates if "EXAMPLE" not in c]
+    assert not real_looking, f"real-looking patient codes in README: {real_looking}"
 
 
 def test_disclaimer_has_v1_release_and_emergency_notice() -> None:
