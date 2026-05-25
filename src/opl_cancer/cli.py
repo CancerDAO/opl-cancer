@@ -78,18 +78,45 @@ def preflight(json_mode: bool) -> None:
             "Run: pip install -e " + str(Path(__file__).parent.parent.parent)
         )
 
-    # LLM keys (at least one required)
+    # LLM model layer (v1.4.0+ paradigm: Claude-native).
+    #
+    # The MAIN executor LLM work (Sid PI + 18 expert task packages + delivery
+    # rewrite) runs on the Claude Code main thread — token from the user's
+    # Claude Code subscription (~$1-3 per Wave run, same as cancerdao-vmtb).
+    # Users do NOT need to supply an ANTHROPIC_API_KEY for OPL to work.
+    #
+    # The REVIEWER pool only needs an external API key because G13 mandates
+    # reviewer model != executor model. Since executor is Claude (Anthropic)
+    # on the main thread, the reviewer must be a non-Anthropic model:
+    # MiniMax-M2.7 / GPT-5 / Gemini / etc.
+    #
+    # Therefore preflight no longer hard-fails on missing ANTHROPIC_API_KEY.
+    # It warns if NO reviewer-pool model is configured (G13 would block).
     anthropic_ok = bool(os.environ.get("ANTHROPIC_API_KEY"))
     minimax_ok = bool(os.environ.get("MINIMAX_API_KEY"))
+    openai_ok = bool(os.environ.get("OPENAI_API_KEY"))
+    gemini_ok = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+    reviewer_pool_keys = [n for n, ok in [
+        ("minimax-m2-7", minimax_ok),
+        ("gpt-5", openai_ok),
+        ("gemini", gemini_ok),
+    ] if ok]
     result["checks"]["llm"] = {
-        "anthropic": anthropic_ok,
-        "minimax": minimax_ok,
-        "ok": anthropic_ok or minimax_ok,
+        "executor_default": "claude-code-main-thread (user CC subscription, no key required)",
+        "anthropic_standalone_key": anthropic_ok,  # optional; only if user wants out-of-band API runs
+        "reviewer_pool_keys_present": reviewer_pool_keys,
+        "ok": True,  # Never block — main thread is the default executor
     }
-    if not (anthropic_ok or minimax_ok):
-        result["ok"] = False
+    if not reviewer_pool_keys:
+        # Warn (don't block) — main thread executor still works; cross-model
+        # G13 reviewer will be skipped or use a single-model fallback. The
+        # full founder-mode discipline requires a reviewer-pool key.
         result["issues"].append(
-            "At least one LLM key required (ANTHROPIC_API_KEY or MINIMAX_API_KEY). See .env.example."
+            "[warn] No reviewer-pool API key configured (MINIMAX_API_KEY / "
+            "OPENAI_API_KEY / GEMINI_API_KEY). Main-thread Claude executor "
+            "works without one, but G13 cross-model reviewer cannot fire "
+            "(reviewer == executor would be Anthropic-vs-Anthropic). "
+            "Recommend MINIMAX_API_KEY — see .env.example."
         )
 
     # Integrator presence — verify each module is importable without leaving unused names.

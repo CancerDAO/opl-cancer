@@ -62,7 +62,9 @@ python ~/.claude/skills/opl-cancer/scripts/cli.py preflight --json
 
 The preflight reports:
 - Python ≥ 3.11 + `opl_cancer` package importable (auto-runs `pip install -e ~/.claude/skills/opl-cancer` if missing)
-- LLM provider credentials: `ANTHROPIC_API_KEY` (Opus 4.7 — code, hypothesis reasoning, chair) **and/or** `MINIMAX_API_KEY` (M2.7 — lit synthesis, reviewer). At least one is required; both is ideal.
+- **LLM model layer (v1.4.0+ Claude-native paradigm)**:
+  - **Main executor** runs on the **Claude Code main thread** (Sid PI + 18 expert task packages + delivery rewrite). Token from your CC subscription (~$1-3 per Wave run, same as `cancerdao-vmtb`). **No ANTHROPIC_API_KEY required** — Claude Code's already-configured Opus is the executor.
+  - **Reviewer pool** needs an **external** non-Anthropic API key because G13 mandates `reviewer_model ≠ executor_model` (executor is main-thread Claude = Anthropic, so reviewer must be MiniMax / GPT-5 / Gemini). **At least one of**: `MINIMAX_API_KEY` (recommended, free credit) / `OPENAI_API_KEY` / `GEMINI_API_KEY`. Preflight warns (doesn't block) if none — main thread executor still works, but G13 cross-model discipline cannot fire.
 - Integrator readiness — PubMed, NCCN PageIndex, CT.gov, ChiCTR, OncoKB, CIViC, RxNorm, GEO, ArrayExpress, SRA, DepMap, CCLE, ClinVar, gnomAD, Open Targets, RetractionDB, Unpaywall, PaperQA2 index, NMPA-EAP, FDA-EAP, cBioPortal, GDC.
 - Optional compute runtime: `docker info` + `compute/bixbench.Dockerfile` build (Wave 3 only; skip-able).
 
