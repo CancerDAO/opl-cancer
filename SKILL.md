@@ -168,7 +168,11 @@ The plan goes through `validators/mechanical_gates.py` (G5 patient-context-isola
 
 Echo the plan to user in human form (no JSON): *"Team 这次会上场的:Rosa+Bert+Aviv+Rick+Iain ... 跑 Wave 1+2+3。预计 wall-time 8-15 分钟,token 成本 ~$3-8 (depends on hypothesis tournament rounds)。要开始吗?"*
 
+> v1.5 — `cli.py plan` reads `profile.json` and **deterministically expands** the baseline t1-t9 skeleton when the patient phenotype hits multi-comorbid triggers (active irAE → Mark; ≥3 prior lines → Frances; ≥3 co-meds → Mary; CAD/PCI/LVEF≤50 → Mary cardiac; CKD or eGFR≤60 → Mary renal; mainland-CN patient → Riad + Dennis; imaging gap or age≥70 → Heddy). The CLI JSON output exposes `comorbid_expansion_triggers_fired` with per-trigger rationale. **You MUST surface the fired triggers** to the user in this Step 4 echo — silent override is forbidden (`docs/ANTI_PATTERNS_v1.4.md` AP-9, AP-11).
+
 Wait for user `yes` / adjust.
+
+> v1.5 — every subagent dispatched in Steps 5..8 follows `prompts/safety/subagent_file_write_contract.md`: primary Write tool, fallback Bash heredoc with `OPL_REPORT_EOF` sentinel, JSON envelope confirmation with `report_path` + `report_bytes` + `report_sha256_short`. Orchestrator validates filesystem state matches the envelope; 1 retry on mismatch (`docs/ANTI_PATTERNS_v1.4.md` AP-12 / F12).
 
 ---
 
@@ -200,22 +204,25 @@ python ~/.claude/skills/opl-cancer/scripts/cli.py wave2 \
 
 Robin EXPERIMENTAL_INSIGHTS_APPENDAGE feedback string flows back into each new round's Generation prompt. Reflector runs 6 modes between rounds.
 
-Show user the top-3 hypothesis cards (with confidence + parent chain) after Wave 2. *"Team 跑了 4 轮联赛,产出 17 个 hypothesis,top-3 是 …(简述)。要进 Wave 3 用真实数据验证吗?Wave 3 会下载 ~2GB GEO 数据 + 跑 bixbench Docker (本地 ~30s 启动 + 5-20 min 计算),需要 Docker 可用。"*
+Show user the top-3 hypothesis cards (with confidence + parent chain) after Wave 2. *"Team 跑了 4 轮联赛,产出 17 个 hypothesis,top-3 是 …(简述)。要进 Wave 3 用真实数据验证吗?Wave 3 默认走 native Python (cBioPortal + GEPIA3 + PythonMeta + scipy,本地 ~5-15 min)。Docker (bixbench) 是 opt-in,只用于 heavy R / bioconductor notebooks。"*
+
+> v1.5: Wave 3 is **non-skippable critical path** (`docs/ANTI_PATTERNS_v1.4.md` AP-1). The preflight check (`opl-cancer preflight`) refuses to start a patient run when neither jupyter (native) nor docker (bixbench) is available — no silent skip, no "Wave 3 will skip bixbench analysis" message. To bypass for dev/test only, use the assistant override `--allow-single-model` in preflight (NOT for patient runs).
 
 ---
 
-**Step 7 — Wave 3 · data-evidence generation (Finch bixbench).**
+**Step 7 — Wave 3 · data-evidence generation (native Python + GEPIA3, Docker opt-in).**
 
-Tasks: `dataset_acquisition` (GEO/ArrayExpress/SRA) → `bioinformatics_data_analysis` (Finch ReAct + bixbench Docker: DESeq2 / limma / scanpy / scvi) → `meta_analysis` (metafor / PythonMeta + PRISMA flow) → `single_cell_reanalysis` (if applicable) → `pathway_enrichment` (GSEA / ORA / Hallmark / KEGG / Reactome / GO).
+Tasks: `dataset_acquisition` (cBioPortal / GEO / ArrayExpress / SRA) → `gepia3_query` (TCGA + GTEx differential expression — v1.5 first-class, default for any TCGA-mappable cancer type) → `bioinformatics_data_analysis` (native scipy / PythonMeta / scanpy / lifelines via `NativeAnalysisRunner` — Docker fallback to `BixbenchRunner` for heavy R) → `meta_analysis` (metafor / PythonMeta + PRISMA flow) → `single_cell_reanalysis` (if applicable) → `pathway_enrichment` (GSEA / ORA / Hallmark / KEGG / Reactome / GO).
 
 ```bash
+# v1.5+: default path uses NativeAnalysisRunner. --enable-docker is opt-in.
 python ~/.claude/skills/opl-cancer/scripts/cli.py wave3 \
-  --patient <patient_dir> --run-id <run_id> --enable-docker
+  --patient <patient_dir> --run-id <run_id>
 ```
 
-Mechanical gates auto-enforce: G14 dataset-patient-match-score, G15 multiple-testing-correction, G16 batch-effect-declared, G17 meta-I²-policy, G18 PRISMA-search-strategy. Any gate block → re-run with corrections, surface to user as data-quality finding.
+Mechanical gates auto-enforce: G14 dataset-patient-match-score, G15 multiple-testing-correction, G16 batch-effect-declared, G17 meta-I²-policy + Henry self-verify-render mandate, G18 PRISMA-search-strategy, **G25 deferred-evidence-block** (v1.5 — refuses delivery if Wave-3 critical claim was skipped), **G26 evidence-strength-ranking** (v1.5 — caps Elo boost when subgroup match < 50% or I² > 60%, requires demotion-disclosed marker). Any gate block → re-run with corrections, surface to user as data-quality finding.
 
-Outputs land in `triggers/<run_id>/data/` (per dataset) + `meta_analysis/` (effect_sizes.csv + forest.png + funnel.png + pooled_estimates.json) + `analysis/*.ipynb` (reproducible notebooks).
+Outputs land in `triggers/<run_id>/data/` (per dataset, including `gepia3/aggregated_summary.csv`) + `meta_analysis/` (effect_sizes.csv + forest.png + funnel.png + pooled_estimates.json) + `analysis/*.ipynb` (reproducible notebooks).
 
 ---
 
@@ -240,7 +247,7 @@ python ~/.claude/skills/opl-cancer/scripts/cli.py audit \
 ```
 
 Henry checks:
-- **L1 mechanical** — all 20 gates (G1 PMID-existence, G2 quote-match, G3 drug-normalization, G4 dose-unit-declared, G5 patient-context-isolation, G6 injection-scan, G7 imperative-detector, G8 Level-3-4 disclosure, G9 retraction-check, G10 guideline-version, G11 no-silent-fallback, G12 memory-overflow, G13 reviewer-model-distinct, G14–G18 data-analysis gates, G19 PI-imperative-detector, G20 PI-disagreement-surfacing) over every claim before rendering.
+- **L1 mechanical** — all 26 gates (G1 PMID-existence, G2 quote-match, G3 drug-normalization, G4 dose-unit-declared, G5 patient-context-isolation, G6 injection-scan, G7 imperative-detector, G8 Level-3-4 disclosure, G9 retraction-check, G10 guideline-version, G11 no-silent-fallback, G12 memory-overflow, G13 reviewer-model-distinct **[preflight hard-fail v1.5]**, G14–G18 data-analysis gates, G19 PI-imperative-detector, G20 PI-disagreement-surfacing, G22 DDR-zygosity, G23 recency-band, G24 crisis-detection, **G25 deferred-evidence-block [v1.5]**, **G26 evidence-strength-ranking [v1.5]**, **G27 privacy-scrub [v1.5]**) over every claim before rendering. Henry **self-verifies** that any G17 / G26 rendering mandate it issued is satisfied in the actual rendered artifact (closes v1.4 F10).
 - **L2 disagreement-summariser** — Reviewer disagreement > 0.4 confidence delta → forced two-view delivery.
 - **L3 permission gate** — every claim tagged Level 0 (info) / 1 (reasoning) / 2 (recommendation) / 3 (high-risk recommendation) / 4 (boundary). L3/L4 require a `risk_disclosure_card` written and patient-ack-gated.
 - **L4 rollback registry** — retraction / new-evidence / patient-feedback / auditor-recheck withdraw queue.
@@ -256,8 +263,11 @@ python ~/.claude/skills/opl-cancer/scripts/cli.py render \
   --patient <patient_dir> --run-id <run_id>
 ```
 
-Two artefacts:
-- `delivery/patient_brief.html` — full report with three-tier labels, PMID links, risk-disclosure-cards pinned top, model disagreement table, drill-down handles for every claim.
+**v1.5 split**: every patient run produces TWO audience targets — pick by `profile.delivery_audience` (`clinical` = default, full medical content; `lay` = plain-language). When in doubt or when fatigue_flag / explicit user request fires, the planner emits both.
+
+Three artefacts:
+- `delivery/patient_brief.html` — full clinician-grade report with three-tier labels, PMID links, risk-disclosure-cards pinned top, model disagreement table, drill-down handles for every claim.
+- **`delivery/patient_plain_brief.html` (v1.5)** — plain-language 2nd-person Chinese / English brief ≤ 2 pages. 4 sections: 你的病情一页纸 / 下一步要做什么 / 不同的选择 / 问医生 5 个问题. Jargon glossary at `references/patient_jargon_glossary.json`. No PMIDs in body, no risk-card tables, no Elo / I² stats — those stay in the clinician brief. See `prompts/tasks/patient_plain_brief_rendering.md`.
 - `delivery/pi_delivery.md` — Sid's conversational rewrite (NOT single-shot HTML push):
 
   > "我让 team 跑了 4 个 GEO HCC TACE-refractory cohort + 一轮 hypothesis 联赛 + WNT pathway 重分析。**有 3 件事我想让你看看**:

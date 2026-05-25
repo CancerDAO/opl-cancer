@@ -1,7 +1,10 @@
 # ADR-0009: Claude-native executor (token from CC subscription, no ANTHROPIC_API_KEY)
 
-**Status**: Accepted (v1.4.1 partial fix; v1.5 full architectural rewrite)
 **Date**: 2026-05-25
+
+## Status
+
+Accepted (v1.4.1 partial fix; v1.5 full architectural rewrite).
 
 ## Context
 

@@ -1,5 +1,56 @@
 # Changelog
 
+## [1.5.0] — 2026-05-25 — Retrospective-driven hardening (iter/v1.5)
+
+Driven by `docs/RETROSPECTIVE_v1.4_PT-EXAMPLE-A_run-20260525.md` (compiled from 6 parallel Explore-subagent audits of the v1.4 PT-EXAMPLE-A run) and the 16 anti-patterns it surfaced (`docs/ANTI_PATTERNS_v1.4.md`). PRD lives at `docs/PRD_v1.5.md`. Closes 8 P0 + 9 P1 items; 3 of 6 P2 deferred to v1.6 with explicit rationale in `docs/P2_DEFERRALS_v1.5.md`.
+
+### P0 — must ship
+
+1. **P0-1+P0-8 Wave 3 native-Python path + non-skippable critical path** — `src/opl_cancer/compute/native_runner.py` provides `NativeAnalysisRunner` with the same `run_notebook` interface as `BixbenchRunner`. `compute/__init__.py` exports `select_compute_runner()` selector that prefers native (jupyter on PATH) and falls back to bixbench (docker on PATH); raises when both are absent. `src/opl_cancer/compute/kernel_requirements.txt` created — fixes the broken `bixbench.Dockerfile:85 COPY kernel_requirements.txt` build (AP-1, AP-14). `glue/wave3_runner.py` widened to `ComputeRunner = BixbenchRunner | NativeAnalysisRunner` (back-compat preserved). Preflight refuses to start when neither runner is available.
+
+2. **P0-2 GEPIA3 first-class integrator** — `src/opl_cancer/integrators/gepia3.py` (`GEPIA3Integrator`, family F12). Key `gepia3:exp:<GENE>:<TCGA_TYPE>` returns log2fc + q-value + tumor/normal counts. Default 12-second rate-limit pacing matches empirical PT-EXAMPLE-A recovery threshold. `batch()` collects per-query status. `prompts/tasks/gepia3_query.md` is the Aviv task contract (no fabrication, G7 voice, cohort-vs-patient caveat, CN-source supplement for mainland). Tests `tests/test_integrators/test_gepia3.py` (12 cases, respx-mocked). Closes AP-5: GEPIA3 was the highest-impact recovery tool of v1.4 and was invisible to the planner.
+
+3. **P0-3+P0-10 G13 reviewer-distinct preflight hard-fail + Wave 3 gating** — `cli.py preflight` now blocks (exit 1) when no `MINIMAX_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` is set (previously `[warn]` only). New `--allow-single-model` flag bypasses for dev/test with `[warn]`. New `wave3_compute` check field with `native_runner_ready` + `bixbench_runner_ready` + `default_runner` + 3-line remediation message. AP-10 closed.
+
+4. **P0-4 patient-plain-brief delivery split** — `prompts/tasks/patient_plain_brief_rendering.md` ships a separate audience target: 2nd-person zh / en, ≤ 2 pages at 12-pt, 4 mandatory sections (病情一页纸 / 下一步 / 不同选择 / 问医生 5 个问题), no PMIDs / Elo / I² stats in body, no outcome promises ("您会响应" → block). `references/patient_jargon_glossary.json` (38 bilingual terms covering the high-frequency v1.4 offenders) is read by the renderer for the new G-jargon gate. AP-6 closed.
+
+5. **P0-5 Henry epistemic gates G25 + G26 + self-verify** — `validators/gates/g25_deferred_evidence_block.py` blocks delivery when an evidence-critical claim carries `deferred=True` or `[SKIPPED]` / `[NOT RUN]` / "wave 3 skipped" markers, unless the patient explicitly opted out. `g26_evidence_strength_ranking.py` caps Elo boost at 15 when `subgroup_match_fraction < 0.5` OR `i_squared > 60%`, and requires a `demotion_disclosed` marker in narrative or flags. `prompts/auditor/l1_mechanical_gates.md` adds a self-verify section: Henry checks its own G17 rendering mandate against the actual artifact. Tests `tests/test_validators/test_g25_g26.py` (17 cases including the canonical PT-EXAMPLE-A failure modes). AP-1, AP-2, AP-3 closed.
+
+6. **P0-6 Deterministic multi-comorbid planner expansion** — `src/opl_cancer/plan/comorbid_planner.py` reads `profile.json` and fires trigger-tasks when the patient phenotype matches: active irAE (→ Mark), ≥3 prior lines (→ Frances), ≥3 co-meds OR cardiac OR CKD (→ Mary), mainland-CN (→ Riad + Dennis), imaging gap OR age ≥70 (→ Heddy). `cli.py plan` surfaces `comorbid_expansion_triggers_fired` in JSON output — silent override of the baseline plan is now visible (AP-9, AP-11). Tests `tests/test_comorbid_planner.py` (20 cases including the canonical PT-EXAMPLE-A phenotype).
+
+7. **P0-7 Subagent file-write contract** — `prompts/safety/subagent_file_write_contract.md` canonicalizes the output procedure for every dispatched expert subagent: PRIMARY Write tool → FALLBACK Bash heredoc with `OPL_REPORT_EOF` sentinel → CONFIRMATION JSON envelope (`report_path` + `report_bytes` + `report_sha256_short` + `status`). Orchestrator validates filesystem matches envelope; 1 retry on mismatch. `write_failed` is loud, never silent (AP-12 / F12).
+
+### P1 — should ship
+
+8. **P1-A Canonical persona prefix + G27 privacy scrub** — `prompts/experts/_shared/persona_prefix.md` is the required first section of every expert persona prompt: G7 forbidden-word list + 3 paired imperative→informational rewrites + 3 escape hatches, 3-tier evidence rubric, 5-box patient-anchor checklist (≥4 required), source-traceability footer schema, privacy hygiene. `validators/gates/g27_privacy_scrub.py` blocks reports containing CN mobile phones, emails, CN national IDs (18-digit), MRN-labeled identifiers (en + zh), insurance-card identifiers — caught the canonical `[FAMILY-CONTACT] 13800138000` Dennis leak from v1.4 (AP-7, AP-8). `redact_text()` + `scan_text()` helpers exported. Gate count 25 → 26.
+
+9. **P1-B Shared clinical stop-rules + CN-source mandate** — `references/clinical_stop_rules.json` documents 7 canonical stop-rules (STOP-RENAL-1, STOP-CARDIAC-1, STOP-HEPATIC-1, STOP-ACTIVE-IRAE-1, STOP-MARROW-1, STOP-BLEED-1, STOP-QTC-1), each with PMID-backed evidence. `prompts/safety/cn_source_mandate.md` requires NMPA / 国家医保局 / CSCO / 中华医学会 / ChiCTR / Boao / 港澳药械通 coverage when `profile.country == "CN"`. Closes AP-7 (cross-cutting persona-prompt failures #5 + #7).
+
+### P2 — deferred to v1.6 with rationale
+
+`docs/P2_DEFERRALS_v1.5.md` is the single source of truth. Shipped in v1.5: P2-1 partial (this CHANGELOG entry), P2-3 plan-narration (via `comorbid_expansion_triggers_fired`), P2-5 cost-currency stamp (via persona-prefix §4). Deferred to v1.6: P2-2 SKILL.md ↔ code CI hook, P2-4 Robin reflector live feedback loop, P2-6 Frances / Dennis access-pathway live probe.
+
+### Gate registry
+
+- 23 → 26: +G25 deferred-evidence-block, +G26 evidence-strength-ranking, +G27 privacy-scrub.
+
+### Test results
+
+- 1081/1081 test cases under `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` green. Includes pre-existing ADR-0009 heading fix.
+
+### Migration
+
+- New `MINIMAX_API_KEY` requirement: get a free key at https://platform.minimaxi.com/ — see `.env.example`. For dev / smoke runs only, use `opl-cancer preflight --allow-single-model`.
+- New optional `OPL_NATIVE_LIVE=1` env var to enable real jupyter `nbconvert --execute` in `NativeAnalysisRunner` (defaults to native-dry-run). `OPL_BIXBENCH_LIVE=1` continues to gate Docker bixbench.
+- `profile.json` is now consulted by `plan()`; missing / malformed profile = empty-dict fallback (no expansion fires, no crash).
+
+### Provenance
+
+- Branch: `iter/v1.5` on git@github.com:CancerDAO/opl-cancer-skill.git
+- Authority: `docs/PRD_v1.5.md` §1 P0/P1/P2 scope
+- Retrospective: `docs/RETROSPECTIVE_v1.4_PT-EXAMPLE-A_run-20260525.md`
+- Anti-patterns: `docs/ANTI_PATTERNS_v1.4.md`
+
 ## [1.4.0] — 2026-05-25 — Round-2/3 deferred backlog (priority A + B)
 
 After v1.3.3 ship-ready, ADR-0008's Deferred-to-v1.4 backlog (13 items with trigger conditions + effort estimates) is worked through in one batch fix. 11 of the 13 items close (5 priority A + 6 priority B); 2 items (D11 Bilingual delivery, D12 Expert-mode delivery channel) remain deferred to v1.5 as they belong to a delivery-layer rewrite that would over-scope v1.4. Three new task packages, two substantive task-package extensions, one new integrator, one CLI UX expansion, one intent_parser field, one planner row.
