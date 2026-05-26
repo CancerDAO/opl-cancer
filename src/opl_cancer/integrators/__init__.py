@@ -39,6 +39,7 @@ from .nmpa_eap import NMPAEAPIntegrator
 from .oncokb import OncoKBIntegrator
 from .open_targets import OpenTargetsIntegrator
 from .paperqa import PaperQA2Integrator
+from .primekg import PrimeKGClient
 from .pubmed import PubMedIntegrator
 from .retractiondb import RetractionDBIntegrator
 from .rxnorm import RxNormIntegrator
@@ -72,6 +73,7 @@ __all__ = [
     "OncoKBIntegrator",
     "OpenTargetsIntegrator",
     "PaperQA2Integrator",
+    "PrimeKGClient",
     "PubMedIntegrator",
     "RetractionDBIntegrator",
     "RxNormIntegrator",

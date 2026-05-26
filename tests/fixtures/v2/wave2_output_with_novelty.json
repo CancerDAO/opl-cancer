@@ -1,0 +1,31 @@
+{
+  "run_id": "test_v2_fixture",
+  "patient_text": "test patient KRAS G12C MSS mCRC L4+",
+  "top_k_hypotheses": [
+    {
+      "id": "hyp_a1b2c3d4",
+      "text": "Cardiac workup gates all L4 systemic options",
+      "claim_layer": "established",
+      "generation_strategy": "feasibility_first",
+      "elo_rating": 1580
+    },
+    {
+      "id": "hyp_e5f6g7h8",
+      "text": "KRAS-SHP2 synergistic blockade emerges as candidate via PrimeKG multi-hop reasoning",
+      "claim_layer": "speculative",
+      "generation_strategy": "target_synergy_emergent",
+      "testability_path": "DepMap co-essentiality query KRAS+PTPN11; CRISPR dual-knockout in CRC PDX",
+      "evidence_refs": [{"type": "kg_edge", "id": "PrimeKG:KRAS-PTPN11:Reactome:R-HSA-9648002"}],
+      "elo_rating": 1450
+    },
+    {
+      "id": "hyp_i9j0k1l2",
+      "text": "Candidate DiffDock scaffold targeting MTAP-loss vulnerability via PRMT5 partner",
+      "claim_layer": "speculative",
+      "generation_strategy": "undrugged_target_design",
+      "testability_path": "ESMFold model of PRMT5-MTAP-loss interface; DiffDock virtual screen of ChEMBL drug-like subset; BLI validation",
+      "evidence_refs": [{"type": "kg_edge", "id": "DepMap:MTAP-PRMT5:co-essential:r=0.78"}],
+      "elo_rating": 1420
+    }
+  ]
+}
