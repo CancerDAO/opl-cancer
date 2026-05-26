@@ -47,7 +47,7 @@ OPL 的核心信念是 **founder mode against cancer**：
 
 ## 遇见您的实验室
 
-您只和一个人对话：**Sid**，您的 PI (Principal Investigator)。Sid 协调 18 位虚拟科学家 + 1 位内部审查员。他们的灵感来自真实领域的顶级研究者 (**archetype 不是 impersonation** —— 他们是角色原型，不是冒充本人)。
+您只和一个人对话：**Sid**，您的 PI (Principal Investigator)。Sid 协调 20 位虚拟科学家（v1.x 的 18 位 + v2.0.0 新加入的 Maya + Julius） + 1 位内部审查员。他们的灵感来自真实领域的顶级研究者 (**archetype 不是 impersonation** —— 他们是角色原型，不是冒充本人)。
 
 ### 协调层
 
@@ -56,7 +56,7 @@ OPL 的核心信念是 **founder mode against cancer**：
 | **Sid** | PI / Chief-of-Staff — 您的唯一对话窗口 | Siddhartha Mukherjee (普利策奖 *The Emperor of All Maladies*) |
 | **Henry** | IRB-substitute Auditor — 内部审查员 | composite — 多家 IRB chair 综合 |
 
-### 18 位虚拟科学家
+### 20 位虚拟科学家 (v1.x 18 + v2.0.0 +2)
 
 | 名字 | 专业 | Archetype |
 |------|------|-----------|
@@ -78,8 +78,12 @@ OPL 的核心信念是 **founder mode against cancer**：
 | **Frances** | 扩展用药 / 同情用药 (Expanded Access) | Frances Kelsey (FDA 沙利度胺把关) |
 | **Dennis** | 跨境治疗协调 (Cross-Border Coordination) | Dennis Lo / 卢煜明 (cfDNA 先驱) |
 | **Steve** | 肿瘤营养 (Oncology Nutrition) | David Heber (UCLA 人类营养中心创始) |
+| **Maya** *（v2.0.0 新增）* | 知识图谱协同推理 (KG-Synergy Reasoner) | composite — Marinka Zitnik (PrimeKG / Harvard) + Tijana Milenković (network medicine) |
+| **Julius** *（v2.0.0 新增）* | 计算医药化学家 (In-Silico Medicinal Chemist) | composite — generative-chemistry lineage (ESMFold + DiffDock + RDKit + medchem filters) |
 
-并不是每次都 18 位全员上场。**Sid 会根据您的具体情况选 5-12 位**（基因报告需要 Bert，影像需要 Heddy，免疫副作用需要 Mark，多合并症触发 Mary 等）。需要的专家会被自动调度上场；您可以中途让 Sid 加人 / 减人 / 换人。
+并不是每次都 20 位全员上场。**Sid 会根据您的具体情况选 5-12 位**（基因报告需要 Bert，影像需要 Heddy，免疫副作用需要 Mark，多合并症触发 Mary，问"未发表靶点协同"或"未成药靶点候选分子"触发 Maya / Julius 等）。需要的专家会被自动调度上场；您可以中途让 Sid 加人 / 减人 / 换人。
+
+> **v2.0.0 范式升级 (`iter/v2-paradigm` 分支)**: OPL 现在主动产生 **world-unknown candidates** —— 患者简报新增 "⚡ World-Unknown / Speculative Candidates" 专属版块，由 Maya（KG 协同）/ Julius（in-silico 药物设计）/ Aviv（数据驱动假说）产生未发表的研究方向 + 可测路径。详见 [`references/adr/0010-v2-paradigm-shift.md`](references/adr/0010-v2-paradigm-shift.md) + [`references/v2/PARADIGM.md`](references/v2/PARADIGM.md) + [`references/v2/ROADMAP.md`](references/v2/ROADMAP.md)。
 
 ---
 

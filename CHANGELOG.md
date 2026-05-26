@@ -1,5 +1,95 @@
 # Changelog
 
+## [2.0.0-rc1] — 2026-05-26 — Paradigm Shift: Surface World-Unknown Candidates
+
+Branch: `iter/v2-paradigm`. Driven by the PT-EE62321353 run review which
+revealed that Wave 2 produced 17 hypothesis cards but ALL were
+recombinations of already-published regimens. The system was a polished
+MTB, not an AI scientist team. ADR-0010 documents the forensic.
+
+This release ships the 5-seam paradigm shift. Larger surface changes
+(Wave 3 hard gate, Wave 3→Wave 2 feedback loop, live PrimeKG client,
+skill registry, K-Dense bridge, Julius live wiring, cross-run memory) are
+tracked as independent follow-up branches in `references/v2/ROADMAP.md`.
+
+### Added
+
+- **2 new generation strategies**: `target_synergy_emergent` +
+  `undrugged_target_design`. Extends STRATEGIES tuple (4 → 6) +
+  GenerationStrategy Literal + _STRATEGY_GUIDANCE dict.
+- **2 new experts in roster (18 → 20)**:
+  - **Maya** — Knowledge-Graph Synergy Reasoner. Owns
+    `target_synergy_emergent` + `synthetic_lethal_partner_query` +
+    `drug_drug_synergy_kg_query` + `pathway_crosstalk_reasoning`.
+    Composite archetype: Marinka Zitnik (PrimeKG/Harvard) + Tijana
+    Milenković (network medicine).
+  - **Julius** — Medicinal Chemist (in silico). Owns
+    `undrugged_target_design` + `structure_source_acquisition` +
+    `virtual_screen_design` + `chemical_filter_application`. Composite
+    archetype: ESMFold + DiffDock + RDKit + medchem filter lineage.
+- **PrimeKG integrator stub** at `src/opl_cancer/integrators/primekg.py`.
+  Live HTTP/SPARQL client deferred to `iter/v2-followup-primekg`. Stub
+  raises `NotImplementedError` on live query (no silent fallback per
+  `memory:feedback_no_offline_only`).
+- **Patient brief "⚡ World-Unknown / Speculative Candidates" section** in
+  both `prompts/delivery/patient_brief.html.j2` + `.md.j2`. Renders [S]
+  hypotheses with strategy + Elo + `testability_path` + KG-edge anchors.
+  Explicit 中英双语 framing: "研究方向，未发表 / 未验证 — research
+  direction, not a treatment recommendation".
+- **`testability_path` field mandatory** on all `[S]` hypotheses produced
+  by strategies 5+6.
+- **ADR-0010** + `references/v2/PARADIGM.md` + `references/v2/ROADMAP.md`.
+
+### Changed
+
+- **`prompts/pi/proactive_push.md`** flipped from v1.2.0: speculative
+  claims ARE pushed when `testability_path` non-empty +
+  `surface_section == world_unknown_candidates`. The v1.2.0 hard ban
+  ("Never push speculative claims proactively") was the direct mechanism
+  by which Sid hid world-unknown candidates from the patient.
+- **`prompts/tasks/hypothesis_generation.md`** v1.2.0 "Do NOT synthesize
+  from training data" rule LIFTED for strategies 5+6 (the strategies'
+  whole purpose is to propose what training data cannot have seen). Rule
+  retained for strategies 1-4.
+- README: 18 → 20 experts; new v2 paradigm pointer section.
+- 6 existing roster-cardinality tests updated 18 → 20 (with ADR-0010
+  cross-reference inline).
+
+### Unchanged
+
+- Wave 1 / 3 / 4 / 5 runners.
+- Henry validator (high-Level risk-card behavior intact).
+- Tournament Elo math, debate.py judge prompt.
+- All existing 18 experts.
+- Existing 64 renderer tests pass — World-Unknown section absent when
+  `world_unknown_candidates` undefined / empty.
+
+### Tests
+
+- New: tests/test_v2_generation_strategies.py (4 tests).
+- New: tests/test_v2_prompts.py (6 tests).
+- New: tests/test_v2_roster_maya_julius.py (6 tests).
+- New: tests/test_v2_primekg_integrator.py (4 tests).
+- New: tests/test_v2_renderer_world_unknown.py (5 tests).
+
+### Verification
+
+- `scripts/verify_v2_e2e.py` checks ADR-0010 success criteria on a run dir.
+- E2E validation matrix at `references/v2/E2E-VALIDATION-MATRIX.md`
+  (≥2 patients ≥2 cancer types per `memory:feedback_multi_case_validation`).
+
+### Known follow-ups (see `references/v2/ROADMAP.md`)
+
+- ADR-0011 Wave 3 hard gate (`iter/v2-followup-wave3-gate`).
+- ADR-0012 Wave 3 → Wave 2 feedback loop (`iter/v2-followup-feedback-loop`).
+- ADR-0013 live PrimeKG client (`iter/v2-followup-primekg`).
+- ADR-0014 skill registry (`iter/v2-followup-skill-registry`).
+- ADR-0015 K-Dense-AI bridge (`iter/v2-followup-kdense-bridge`).
+- ADR-0016 Julius live wiring (`iter/v2-followup-julius-live`).
+- ADR-0017 cross-run memory (`iter/v2-followup-cross-run-memory`).
+
+---
+
 ## [1.5.7] — 2026-05-26 — Runtime honesty + prompt-first generalisation
 
 Driven by the PT-EE62321353 run retrospective (2026-05-25) which surfaced a
