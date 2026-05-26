@@ -94,3 +94,79 @@ def test_passes_testability_keyword_floor_negative():
     assert not passes_testability_keyword_floor("see references for further reading")
     assert not passes_testability_keyword_floor("")
     assert not passes_testability_keyword_floor("future research direction")
+
+
+# v2.0.2 round-2 review: drug-class redaction + actionability tier
+
+
+def test_drug_specifics_redacted_from_text(tmp_path: Path):
+    """Patient + family reviewers said brand-name drugs invite off-label use."""
+    run_dir = _write_wave2(tmp_path / "r6", [
+        {
+            "id": "h1",
+            "claim_layer": "speculative",
+            "generation_strategy": "target_synergy_emergent",
+            "text": "Combine sotorasib + RMC-4630 + everolimus to attack G12C resistance.",
+            "testability_path": "PDO viability assay 6x6 dose matrix adagrasib + RMC-4630 + everolimus",
+        },
+    ])
+    out = load_world_unknown_candidates(run_dir)
+    assert len(out) == 1
+    c = out[0]
+    # Specific brand names gone; class names present
+    assert "sotorasib" not in c["text"].lower()
+    assert "RMC-4630" not in c["text"]
+    assert "everolimus" not in c["text"].lower()
+    assert "KRAS G12C" in c["text"]
+    assert "SHP2" in c["text"]
+    assert "mTORC1" in c["text"]
+    # Audit trail records what was redacted
+    assert "sotorasib" in c["redacted_drug_names"]
+    assert "rmc-4630" in c["redacted_drug_names"]
+
+
+def test_actionability_tier_classified(tmp_path: Path):
+    """Patient + family reviewers wanted priority ranking."""
+    run_dir = _write_wave2(tmp_path / "r7", [
+        {
+            "id": "a",
+            "claim_layer": "speculative",
+            "generation_strategy": "feasibility_first",
+            "text": "test",
+            "testability_path": "燃石 NGS panel + 血清 25-OHD; both standard 三甲 lab orders this week",
+        },
+        {
+            "id": "b",
+            "claim_layer": "speculative",
+            "generation_strategy": "target_synergy_emergent",
+            "text": "test",
+            "testability_path": "DepMap CRISPR Achilles cross-essentiality computational query",
+        },
+        {
+            "id": "c",
+            "claim_layer": "speculative",
+            "generation_strategy": "undrugged_target_design",
+            "text": "test",
+            "testability_path": "ESMFold + DiffDock virtual screen, then IND-enabling synthesis",
+        },
+    ])
+    out = load_world_unknown_candidates(run_dir)
+    tiers = [c["actionability_tier"] for c in out]
+    # actionable_this_week ranked first (sort-by-tier)
+    assert tiers[0] == "actionable_this_week"
+    # research_only ranked last
+    assert tiers[-1] in ("research_only", "months_or_more")
+
+
+def test_actionability_label_chinese(tmp_path: Path):
+    run_dir = _write_wave2(tmp_path / "r8", [
+        {
+            "id": "a",
+            "claim_layer": "speculative",
+            "generation_strategy": "feasibility_first",
+            "text": "test",
+            "testability_path": "燃石 NGS panel actionable this week 三甲 lab orders",
+        },
+    ])
+    out = load_world_unknown_candidates(run_dir)
+    assert "本周" in out[0]["actionability_label_zh"]

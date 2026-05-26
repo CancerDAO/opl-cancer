@@ -49,6 +49,12 @@
 <h1>Patient Brief — {{ patient_code }}</h1>
 <p><em>Run {{ run_id }} · {{ created_at }}</em></p>
 
+{% if run_incomplete_notice is defined and run_incomplete_notice %}
+<div style="border: 3px solid #d32f2f; background: #ffebee; padding: 1em; margin: 1em 0; color: #b71c1c;">
+<strong>⚠️ 本次 RUN 不完整 / INCOMPLETE RUN:</strong> {{ run_incomplete_notice }}
+</div>
+{% endif %}
+
 {% for card in risk_cards %}
 <div class="risk-card">
   <strong>Risk Disclosure (Level {{ card.level }}):</strong> {{ card.message }}
@@ -96,15 +102,21 @@
 {% for cand in world_unknown_candidates %}
 <li>
   <div class="candidate-banner">⚠️ 研究方向 — 不是治疗建议 · NOT a recommendation</div>
+  {% if cand.actionability_label_zh is defined %}
+  <div style="font-weight: 600; color: #555; margin-bottom: 0.4em;">优先级 / Actionability: {{ cand.actionability_label_zh }}</div>
+  {% endif %}
   <strong>{{ cand.text }}</strong>
   <span class="candidate-notice">[S] speculative</span>
-  <br><small style="color: #666;">Strategy: <code>{{ cand.generation_strategy }}</code>{% if cand.elo_rating is defined %} · Elo: {{ cand.elo_rating }}{% endif %}</small>
+  <br><small style="color: #666;">Strategy: <code>{{ cand.generation_strategy }}</code>{% if cand.elo_rating is defined and cand.elo_rating %} · Elo: {{ cand.elo_rating }}{% endif %}</small>
   {% if cand.testability_path %}
   <br><strong>下一步测试路径 / Testability path:</strong> {{ cand.testability_path }}
   {% endif %}
   {% if cand.evidence_refs %}
-  <br><strong>Anchors:</strong>
+  <br><strong>Anchors (⚠️ 未独立校验 / NOT independently verified):</strong>
     {% for ref in cand.evidence_refs %}<code>{{ ref.type }}:{{ ref.id }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+  {% endif %}
+  {% if cand.redacted_drug_names is defined and cand.redacted_drug_names and cand.redacted_drug_names|length > 0 %}
+  <br><small style="color: #888;">（具体药名已隐去 / specific drug names redacted to target class; 共 {{ cand.redacted_drug_names|length }} 项）</small>
   {% endif %}
 </li>
 {% endfor %}

@@ -2,6 +2,10 @@
 
 > Run {{ run_id }} · {{ created_at }}
 
+{% if run_incomplete_notice is defined and run_incomplete_notice %}
+> ⚠️ **本次 RUN 不完整 / INCOMPLETE RUN**: {{ run_incomplete_notice }}
+{% endif %}
+
 {% for card in risk_cards %}
 > **⚠ Risk Disclosure (Level {{ card.level }}):** {{ card.message }}
 {% endfor %}
@@ -36,10 +40,13 @@
 {% for cand in world_unknown_candidates %}
 - ⚠️ **研究方向 — 不是治疗建议 · NOT a recommendation**
 
+  {% if cand.actionability_label_zh is defined %}**优先级 / Actionability:** {{ cand.actionability_label_zh }}{% endif %}
+
   **{{ cand.text }}** `[S] speculative`
-  - Strategy: `{{ cand.generation_strategy }}`{% if cand.elo_rating is defined %} · Elo: {{ cand.elo_rating }}{% endif %}
+  - Strategy: `{{ cand.generation_strategy }}`{% if cand.elo_rating is defined and cand.elo_rating %} · Elo: {{ cand.elo_rating }}{% endif %}
   {% if cand.testability_path %}- **下一步测试路径 / Testability path:** {{ cand.testability_path }}
-  {% endif %}{% if cand.evidence_refs %}- **Anchors:** {% for ref in cand.evidence_refs %}`{{ ref.type }}:{{ ref.id }}`{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+  {% endif %}{% if cand.evidence_refs %}- **Anchors (⚠️ 未独立校验 / NOT independently verified):** {% for ref in cand.evidence_refs %}`{{ ref.type }}:{{ ref.id }}`{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+  {% if cand.redacted_drug_names is defined and cand.redacted_drug_names and cand.redacted_drug_names|length > 0 %}- *（具体药名已隐去 / specific drug names redacted to target class; 共 {{ cand.redacted_drug_names|length }} 项）*{% endif %}
 {% endfor %}
 
 {% endif %}
