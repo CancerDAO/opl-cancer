@@ -26,6 +26,8 @@ STRATEGIES: tuple[GenerationStrategy, ...] = (
     "cross_domain",
     "novel_mechanism",
     "feasibility_first",
+    "target_synergy_emergent",
+    "undrugged_target_design",
 )
 
 
@@ -56,6 +58,8 @@ _STRATEGY_GUIDANCE: dict[str, str] = {
     "cross_domain": "Combine evidence from at least one non-oncology field (immunology, metabolism, microbiome, neuroscience, materials science). State the cross-domain bridge.",
     "novel_mechanism": "Propose a biological mechanism connecting two pathways/markers that have not been linked before in this patient's cancer subtype.",
     "feasibility_first": "Prioritise hypotheses that can be tested with publicly available datasets (TCGA / GEO / DepMap). State the validation strategy upfront.",
+    "target_synergy_emergent": "Propose a SYNERGY between two or more targets in THIS patient's molecular profile that is NOT documented in the literature. Justify via known pathway crosstalk (KEGG/Reactome), synthetic-lethal databases (ISLE/DAISY/DepMap CRISPR Chronos), or knowledge-graph edges (PrimeKG / Open Targets / STRING). State a concrete testability_path (DepMap cell-line co-essentiality query, CRISPR screen in PDX, ctDNA dual-target dynamics).",
+    "undrugged_target_design": "Identify a target in THIS patient's profile that has NO FDA-approved drug, then propose a candidate molecular design path: (a) protein structure source (PDB / ESMFold / AlphaFold), (b) virtual screen approach (DiffDock / AutoDock Vina / Glide), (c) chemical filter (Lipinski Ro5 + Veber + PAINS + REOS), (d) experimental validation (BLI / SPR / cell-based phenotypic). Three-tier label is mandatory: [S] for the candidate molecule itself, [E] for the methodology.",
 }
 
 

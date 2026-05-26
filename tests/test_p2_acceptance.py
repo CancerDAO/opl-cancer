@@ -77,8 +77,10 @@ def test_elo_apply_round_updates_ratings() -> None:
 
 
 def test_generation_strategy_set_complete() -> None:
+    # v2.0.0: extended from 4→6 strategies; see ADR-0010 + tests/test_v2_generation_strategies.py
     assert set(GEN_STRATEGIES) == {
-        "literature_gap", "cross_domain", "novel_mechanism", "feasibility_first"
+        "literature_gap", "cross_domain", "novel_mechanism", "feasibility_first",
+        "target_synergy_emergent", "undrugged_target_design",
     }
 
 
