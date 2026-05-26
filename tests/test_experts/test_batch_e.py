@@ -200,12 +200,12 @@ def test_batch_e_packages_disjoint_from_existing() -> None:
     }
 
 
-# ---- Roster has all 18 experts now ----------------------------------------
+# ---- Roster has v1 18 + v2 2 (maya, julius) = 20 experts (ADR-0010) ----
 
 
-def test_roster_complete_18_experts() -> None:
+def test_roster_complete_20_experts() -> None:
     from opl_cancer.experts.roster import ROSTER
 
-    assert len(ROSTER) == 18
-    for name in ("kieren", "mark", "dennis"):
+    assert len(ROSTER) == 20
+    for name in ("kieren", "mark", "dennis", "maya", "julius"):
         assert name in ROSTER

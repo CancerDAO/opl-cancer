@@ -173,10 +173,11 @@ def test_changelog_has_1_0_0_section() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_eighteen_experts_in_roster() -> None:
+def test_twenty_experts_in_roster() -> None:
     from opl_cancer.experts.roster import ROSTER
 
-    assert len(ROSTER) == 18, f"expected 18 experts, found {len(ROSTER)}"
+    # v2.0.0 (ADR-0010): 18 v1 + 2 v2 (maya, julius) = 20
+    assert len(ROSTER) == 20, f"expected 20 experts, found {len(ROSTER)}"
     for needed in (
         "rosa",
         "bert",

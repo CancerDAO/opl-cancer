@@ -1,12 +1,16 @@
-"""Test Expert abstract base + roster of 18 named archetypes."""
+"""Test Expert abstract base + roster of named archetypes.
+
+v1.x: 18 archetypes. v2.0.0 (ADR-0010): +2 (maya, julius) → 20 total.
+"""
 import pytest
 
 from opl_cancer.experts.base import Expert, ExpertProfile
 from opl_cancer.experts.roster import ROSTER, get_expert_profile
 
 
-def test_roster_contains_18_named_experts() -> None:
-    assert len(ROSTER) == 18
+def test_roster_contains_named_experts() -> None:
+    # v2.0.0: 18 v1 + 2 v2 (maya, julius) = 20. See ADR-0010.
+    assert len(ROSTER) == 20
 
 
 def test_roster_all_lowercase_first_names() -> None:
@@ -15,13 +19,16 @@ def test_roster_all_lowercase_first_names() -> None:
         assert " " not in name
 
 
-def test_roster_includes_canonical_18() -> None:
-    expected = {
+def test_roster_includes_canonical_v1_18_plus_v2_2() -> None:
+    expected_v1 = {
         "rosa", "bert", "vince", "rick", "heddy", "mary", "aviv", "tyler",
         "iain", "ted", "riad", "jen", "kieren", "mark", "hong", "frances",
         "dennis", "steve",
     }
-    assert set(ROSTER.keys()) == expected
+    expected_v2 = {"maya", "julius"}
+    assert expected_v1.issubset(set(ROSTER.keys()))
+    assert expected_v2.issubset(set(ROSTER.keys()))
+    assert set(ROSTER.keys()) == expected_v1 | expected_v2
 
 
 def test_get_expert_profile_returns_profile() -> None:
