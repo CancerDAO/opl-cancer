@@ -1,0 +1,9 @@
+# Benchmark artifacts (re-generated each run)
+runs/
+*.pyc
+__pycache__/
+.env
+
+# Track the analysis reports
+!reports/
+!reports/**
