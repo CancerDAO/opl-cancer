@@ -20,6 +20,7 @@ tracked as its own branch + ADR + E2E validation.
 | `iter/v2-followup-kdense-bridge` | 0015 | K-Dense-AI/scientific-agent-skills bridge (138 skills lazy-load) |
 | `iter/v2-followup-julius-live` | 0016 | Julius live wiring (ESMFold + DiffDock + RDKit + medchem filters via Modal GPU dispatch) |
 | `iter/v2-followup-cross-run-memory` | 0017 | Sid cross-run episodic log + wishlist closure tracker |
+| **`iter/v2-followup-evolution`** | **0020** | **Trace-digest evolution (borrowed architecture from EvoMaster, 3 medical red lines enforced) — post-mortem proposal layer, never auto-applies** |
 
 ## P2 — system-level intelligence
 
