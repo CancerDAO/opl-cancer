@@ -501,7 +501,7 @@ def render(patient_dir: str, run_id: str, json_mode: bool) -> None:
 @main.command(help="Show current OPL capability snapshot.")
 def status() -> None:
     click.echo(f"OPL for Cancer — v{VERSION}")
-    click.echo(f"  Experts active: {len(ROSTER)} (Sid PI + Henry Auditor + 18 named experts)")
+    click.echo(f"  Experts active: {len(ROSTER)} (Sid PI + Henry Auditor + {len(ROSTER)} named experts)")
     click.echo("  Wave runners ready: Wave1 / Wave2 / Wave3 / Wave4 / Wave5 (render)")
     click.echo("  Integrators wired: 29 (NCCN / PubMed / CT.gov / ChiCTR / ISRCTN / EU-CTR / HKCTR / FDA-EAP / NMPA-EAP / EMA-EAP / RxNorm / GEO / Open Targets / Hartwig / BeatAML / ICGC / etc.)")
     click.echo("  Mechanical gates: 27 (G1-G20 + G21 quantitative-anchor + G22 DDR-zygosity + G23 recency-band + G24 crisis-detection + v1.5 G25 deferred-evidence-block + G26 evidence-strength-ranking + G27 privacy-scrub)")

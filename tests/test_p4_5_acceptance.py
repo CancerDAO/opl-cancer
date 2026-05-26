@@ -6,8 +6,9 @@ import importlib
 from opl_cancer.experts.roster import ROSTER
 
 
-def test_all_18_experts_in_roster() -> None:
-    assert len(ROSTER) == 18
+def test_all_experts_in_roster() -> None:
+    # v2.0.0 (ADR-0010): 18 v1 + 2 v2 (maya, julius) = 20
+    assert len(ROSTER) == 20
 
 
 def test_three_new_experts_modules_importable() -> None:

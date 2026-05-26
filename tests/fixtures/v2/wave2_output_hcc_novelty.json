@@ -1,0 +1,37 @@
+{
+  "run_id": "test_v2_fixture_hcc",
+  "patient_text": "test patient HCC TACE-refractory ICI-naive Child-Pugh A6",
+  "hypotheses": [
+    {
+      "id": "hyp_h1",
+      "text": "Bevacizumab + atezolizumab as IMbrave150 backbone is the established phase III option for first-line HCC",
+      "claim_layer": "established",
+      "generation_strategy": "literature_gap",
+      "elo_rating": 1620,
+      "evidence_refs": [{"type": "pmid", "id": "32402160"}]
+    },
+    {
+      "id": "hyp_h2",
+      "text": "WNT/β-catenin pathway co-activation with TGF-β predicts ICI resistance in TACE-refractory HCC — emergent target-pair worth testing in GSE164760 cohort",
+      "claim_layer": "speculative",
+      "generation_strategy": "target_synergy_emergent",
+      "testability_path": "GSE164760 HCC TACE-refractory cohort + GSEA Hallmark WNT_BETA_CATENIN + TGF_BETA signatures; CRISPR dual-knockout in HepG2 PDX",
+      "evidence_refs": [
+        {"type": "kg_edge", "id": "PrimeKG:CTNNB1-TGFBR2:Reactome:R-HSA-201681:co-expressed_in_HCC"},
+        {"type": "dataset", "id": "GSE164760"}
+      ],
+      "elo_rating": 1490
+    },
+    {
+      "id": "hyp_h3",
+      "text": "Candidate scaffold targeting β-catenin DEP-domain interface (currently undrugged) via ESMFold + DiffDock virtual screen against ChEMBL fragment library",
+      "claim_layer": "speculative",
+      "generation_strategy": "undrugged_target_design",
+      "testability_path": "ESMFold model of CTNNB1 DEP-domain; DiffDock virtual screen of ChEMBL fragment library (FW < 350); BLI against recombinant CTNNB1-DEP; functional rescue in HCC organoid",
+      "evidence_refs": [
+        {"type": "kg_edge", "id": "DepMap:CTNNB1:CRISPR_essential:HCC:r=0.62"}
+      ],
+      "elo_rating": 1430
+    }
+  ]
+}

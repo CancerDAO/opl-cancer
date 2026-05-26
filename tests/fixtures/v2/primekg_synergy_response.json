@@ -1,0 +1,21 @@
+{
+  "kg_source": "PrimeKG",
+  "kg_version": "2024.1",
+  "query": {"gene_a": "KRAS", "gene_b": "SHP2"},
+  "edges": [
+    {
+      "relation": "gene_protein_interaction",
+      "source": "KRAS",
+      "target": "PTPN11",
+      "evidence": "Reactome:R-HSA-9648002",
+      "confidence": 0.87
+    },
+    {
+      "relation": "drug_target_protein",
+      "source": "RMC-4630",
+      "target": "PTPN11",
+      "evidence": "ChEMBL:CHEMBL4594294",
+      "confidence": 0.94
+    }
+  ]
+}

@@ -1,13 +1,12 @@
-"""Routing-matrix golden test — 18 experts × 4 patients (HCC/NSCLC/CRC/BRCA).
+"""Routing-matrix golden test — 20 experts × 4 patients (HCC/NSCLC/CRC/BRCA).
+
+v1.x: 18 experts. v2.0.0 (ADR-0010): +2 (maya, julius) → 20 total.
 
 Verifies the static expert→task_package portfolio is consistent and exhaustive,
 and that each canonical patient cancer-type maps to a stable set of *candidate*
 expert task-packages. This is a structural check, not an LLM call (memory:
 feedback_default_prompt_over_script — routing remains LLM-driven at runtime,
 but the *catalog* the planner picks from must be auditable + stable).
-
-Per Iter 9 task #2: all 18 experts route per task package; 4 patient
-cancer-types covered (HCC/NSCLC/CRC/BRCA).
 """
 from __future__ import annotations
 
@@ -46,6 +45,19 @@ EXPECTED_ROSTER: dict[str, tuple[str, ...]] = {
     "ted": ("radiation_planning",),
     "tyler": ("hypothesis_validation", "in_silico_experiment_design"),
     "vince": ("treatment_line_recommendation",),
+    # v2.0.0 — paradigm shift (ADR-0010):
+    "maya": (
+        "target_synergy_emergent",
+        "synthetic_lethal_partner_query",
+        "drug_drug_synergy_kg_query",
+        "pathway_crosstalk_reasoning",
+    ),
+    "julius": (
+        "undrugged_target_design",
+        "structure_source_acquisition",
+        "virtual_screen_design",
+        "chemical_filter_application",
+    ),
 }
 
 # Per-cancer expected candidate task-packages (planner is free to pick a subset).
@@ -112,10 +124,10 @@ def _load_expert_class(name: str) -> type:
 # ----------------------------------------------------------------------------
 
 
-def test_all_18_experts_present() -> None:
-    """Roster has exactly 18 expert modules (spec §2.2.X)."""
+def test_all_20_experts_present() -> None:
+    """Roster has exactly 20 expert modules (v1.x 18 + v2.0.0 maya, julius — ADR-0010)."""
     mods = _expert_modules()
-    assert len(mods) == 18, f"expected 18 expert modules, got {len(mods)}: {mods}"
+    assert len(mods) == 20, f"expected 20 expert modules, got {len(mods)}: {mods}"
     assert set(mods) == set(EXPECTED_ROSTER), (
         f"expert modules diverge: extra={set(mods)-set(EXPECTED_ROSTER)} "
         f"missing={set(EXPECTED_ROSTER)-set(mods)}"

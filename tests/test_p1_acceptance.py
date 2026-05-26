@@ -65,8 +65,9 @@ def test_acceptance_apache_2_0_license_present() -> None:
     assert "Version 2.0" in text
 
 
-def test_acceptance_all_18_experts_in_roster() -> None:
-    assert len(ROSTER) == 18
+def test_acceptance_all_experts_in_roster() -> None:
+    # v2.0.0 (ADR-0010): 18 v1 + 2 v2 (maya, julius) = 20
+    assert len(ROSTER) == 20
 
 
 def test_acceptance_ci_config_present() -> None:

@@ -105,6 +105,8 @@ GenerationStrategy = Literal[
     "cross_domain",
     "novel_mechanism",
     "feasibility_first",
+    "target_synergy_emergent",
+    "undrugged_target_design",
     "evolution_combination",
     "evolution_simplification",
     "evolution_extension",

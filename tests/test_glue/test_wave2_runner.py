@@ -59,8 +59,8 @@ def _make_runner(tmp_path: Path) -> Wave2Runner:
 async def test_wave2_runner_produces_hypotheses(tmp_path: Path) -> None:
     runner = _make_runner(tmp_path)
     out = await runner.run("What novel directions exist?", patient_context={"cancer": "HCC"})
-    # 4 from generation + 2 from evolution = 6
-    assert len(out["hypotheses"]) == 6
+    # v2.0.0 (ADR-0010): 6 from generation (was 4) + 2 from evolution = 8
+    assert len(out["hypotheses"]) == 8
     assert len(out["top_k"]) <= 5
 
 

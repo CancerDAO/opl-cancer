@@ -22,6 +22,9 @@ _ROSTER_DATA: tuple[tuple[str, str, str], ...] = (
     ("frances", "Expanded Access Navigator", "Frances Kelsey — FDA 药物安全 + 访问伦理"),
     ("dennis", "Cross-Border Coordinator", "Dennis Lo 卢煜明 — cfDNA / US-CN-HK 跨界转化"),
     ("steve", "Nutritionist", "David Heber — UCLA Center for Human Nutrition 创始人"),
+    # v2.0.0 — paradigm shift (ADR-0010): add KG-synergy reasoner + in-silico medicinal chemist
+    ("maya", "Knowledge-Graph Synergy Reasoner", "composite archetype — Marinka Zitnik (PrimeKG / Harvard) + Tijana Milenković (network medicine)"),
+    ("julius", "Medicinal Chemist (in silico)", "composite archetype — generative-chemistry lineage (ESMFold + DiffDock + RDKit + medchem filters)"),
 )
 
 
