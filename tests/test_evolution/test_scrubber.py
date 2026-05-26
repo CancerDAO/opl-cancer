@@ -70,6 +70,47 @@ def test_scrub_digest_returns_new_object_with_marker():
     assert "2024-09-07" not in out.waves[0].errors[0]
 
 
+# v2.0.1 (post-review) — additional PHI surfaces
+
+def test_scrub_strips_pinyin_name():
+    out = _scrub_text("Patient Zhang Wei (张伟) referred")
+    assert "Zhang Wei" not in out
+    assert "[NAME]" in out
+
+
+def test_scrub_strips_pinyin_with_hyphen():
+    out = _scrub_text("Dr. Li Xiao-Ming reviewed the case")
+    assert "Li Xiao-Ming" not in out
+    assert "[NAME]" in out
+
+
+def test_scrub_strips_chinese_date_format():
+    out = _scrub_text("入院 2026年5月27日 / 2026年5月")
+    assert "2026年5月27日" not in out
+    assert "2026年5月" not in out
+    assert out.count("[DATE]") >= 1
+
+
+def test_scrub_strips_mainland_mobile():
+    out = _scrub_text("联系 13800138000 拒接")
+    assert "13800138000" not in out
+    assert "[PHONE]" in out
+
+
+def test_scrub_strips_inpatient_number():
+    out = _scrub_text("住院号 ZY20260012345 入院")
+    assert "ZY20260012345" not in out
+    assert "[MRN]" in out
+
+
+def test_scrub_strips_huaxi_zhongshan_hospitals():
+    """Top-tier hospital abbreviations (华西 / 中山 / 协和 / 瑞金) without 医院 suffix."""
+    out = _scrub_text("会诊 华西医院 + 中山医院")
+    assert "华西" not in out
+    assert "中山" not in out
+    assert "[HOSPITAL]" in out
+
+
 def test_scrub_does_not_mutate_input():
     d = TraceDigest(
         run_id="run-x",

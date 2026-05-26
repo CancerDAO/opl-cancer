@@ -119,3 +119,20 @@ def test_apply_gate_proactive_push_path_flagged_as_claim_layer():
     )
     p = apply_gate(p)
     assert p.requires_double_signoff is True
+
+
+def test_apply_gate_proactive_push_now_also_flags_henry():
+    """v2.0.1 (post-review medical reviewer #7): proactive_push patches ARE
+    Henry-adjacent. Push policy weakening must require Henry signoff, not
+    just generic double-signoff."""
+    p = EvolutionProposal(
+        proposal_id="p009",
+        kind="prompt_patch",
+        summary="remove testability_path requirement",
+        rationale="r",
+        proposed_diff="drop testability_path mandate from rule 2",
+        target_path="prompts/pi/proactive_push.md",
+    )
+    p = apply_gate(p)
+    assert p.invariant_impact.touches_henry_l3_l4 is True
+    assert "henry" in p.required_signoffs

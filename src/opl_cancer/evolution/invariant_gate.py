@@ -90,6 +90,11 @@ def analyze(proposal: EvolutionProposal) -> InvariantImpact:
                 impact.touches_retraction_db_logic = True
             if "proactive_push" in safety_path:
                 impact.touches_claim_layer_enforcement = True
+                # v2.0.1 (post-review medical reviewer finding #7):
+                # proactive_push policy IS Henry-adjacent. A patch removing
+                # the testability_path requirement would silently re-ban
+                # speculative push at the [S] level. Treat as Henry-touching.
+                impact.touches_henry_l3_l4 = True
 
     return impact
 
