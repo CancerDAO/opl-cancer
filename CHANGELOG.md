@@ -1,5 +1,64 @@
 # Changelog
 
+## [2.1.0-rc1] — 2026-05-26 — Trace-Digest Evolution (borrowed from EvoMaster, NOT policy)
+
+Branch: `iter/v2-followup-evolution` (off `iter/v2-paradigm`). Implements
+ADR-0020 — a post-mortem proposal generator inspired by
+`sjtu-sai-agents/EvoMaster`'s `--evolve` architecture, with 3 medical red
+lines explicitly enforced. Never auto-applies to baseline.
+
+### Added
+
+- **`src/opl_cancer/evolution/`** package (7 new modules):
+  - `models.py` — TraceDigest (bounded ~100KB), EvolutionProposal,
+    InvariantImpact, EvolutionCandidates
+  - `collector.py` — reads run dir → TraceDigest (read-only)
+  - `scrubber.py` — PII/PHI strip BEFORE any LLM call (Chinese names + DOB
+    + MRN + email + hospital + PT-code; preserves gene/drug/PMID/NCT)
+  - `invariant_gate.py` — static analysis flags patches touching Henry
+    L3/L4, G7, G13, persona_prefix, claim_layer, RetractionDB → auto-sets
+    `requires_double_signoff: true`
+  - `analyzer.py` — red-team system prompt (distinct from main medical
+    agents), LLM call OR deterministic heuristic fallback (loud, marked
+    `used_heuristic_fallback: true`)
+  - `proposal_writer.py` — writes ONLY under `proposals/iter_<N>/`,
+    refuses baseline paths at the filesystem level
+  - `__init__.py` — package surface
+- **`opl-cancer evolve <run_dir>`** CLI subcommand. No `--auto-apply` flag.
+- **`scripts/verify_evolution_e2e.py`** — 7-check verifier mapped to
+  ADR-0020 success criteria
+- **ADR-0020** + `docs/superpowers/plans/2026-05-26-trace-digest-evolution.md`
+- **56 new tests** under `tests/test_evolution/`
+- ROADMAP updated with ADR-0020 entry
+
+### 3 medical red lines enforced (NOT copied from EvoMaster)
+
+1. **No `_write_prompt_overlays` auto-append.** Patches → unified diff in
+   `proposals/iter_<N>/prompt_patches.diff`. Never to `*.evolved.txt`.
+2. **No auto-respawn.** Evolution is post-mortem only. Next patient run
+   uses baseline unchanged. After human review + Sid+Henry signoff,
+   approved patches land via normal PR; future patients benefit.
+3. **No skill `extra_roots` auto-extension.** Proposed skills sit in
+   `proposals/iter_<N>/skill_additions/<slug>/SKILL.md.proposed` with
+   mandatory `clinical_anchor` field. Skill registry merge will be the
+   ADR-0014 follow-up branch.
+
+### Beyond EvoMaster
+
+- PII/PHI scrubber (closes EvoMaster's documented `runs/` privacy gap)
+- Red-team analyzer prompt (distinct from medical agents)
+- InvariantGate static analysis flagging safety surfaces
+- ProposalWriter filesystem-level refusal of baseline paths
+- Clinical-anchor mandatory for skill proposals (auto-reject otherwise)
+
+### Compatibility
+
+- All v2.0.0-rc1 tests pass (1221 + 56 new = **1277 passed**, 0 failures)
+- No production flow touches evolution unless `opl-cancer evolve` invoked
+- Output entirely under `<run_dir>/proposals/` (gitignored at project level)
+
+---
+
 ## [2.0.0-rc1] — 2026-05-26 — Paradigm Shift: Surface World-Unknown Candidates
 
 Branch: `iter/v2-paradigm`. Driven by the PT-EE62321353 run review which

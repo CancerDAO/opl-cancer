@@ -13,15 +13,47 @@
   details { margin-top: 0.5em; }
   .pmid { font-family: monospace; font-size: 0.9em; color: #1565c0; }
   .disagreement { background: #f3e5f5; padding: 0.5em; border-left: 4px solid #6a1b9a; }
-  .world-unknown { border: 2px dashed #b85c00; padding: 1em; margin: 1em 0; background: #fff8f0; }
+  .world-unknown { border: 2px dashed #b85c00; padding: 1.2em; margin: 2em 0; background: #fff8f0; }
   .world-unknown h2 { color: #b85c00; margin-top: 0; }
-  .world-unknown .framing { font-size: 0.9em; color: #555; }
-  .badge-speculative { background: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 3px; margin-left: 6px; font-size: 0.8em; }
+  .world-unknown .disclaimer-strong {
+    border: 2px solid #d32f2f;
+    background: #ffebee;
+    color: #b71c1c;
+    padding: 0.8em 1em;
+    margin: 0.5em 0 1.2em 0;
+    font-weight: 700;
+    font-size: 1em;
+    border-radius: 4px;
+  }
+  .world-unknown .framing { font-size: 0.95em; color: #444; margin-bottom: 1em; }
+  .world-unknown li { margin-bottom: 1.2em; padding: 0.6em; background: #ffffff; border-left: 4px solid #b85c00; }
+  .world-unknown .candidate-notice {
+    display: inline-block;
+    background: #fff3cd;
+    color: #856404;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    margin-left: 6px;
+    font-weight: 600;
+  }
+  .world-unknown .candidate-banner {
+    color: #b71c1c;
+    font-weight: 700;
+    font-size: 0.85em;
+    margin-bottom: 0.4em;
+  }
 </style>
 </head>
 <body>
 <h1>Patient Brief — {{ patient_code }}</h1>
 <p><em>Run {{ run_id }} · {{ created_at }}</em></p>
+
+{% if run_incomplete_notice is defined and run_incomplete_notice %}
+<div style="border: 3px solid #d32f2f; background: #ffebee; padding: 1em; margin: 1em 0; color: #b71c1c;">
+<strong>⚠️ 本次 RUN 不完整 / INCOMPLETE RUN:</strong> {{ run_incomplete_notice }}
+</div>
+{% endif %}
 
 {% for card in risk_cards %}
 <div class="risk-card">
@@ -29,31 +61,6 @@
   {% if card.requires_ack %}<p><strong>Acknowledgment required before acting.</strong></p>{% endif %}
 </div>
 {% endfor %}
-
-{% if world_unknown_candidates is defined and world_unknown_candidates and world_unknown_candidates|length > 0 %}
-<section class="world-unknown">
-<h2>⚡ World-Unknown / Speculative Candidates (研究方向，未发表 / 未验证)</h2>
-<p class="framing">
-本节列出本次 run 中由 Maya（KG-synergy）/ Julius（in-silico drug design）/ Aviv（data-driven hypogenesis）产生的 <strong>世界未知候选 (world-unknown candidates)</strong>。每条均为 <em>speculative</em>，仅作为患者和团队下一步研究方向的参考，<strong>不构成治疗建议 (this is a research direction, not a treatment recommendation)</strong>。本节是 OPL 与 MTB 的核心差异点——明确标注未发表的候选并附可测路径，决策权由患者保留。
-</p>
-<ul>
-{% for cand in world_unknown_candidates %}
-<li style="margin-bottom: 1em;">
-  <strong>{{ cand.text }}</strong>
-  <span class="badge-speculative">[S] speculative</span>
-  <br><small style="color: #666;">Strategy: <code>{{ cand.generation_strategy }}</code>{% if cand.elo_rating is defined %} · Elo: {{ cand.elo_rating }}{% endif %}</small>
-  {% if cand.testability_path %}
-  <br><strong>Testability path:</strong> {{ cand.testability_path }}
-  {% endif %}
-  {% if cand.evidence_refs %}
-  <br><strong>Anchors:</strong>
-    {% for ref in cand.evidence_refs %}<code>{{ ref.type }}:{{ ref.id }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
-  {% endif %}
-</li>
-{% endfor %}
-</ul>
-</section>
-{% endif %}
 
 <h2>Summary</h2>
 <p>{{ sid_summary }}</p>
@@ -80,6 +87,42 @@
 <p><small>provenance: <code>{{ claim.provenance_hash }}</code></small></p>
 {% endfor %}
 {% endfor %}
+
+{% if world_unknown_candidates is defined and world_unknown_candidates and world_unknown_candidates|length > 0 %}
+<section class="world-unknown">
+<h2>⚡ World-Unknown / Speculative Candidates — Research Directions (研究方向)</h2>
+<div class="disclaimer-strong">
+⚠️ 这不是治疗建议 / THIS IS NOT A TREATMENT RECOMMENDATION<br>
+本节列出的是<strong>未发表 / 未验证</strong>的研究方向候选。仅供患者与团队作为下一步研究讨论的起点。<strong>任何治疗决策必须由主治医生在完整临床证据基础上做出</strong>。
+</div>
+<p class="framing">
+本节列出本次 run 中由 Maya（KG-synergy）/ Julius（in-silico drug design）/ Aviv（data-driven hypogenesis）产生的世界未知候选。本节是 OPL 与 MTB 的核心差异点——明确标注未发表的候选并附可测路径，决策权由患者保留。
+</p>
+<ul>
+{% for cand in world_unknown_candidates %}
+<li>
+  <div class="candidate-banner">⚠️ 研究方向 — 不是治疗建议 · NOT a recommendation</div>
+  {% if cand.actionability_label_zh is defined %}
+  <div style="font-weight: 600; color: #555; margin-bottom: 0.4em;">优先级 / Actionability: {{ cand.actionability_label_zh }}</div>
+  {% endif %}
+  <strong>{{ cand.text }}</strong>
+  <span class="candidate-notice">[S] speculative</span>
+  <br><small style="color: #666;">Strategy: <code>{{ cand.generation_strategy }}</code>{% if cand.elo_rating is defined and cand.elo_rating %} · Elo: {{ cand.elo_rating }}{% endif %}</small>
+  {% if cand.testability_path %}
+  <br><strong>下一步测试路径 / Testability path:</strong> {{ cand.testability_path }}
+  {% endif %}
+  {% if cand.evidence_refs %}
+  <br><strong>Anchors (⚠️ 未独立校验 / NOT independently verified):</strong>
+    {% for ref in cand.evidence_refs %}<code>{{ ref.type }}:{{ ref.id }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+  {% endif %}
+  {% if cand.redacted_drug_names is defined and cand.redacted_drug_names and cand.redacted_drug_names|length > 0 %}
+  <br><small style="color: #888;">（具体药名已隐去 / specific drug names redacted to target class; 共 {{ cand.redacted_drug_names|length }} 项）</small>
+  {% endif %}
+</li>
+{% endfor %}
+</ul>
+</section>
+{% endif %}
 
 <hr>
 <p><small>Generated by OPL for Cancer (Apache-2.0). PI=Sid, Auditor=Henry.</small></p>

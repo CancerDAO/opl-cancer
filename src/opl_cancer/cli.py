@@ -496,6 +496,61 @@ def render(patient_dir: str, run_id: str, json_mode: bool) -> None:
     _emit({"ok": True, "delivery_dir": str(delivery)}, json_mode)
 
 
+# ─── ADR-0020: Evolution (post-mortem proposal generator) ─────────────────
+
+@main.command(
+    name="evolve",
+    help=(
+        "Post-mortem evolution: build a TraceDigest from a completed run, "
+        "run the red-team analyzer, write PR-style proposals under "
+        "<run_dir>/proposals/. NEVER auto-applies anything. See ADR-0020."
+    ),
+)
+@click.argument("run_dir", type=click.Path(exists=True, file_okay=False))
+@click.option("--iter-n", type=int, default=1, show_default=True, help="Iteration number recorded in proposals.")
+@click.option("--max-proposals", type=int, default=5, show_default=True, help="Cap on proposals emitted.")
+@click.option("--json", "json_mode", is_flag=True, help="Emit JSON summary to stdout.")
+def evolve(run_dir: str, iter_n: int, max_proposals: int, json_mode: bool) -> None:
+    """Run the evolution analyzer over a completed run dir.
+
+    Always dry-run with respect to baseline files — output goes ONLY under
+    ``<run_dir>/proposals/iter_<N>/``. There is no --auto-apply flag.
+    """
+    import asyncio
+
+    from opl_cancer.evolution.analyzer import EvolutionAnalyzer
+    from opl_cancer.evolution.collector import collect_trace_digest
+    from opl_cancer.evolution.proposal_writer import write_proposals
+    from opl_cancer.evolution.scrubber import scrub
+
+    run_path = Path(run_dir)
+    digest = collect_trace_digest(run_path)
+    scrubbed = scrub(digest)
+
+    async def _run() -> object:
+        analyzer = EvolutionAnalyzer()  # heuristic fallback by default
+        return await analyzer.analyze(scrubbed, iter_n=iter_n)
+
+    candidates = asyncio.run(_run())
+    # Truncate to max_proposals (heuristic already caps at 3-5; LLM at 5)
+    candidates.proposals = candidates.proposals[:max_proposals]
+
+    out_root = run_path / "proposals"
+    manifest = write_proposals(candidates, out_root)
+
+    summary = {
+        "ok": True,
+        "run_dir": str(run_path),
+        "proposals_dir": str(out_root / f"iter_{iter_n:03d}"),
+        "iter_n": iter_n,
+        "manifest": manifest,
+        "analyzer_model": candidates.analyzer_model,
+        "used_heuristic_fallback": candidates.used_heuristic_fallback,
+        "analysis_summary": candidates.analysis_summary,
+    }
+    _emit(summary, json_mode)
+
+
 # ─── Patient observability ────────────────────────────────────────────────
 
 @main.command(help="Show current OPL capability snapshot.")

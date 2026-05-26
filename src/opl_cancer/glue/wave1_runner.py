@@ -224,6 +224,10 @@ class Wave1Runner:
             plan=plan, outputs=outputs, provenance=prov,
         )
 
+        # v2.0.1 (post-review): bridge Wave 2 → renderer so the World-Unknown
+        # section actually populates in real runs (was dead template before).
+        from opl_cancer.glue.render_bridge import load_world_unknown_candidates
+
         renderer = PatientBriefRenderer()
         render_ctx: dict[str, Any] = {
             "patient_code": ctx["patient_code"],
@@ -233,6 +237,7 @@ class Wave1Runner:
             "sid_summary": "Team analysis complete; see findings below.",
             "risk_cards": risk_cards,
             "experts": rendered_experts,
+            "world_unknown_candidates": load_world_unknown_candidates(run_dir),
         }
         delivery_dir = run_dir / "delivery"
         renderer.render_html(render_ctx, delivery_dir / "patient_brief.html")
@@ -307,13 +312,32 @@ class Wave1Runner:
     async def _build_plan(
         self, patient_text: str, ctx: dict[str, Any]
     ) -> tuple[Plan, dict[str, Any]]:
+        # v2.0.1 (post-review): planner now sees the full 20-expert roster
+        # including Maya (KG-synergy) + Julius (in-silico medicinal chemist).
+        # Hardcoded 6-expert list was the reason Maya / Julius were dead
+        # roster entries in v2.0.0-rc1.
         plan_resp = await self.planner_client.complete(LLMRequest(
             model=self.executor_model_id,
             messages=[{"role": "user", "content":
                 f"Patient text: {patient_text}\n"
                 f"Profile: {ctx['profile_json']}\n"
-                "Select subset of experts from [rosa,bert,vince,rick,heddy,hong]; "
-                "return JSON: {\"experts\": [...], \"tasks\": "
+                "Select 5-12 experts from the v2.0 roster: "
+                "[rosa (pathology), bert (NGS/molecular), vince (treating oncology), "
+                "rick (trial matching), heddy (imaging), mary (DDI/PGx), aviv (bioinformatics), "
+                "tyler (wet-lab design), iain (meta-analysis), ted (radiation), "
+                "riad (interventional), jen (palliative), kieren (infection), "
+                "mark (irAE endocrine), hong (TCM), frances (expanded access), "
+                "dennis (cross-border), steve (nutrition), maya (KG-synergy), "
+                "julius (in-silico drug design)].\n"
+                "Dispatch heuristics (v2.0.1):\n"
+                "- maya MUST be included when patient profile has ≥2 actionable "
+                "molecular alterations or asks about target-target synergy.\n"
+                "- julius MUST be included when patient profile has an undrugged "
+                "actionable target (e.g. MTAP-loss, RB1-loss, undruggable splicing, "
+                "or any variant without an FDA-approved drug).\n"
+                "- Always include rosa+bert+vince+rick as the minimum spine; "
+                "expand based on patient comorbidities + molecular profile.\n"
+                "Return strict JSON: {\"experts\": [...], \"tasks\": "
                 "[{\"id\":...,\"expert\":...,\"task_package\":...,\"sub_goal\":...}]}"
             }],
             max_tokens=2048,

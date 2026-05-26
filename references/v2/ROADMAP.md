@@ -20,6 +20,7 @@ tracked as its own branch + ADR + E2E validation.
 | `iter/v2-followup-kdense-bridge` | 0015 | K-Dense-AI/scientific-agent-skills bridge (138 skills lazy-load) |
 | `iter/v2-followup-julius-live` | 0016 | Julius live wiring (ESMFold + DiffDock + RDKit + medchem filters via Modal GPU dispatch) |
 | `iter/v2-followup-cross-run-memory` | 0017 | Sid cross-run episodic log + wishlist closure tracker |
+| **`iter/v2-followup-evolution`** | **0020** | **Trace-digest evolution (borrowed architecture from EvoMaster, 3 medical red lines enforced) — post-mortem proposal layer, never auto-applies** |
 
 ## P2 — system-level intelligence
 
@@ -27,9 +28,18 @@ tracked as its own branch + ADR + E2E validation.
 |---|---|---|
 | `iter/v2-followup-cross-patient` | 0018 | Cross-patient twin matching + federated meta |
 | `iter/v2-followup-novelty-benchmark` | 0019 | Novelty dim in SBT_Benchmark adapter |
-| `iter/v2-followup-streaming-pi` | 0020 | Streaming Sid delivery (PRD §17.5 P0 — partially shipped v1.5) |
-| `iter/v2-followup-multi-channel-output` | 0021 | Patient / clinician / regulator outputs + CN/EN bilingual |
 | `iter/v2-followup-pipeline-auto-deploy` | 0022 | Aviv autonomous pipeline picker (Snakemake/Nextflow/Modal) |
+
+## P0/P1 — round-2 review findings (added 2026-05-27)
+
+| Branch | ADR | Title | Source |
+|---|---|---|---|
+| `iter/v2-followup-cross-lingual-friendly` | 0021 | 跨语言友好性: patient/clinician view + 术语中文释义层 | 患者视角 review |
+| `iter/v2-followup-trial-bridge` | 0022 | ChiCTR / CT.gov live trial matching → patient brief | 患者 + 家属 review |
+| `iter/v2-followup-henry-hard-block` | 0023 | Henry: disclosure → enforcement; hard-block hyp5-class triplet combos | 主治医生 review |
+| `iter/v2-followup-pmid-validator` | 0024 | PMID/NCT fact-check validator (catch LLM context fabrication like NCT03785249→AASLD/DFCI mis-cite) | 主治医生 review (red line) |
+| `iter/v2-followup-streaming-pi` | 0025 | Streaming Sid delivery (PRD §17.5 P0 — partially shipped v1.5) | (re-numbered from 0020) |
+| `iter/v2-followup-cross-run-memory` | (consolidated into 0017 above) | — | — |
 
 Each branch lands in its own PR with its own ADR + E2E validation matrix
 (≥2 patients ≥2 cancer types per `memory:feedback_multi_case_validation`).
