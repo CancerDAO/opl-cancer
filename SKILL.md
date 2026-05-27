@@ -18,7 +18,7 @@ version 1.3.2 — SAFETY hot-fix release (round-2 EVAL seed 11-20). Adds G24 cri
 
 version 1.4.0 — Round-2/3 deferred backlog batch fix (ADR-0008 D1-D13 priority A + B). Adds: A1 `surveillance_schedule.md` (MEN1 + Lynch + LFS + HBOC syndrome-driven surveillance lattice + G14 cohort match + G21 5yr DFS/OS anchor); A2 `irae_rechallenge.md` multi-organ schema (prior_irae_record list + cumulative_organ_load_index + myocarditis G2+ → STRONG RELATIVE + pneumonitis-G3+ × any-G2+ rule + 2+ G3+ different-organs NEAR-ABSOLUTE rule); A3 `boundary_unregulated_channel_disclosure.md` retrospective mode (already-used unregulated channel + forensic_evaluation_request + post-hoc records check); A4 `n1_cohort_projection.md` candidate_cohorts[] ordered fallback chain + cohort_alternatives_attempted[] evidence; A5 `caregiver_filter_protocol.md` (caregiver-preview brief + 3 honest options + patient_brief intact + Sid explicitly declines disclosure decision on patient's behalf); B1 `patient_pushback_handling.md` (NEITHER concede NOR paternalism re-frame for patient/sister-physician/caregiver dissent); B2 HKCTR Hong Kong Clinical Trials Registry integrator (28 → 29); B3 TNBC + LM planner row (HA-WBRT + IT-MTX + IT-pembrolizumab + Frances sacituzumab + Jen palliative); B4 `delivery_tone_hint: blunt|warm|clinical|unspecified` extraction in intent_parser; B5 `cli.py acknowledge --batch L3-all | L4-all | Lall | by-drug:<inn> | by-claim:<id_prefix> | by-card-prefix:<prefix>` + pi_delivery.md `ack_consolidation_card`; B6 `n1_cohort_projection.md` lab_trajectory feature (AFP / PSA / CA15-3 / CA-125 / CEA / CA19-9 / LDH trajectory not just static). See `docs/adr/0008-eval-panel-round-2-v1.3.2.md` (Deferred section, now ✓).
 
-OPL for Cancer is the patient's own scientist team. **Not** a clinical decision-support tool, **not** a diagnostic device, **not** a doctor-replacement. It is an open-source skill plugin that gives one patient one PI (Sid) coordinating an 18-expert virtual lab + an IRB-substitute auditor (Henry) + 29 live data integrators, running a 5-Wave research lifecycle from records-in to patient-brief-out — with every claim PMID-anchored, provenance-hashed, three-tier-labelled, and reproducible.
+OPL for Cancer is the patient's own scientist team, built by **CancerDAO**. **Not** a clinical decision-support tool, **not** a diagnostic device, **not** a doctor-replacement. It is an open-source skill plugin that gives one patient one PI (Sid) coordinating a **20-expert virtual lab** (v1.x 18 + v2.0 Maya KG-synergy reasoner + Julius in-silico medicinal chemist) + an IRB-substitute auditor (Henry) + 29 live data integrators + PrimeKG stub, running a 5-Wave research lifecycle from records-in to patient-brief-out — with every claim PMID-anchored, provenance-hashed, three-tier-labelled, and reproducible.
 
 Patient is sole decision authority. No human-in-the-loop external sign-off. Model disagreements surfaced openly. Level-3/4 high-stakes claims gated by patient-acknowledgement, never by physician sign-off.
 
@@ -63,7 +63,7 @@ python ~/.claude/skills/opl-cancer/scripts/cli.py preflight --json
 The preflight reports:
 - Python ≥ 3.11 + `opl_cancer` package importable (auto-runs `pip install -e ~/.claude/skills/opl-cancer` if missing)
 - **LLM model layer (v1.4.0+ Claude-native paradigm)**:
-  - **Main executor** runs on the **Claude Code main thread** (Sid PI + 18 expert task packages + delivery rewrite). Token from your CC subscription (~$1-3 per Wave run, same as `cancerdao-vmtb`). **No ANTHROPIC_API_KEY required** — Claude Code's already-configured Opus is the executor.
+  - **Main executor** runs on the **Claude Code main thread** (Sid PI + 20 expert task packages + delivery rewrite). Token from your CC subscription (~$1-3 per Wave run, same as `cancerdao-vmtb`). **No ANTHROPIC_API_KEY required** — Claude Code's already-configured Opus is the executor.
   - **Reviewer pool** needs an **external** non-Anthropic API key because G13 mandates `reviewer_model ≠ executor_model` (executor is main-thread Claude = Anthropic, so reviewer must be MiniMax / GPT-5 / Gemini). **At least one of**: `MINIMAX_API_KEY` (recommended, free credit) / `OPENAI_API_KEY` / `GEMINI_API_KEY`. Preflight warns (doesn't block) if none — main thread executor still works, but G13 cross-model discipline cannot fire.
 - Integrator readiness — PubMed, NCCN PageIndex, CT.gov, ChiCTR, OncoKB, CIViC, RxNorm, GEO, ArrayExpress, SRA, DepMap, CCLE, ClinVar, gnomAD, Open Targets, RetractionDB, Unpaywall, PaperQA2 index, NMPA-EAP, FDA-EAP, cBioPortal, GDC.
 - Optional compute runtime: `docker info` + `compute/bixbench.Dockerfile` build (Wave 3 only; skip-able).
@@ -77,11 +77,13 @@ If `preflight.ok == false`, surface the missing items and the exact install comm
 ```
 🧬 OPL for Cancer · 你的私人 AI 科研团队已上线
 
-我是 Sid,你的 PI。我和我的 18 位团队成员(Rosa 病理、Bert 分子、Vince 治疗、Rick 试验、
+我是 Sid,你的 PI。我和我的 20 位团队成员(Rosa 病理、Bert 分子、Vince 治疗、Rick 试验、
 Heddy 影像、Aviv 生信、Iain meta、Mary 药理、Ted 放疗、Riad 介入、Hong 中医、Mark irAE、
-Kieren ID、Frances 同情用药、Dennis 跨境、Jen 缓和、Tyler 实验、Steve 营养)只为你一个人
-工作。Henry 在后台做独立审查;每条结论都有 PMID + provenance hash + 三级标签
-(established / exploratory / speculative);你是这个案子唯一的决策人。
+Kieren ID、Frances 同情用药、Dennis 跨境、Jen 缓和、Tyler 实验、Steve 营养、
+Maya KG 协同推理、Julius in-silico 分子设计)只为你一个人工作。Henry 在后台做独立审查;
+每条结论都有 PMID + provenance hash + 三级标签(established / exploratory / speculative);
+你是这个案子唯一的决策人。v2 范式: 我会主动给你"世界未知候选" — 标 [S] speculative
++ 可测路径 + 不构成治疗建议 framing;具体药名隐去到 target class。
 
 请给我:
   1. 你的病历入口(文件夹 / zip / PDF / 图片 / Word 都行,不用预先整理)
@@ -188,7 +190,7 @@ Wait for user decision.
 **Step 4 — PI plans the run (Sid).**
 
 Dispatch the planner: read `case_text.md` + `profile.json` + patient goal + Project Memory (if returning patient), decide:
-- Which experts to activate (subset of 18)
+- Which experts to activate (subset of 20 — incl. Maya when patient has ≥2 actionable molecular alterations or asks about target-target synergy; Julius when patient has an undrugged actionable target)
 - Per-expert sub-goal
 - Which Waves to run (often all 5; sometimes only 1 or 2)
 - Which integrator families to call (subset of F1–F10)
@@ -447,9 +449,9 @@ Every render contains an inline `[evidence chain]` toggle per claim showing: exe
 
 ## References (heavy material offloaded)
 
-- [`references/architecture.md`](references/architecture.md) — full 7-task-primitive × 18-expert × 5-domain × 10-integrator-family architecture (PRD §2).
+- [`references/architecture.md`](references/architecture.md) — full 7-task-primitive × 20-expert × 5-domain × 10-integrator-family architecture (PRD §2). v1.x 18 + v2 Maya + Julius.
 - [`references/wave-lifecycle.md`](references/wave-lifecycle.md) — single-trigger-run state machine (PRD §4).
-- [`references/expert-roster.md`](references/expert-roster.md) — all 18 expert personas + archetype attribution + task-package portfolio.
+- [`references/expert-roster.md`](references/expert-roster.md) — all 20 expert personas + archetype attribution + task-package portfolio (v1.x 18 + v2 Maya + Julius). Persona prompts live in `prompts/experts/<name>/persona.md`.
 - [`references/integrator-catalog.md`](references/integrator-catalog.md) — 22 integrators × API + cache TTL + auth requirements.
 - [`references/mechanical-gates.md`](references/mechanical-gates.md) — full 20-gate spec + failure-mode mapping (PRD §6.5 + §7).
 - [`references/permission-levels.md`](references/permission-levels.md) — Level 0-4 boundaries + risk-card schema (PRD §8).
