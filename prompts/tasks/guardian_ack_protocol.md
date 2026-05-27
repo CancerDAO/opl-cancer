@@ -91,8 +91,10 @@ they cannot, and how OPL emits pediatric-specific deliverables.
        pediatric carve-out).
      * Pediatric CRS / ICANS grading (Lee criteria, NOT adult CTCAE) for
        any BiTE / CAR-T claim.
-     * Germline cancer-predisposition flag (route to
-       `firefly-genetic-counseling`).
+     * Germline cancer-predisposition flag (route via
+       `family_cascade_routing.md` → board-certified pediatric medical
+       geneticist or genetic counsellor at the patient's institution; out
+       of OPL's 20-expert scope).
      * "Treatment decision authority does NOT come from this brief; it
        routes to the pediatric IRB slot. This brief is the **information
        package** the IRB slot needs."
@@ -111,13 +113,14 @@ they cannot, and how OPL emits pediatric-specific deliverables.
    surfaces in `pi_delivery.md`: "我会让 {guardian_name} ack 一下,这个
    ack 只代表 ' 信息收到了',不是治疗决策授权。"
 
-4. **Activate adult-only sibling skills with caveat.** If `cancer-buddy-mind`
-   etc are dispatched in pediatric mode, the handoff prose adds: "这个 skill
-   是为成人写的,儿科适用范围有限 — 用于陪伴 + 心理筛查 + 家长支持;
-   儿童本人的心理评估请额外路由儿童心理门诊。" If a crisis is detected on a
-   pediatric patient (G24 fires), the crisis-card handoff adds the pediatric
-   crisis-line variants where the registry has them (e.g. US: 988 has
-   pediatric routing; CN: 010-82951332 covers all ages).
+4. **Pediatric mental-health needs route externally.** OPL's 20-expert
+   roster does not include a child psychologist. For pediatric mental-health
+   evaluation, family-support work, or sibling-impact counselling, OPL emits
+   an external-referral card pointing to the patient's institution's child
+   psychology / pediatric palliative-care team. If a crisis is detected on
+   a pediatric patient (G24 fires), the crisis-card handoff adds the
+   pediatric crisis-line variants where the registry has them (e.g. US:
+   988 has pediatric routing; CN: 010-82951332 covers all ages).
 
 5. **Block treatment-decision claim emission on guardian-ack alone.** Henry
    L3 / L4 ack gating now reads: for pediatric patients, an L3 / L4 risk

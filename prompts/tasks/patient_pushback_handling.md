@@ -11,7 +11,7 @@
 This task is invoked when:
 
 1. Patient (or family member or auditing physician) pushes back on a previously-delivered claim by name (e.g. claim_id reference, agent name, statistic value) — NOT a new trigger / new goal.
-2. The pushback contains substantive content (a number, a citation, a value-axis disagreement) — not pure emotion (that routes to `cancer-buddy-mind` per scope_handoff_routing.md).
+2. The pushback contains substantive content (a number, a citation, a value-axis disagreement) — not pure emotion (pure emotional distress is out of OPL's 20-expert scope; OPL emits an external-referral note pointing to a licensed mental-health professional + the jurisdictional crisis line if SI/self-harm keywords trigger G24).
 3. The pushback is on a Wave-1-through-4 outcome, not on a process complaint (process complaints go to `pi_session/feedback_log/` directly).
 
 The task is **not** a re-run of the Wave (that would be a new NEW_GOAL trigger via `intent_parser`). It is a re-frame + re-anchor of an existing claim, surfacing the dissent + value-lattice + integrator-anchored alternative-read honestly. NEITHER concede (which would echo the pushback and violate `memory/feedback_third_party_lens` independence) NOR paternalism (which would restate the original number louder, ignoring the patient's stated objection).
@@ -112,7 +112,7 @@ The task is **not** a re-run of the Wave (that would be a new NEW_GOAL trigger v
 
 ## Procedure
 
-1. **Detect pushback (not new trigger).** Match `pushback_text` against substantive-disagreement patterns: number-mismatch ("you said X% but it's Y%"), citation-dispute ("that PMID doesn't say that"), subgroup-applicability ("that data is for naive patients; I'm late-line"), value-axis ("you led with PFS but I care about QoL"), recency ("that PMID is 2019; what about 2024-2025"), safety-weight ("you minimised the irAE risk"). If the pushback is process-complaint or pure emotion, redirect — process to `pi_session/feedback_log/`, emotion to `cancer-buddy-mind`.
+1. **Detect pushback (not new trigger).** Match `pushback_text` against substantive-disagreement patterns: number-mismatch ("you said X% but it's Y%"), citation-dispute ("that PMID doesn't say that"), subgroup-applicability ("that data is for naive patients; I'm late-line"), value-axis ("you led with PFS but I care about QoL"), recency ("that PMID is 2019; what about 2024-2025"), safety-weight ("you minimised the irAE risk"). If the pushback is process-complaint or pure emotion, redirect — process complaint to `pi_session/feedback_log/`; pure emotional distress emits an external-referral card pointing to a licensed mental-health professional (G24 crisis gate fires separately for SI/self-harm keywords).
 
 2. **Classify the axis.** Set `pushback_received.axis_classified` to one of the canonical axes. Multi-axis is allowed (set the primary + the secondary in a separate field if needed).
 
@@ -185,4 +185,4 @@ The founder-mode principle "model disagreements surfaced openly" + "patient is s
 - `pi_delivery.md` reads the `pushback_card_id` and re-emits the delivery section with the alternative_read framing if the patient picked that choice.
 - `patient_brief_rendering.md` consumes the `value_lattice_reframe` to re-rank claim ordering on render if the patient re-ranked.
 - `memory/feedback_log/` stores the full card for cross-session continuity.
-- `scope_handoff_routing.md` is invoked only if the pushback is actually a scope-mismatch (e.g. "I want to talk to a real doctor about this" → `cancer-buddy-find-care`).
+- `scope_handoff_routing.md` is invoked only if the pushback is actually a scope-mismatch (e.g. "I want to talk to a real doctor about this" → OPL emits external-referral card pointing the patient to their treating clinician or healthcare advocate; OPL does not pretend to schedule that visit).

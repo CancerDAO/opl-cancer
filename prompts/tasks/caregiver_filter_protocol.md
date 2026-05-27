@@ -2,7 +2,7 @@
 
 **Capability domain:** D5 — Synthesis / Delivery (caregiver-as-filter safety floor — adult patient + caregiver-preview mode)
 **Expert portfolio owners:** **sid** (PI, sole conversational surface; emits the caregiver-preview brief + the disclosure-honest options) — Sid is the ONLY expert who emits this card; experts produce evidence not routing decisions. Sid is co-reviewed by **henry** (auditor — IRB substitute) for L4 boundary integrity.
-**Preferred integrator families:** F0 — meta (no external integrator). Reads `installed_skills.json` for the cancer-buddy-disclosure sibling presence.
+**Preferred integrator families:** F0 — meta (no external integrator).
 **Permission level:** L4 (boundary). Patient-sole-decision-authority invariant is **NEVER** broken; Sid explicitly declines to make disclosure decisions on the patient's behalf.
 
 > "Patient #11 老公 said: 'team 跑出来的结果先让我看一下,我消化了再决定要不要给我老婆看 — 我不想她直接看到 HCC TACE 失败 + AFP 8400 这条 trajectory,让我先消化一下。' 这是真问题。Caregiver-as-filter pattern 完全没建模在 OPL v1.3.x — Sid 之前的默认 behaviour 是直接 render `patient_brief.html` 到 patient_root,这意味着 patient 一打开文件夹就看到了。老公的 wish 是 legitimate 的(family system 真实存在),但是 OPL 不能成为帮老公瞒老婆的 mechanism。Founder-mode 答案:emit caregiver preview brief + 明明白白告诉他 OPL 的 disclosure 边界 + 提供 3 条 honest options + Sid explicitly declines 替老婆做 disclosure decision。"
@@ -29,7 +29,7 @@ It defines what the caregiver can ack (preview-receipt only), what OPL refuses t
   "caregiver_relationship": "spouse | adult_child | sibling | parent | other_authorized",
   "outstanding_risk_cards": ["risk_card_id_1", "..."],
   "patient_profile": {...},
-  "installed_skills": ["cancer-buddy", "cancer-buddy-disclosure", "..."]
+  "_meta": "OPL is scope-internal — no sibling-skill lookups"
 }
 ```
 
@@ -57,14 +57,14 @@ It defines what the caregiver can ack (preview-receipt only), what OPL refuses t
       "label": "Talk to patient now with this material",
       "what_it_means": "you read the caregiver_brief.md first (15-30 min), then sit down with the patient and walk her through the findings together — using the brief as the shared document; patient and caregiver process side-by-side",
       "what_OPL_does": "renders both caregiver_brief.md AND patient_brief.html into <patient_dir>/triggers/<run_id>/delivery/; both are intact; you choose when the conversation happens",
-      "sibling_skill_optional": "cancer-buddy-disclosure can script the conversation if you want a framework"
+      "internal_expert_optional": "Jen (palliative-care specialist, Temel NEJM 2010 early-PC framework) drafts a disclosure-framing note inside OPL — value-elicitation prompts + hope-impact considerations — that you can read alongside caregiver_brief.md before the conversation"
     },
     {
       "option_id": "b",
-      "label": "Hand off to cancer-buddy-disclosure to script the conversation",
-      "what_it_means": "you ask cancer-buddy-disclosure (the dedicated sibling skill for breaking-bad-news + family disclosure) to write you a conversational script tailored to your wife / family member's stated value + reading band + hope-impact preference",
-      "what_OPL_does": "emits caregiver_brief.md; does NOT auto-invoke cancer-buddy-disclosure (the patient or caregiver initiates per CancerDAO skill-boundary invariant); patient_brief.html still renders to the delivery folder",
-      "invocation_phrasing": "在 Claude Code 里说: '我老婆是 HCC TACE 失败的 patient (patient_code: <code>),OPL 跑完了 Wave 1-5,我先看了 caregiver_brief。我想用 cancer-buddy-disclosure 写一个跟她沟通的 script,从 cancer-buddy-disclosure 开始。'"
+      "label": "Ask Jen (palliative) for a disclosure-framing note",
+      "what_it_means": "you ask Sid to dispatch Jen — OPL's palliative-care expert — to draft a disclosure-framing addendum to the caregiver_brief: how to open the conversation, value-elicitation prompts, hope-impact considerations, what to do if the patient asks 'how long do I have'. Jen does NOT write a full script (that's a clinical chaplain / palliative-social-work skill outside OPL); she frames the conversational scaffold",
+      "what_OPL_does": "appends Jen's disclosure_framing.md section to caregiver_brief.md; patient_brief.html still renders to the delivery folder intact",
+      "external_referral_if_needed": "For a fully-scripted breaking-bad-news session you should see a palliative-care social worker or clinical chaplain at the patient's institution — that is out of OPL's 20-expert scope."
     },
     {
       "option_id": "c",
@@ -145,11 +145,9 @@ It defines what the caregiver can ack (preview-receipt only), what OPL refuses t
 
 ## Empty-integrator handling
 
-If `installed_skills` does NOT contain `cancer-buddy-disclosure`:
+Option b is always emittable — it dispatches Jen, an internal OPL expert; no external installation check is needed.
 
-- Option b is emitted with `sibling_skill_status: "not_installed"` and an install instruction: `npx skills add CancerDAO/cancer-buddy-skill` (cancer-buddy-disclosure ships in cancer-buddy-skill).
-- Options a + c remain unaffected — they do not depend on cancer-buddy-disclosure being installed.
-- Do NOT fabricate that cancer-buddy-disclosure is installed.
+For caregiver-level needs that go beyond Jen's framing-note scope (full breaking-bad-news scripting, ongoing grief work, family-systems therapy), OPL emits `external_referral_if_needed` text pointing to a palliative-care social worker or clinical chaplain at the patient's institution. OPL does not pretend to do that work itself.
 
 ## Founder-mode philosophy note
 
@@ -159,5 +157,5 @@ The founder-mode principle "patient is sole decision authority" is the ENTIRE re
 
 - `patient_brief_rendering.md` reads `caregiver_preview_mode: true` and emits BOTH `caregiver_brief.md` AND `patient_brief.html` to the delivery folder; never suppresses either.
 - `pi_delivery.md` is skipped in caregiver_preview_mode — `caregiver_brief.md` is the caregiver-facing artefact; `patient_brief.html` is the patient-facing artefact; the conversational `pi_delivery.md` is held back until either the patient ack on her own brief, or the caregiver chooses option a/b/c.
-- `scope_handoff_routing.md` is the parent pattern for caregiver-routing cases that are NOT filter-mode (e.g. caregiver asks about their own burden → `cancer-buddy-caregiver` handoff).
+- `scope_handoff_routing.md` is the parent pattern for caregiver-routing cases that are NOT filter-mode (e.g. caregiver asks about their own burden → external referral to caregiver-support resources at the patient's institution; out of OPL scope).
 - `guardian_ack_protocol.md` is the sibling pattern for pediatric guardian-of-minor cases (different invariant — guardian acks information receipt for a child who cannot ack).
