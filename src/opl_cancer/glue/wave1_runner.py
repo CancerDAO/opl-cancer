@@ -32,54 +32,12 @@ from opl_cancer.glue.renderer import PatientBriefRenderer
 from opl_cancer.llm.base import LLMClient, LLMRequest
 from opl_cancer.llm.prompts import PromptTemplate, find_prompts_root
 from opl_cancer.orchestrator.dispatch import ExpertHandler, dispatch_wave
+from opl_cancer.glue._post_write import (
+    SnifferHalt,
+    post_write_safety_check as _post_write_safety_check,
+)
 from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
-from opl_cancer.validators.fakery_sniffer import scan_artifact
-
-
-class SnifferHalt(RuntimeError):
-    """v2.1 P1-#9: raised when the fakery sniffer flags a freshly written
-    artifact. Downstream waves freeze until the artifact is fixed."""
-
-
-def _post_write_safety_check(report_path: Path, run_root: Path) -> None:
-    """Run the fakery sniffer on a freshly written artifact.
-
-    On any hit:
-
-    1. Emit ``<run_root>/SNIFFER_HALT.md`` listing each finding.
-    2. Append a row to ``<run_root>/pushback_trigger_log.jsonl`` so the
-       SKILL main thread sees the trigger (P2-#19).
-    3. Raise ``SnifferHalt`` so the wave runner can short-circuit.
-
-    Clean artifacts return silently — caller proceeds.
-    """
-    findings = scan_artifact(report_path)
-    if not findings:
-        return
-    # SNIFFER_HALT.md is the human-readable freeze surface.
-    halt_path = run_root / "SNIFFER_HALT.md"
-    lines = [f"# SNIFFER HALT — {report_path.name}", "", "## Findings"]
-    for f in findings:
-        lines.append(f"- L{f.line_number}: `{f.pattern}` → `{f.excerpt}`")
-    lines.append(
-        "\nDownstream waves frozen. Invoke "
-        "`prompts/tasks/patient_pushback_handling.md`."
-    )
-    halt_path.write_text("\n".join(lines), encoding="utf-8")
-    # Pushback router auto-trigger (P2-#19).
-    try:
-        from opl_cancer.orchestrator.pushback_router import log_trigger
-        log_trigger(
-            run_root / "pushback_trigger_log.jsonl",
-            reason="fakery_sniffer",
-            excerpt=findings[0].excerpt,
-            source=str(report_path),
-        )
-    except Exception:  # pragma: no cover — pushback router optional dep
-        pass
-    raise SnifferHalt(
-        f"fakery detected in {report_path.name}: {len(findings)} finding(s)"
-    )
+from opl_cancer.validators.fakery_sniffer import scan_artifact  # noqa: F401 — back-compat re-export
 from opl_cancer.plan.schemas import Plan, Task, WaveAssignment
 from opl_cancer.provenance.hasher import hash_claim
 from opl_cancer.provenance.journal import ProvenanceJournal
@@ -366,6 +324,61 @@ class Wave1Runner:
         intent_raw = intent_parsed.get("intent", "")
         return str(intent_raw)
 
+    @staticmethod
+    def _apply_intake_router(
+        plan_dict: dict[str, Any], patient_text: str
+    ) -> dict[str, Any]:
+        """v2.5.1 B2 — fold the intake_router output into the LLM plan dict.
+
+        For UNKNOWN-task routes the dict gets an extra Wave-1 task
+        (``unknown_task_intake``, owned by Aviv) and a ``method_dag`` field
+        carrying the composed primitive list (kaplan_meier +
+        conformal_prediction for the c3195b66 case).
+
+        For known-task routes the dict is returned untouched apart from a
+        ``method_dag`` annotation so downstream consumers always see the
+        same shape.
+        """
+        from opl_cancer.plan.intake_router import route_intake
+
+        route = route_intake(patient_text or "")
+        merged: dict[str, Any] = dict(plan_dict)
+        merged.setdefault("tasks", list(plan_dict.get("tasks", [])))
+        merged["method_dag"] = list(route.method_dag)
+        merged["intake_route"] = route.to_dict()
+        # Only inject the unknown_task_intake task when the route is
+        # meaningfully populated (decline_reasons OR ≥2 method-DAG nodes).
+        # The default fallback route (kaplan_meier only, no decline reasons)
+        # represents "the LLM planner already has a plan, no special intake
+        # needed" — don't pollute every wave1 run with an aviv intake task.
+        is_substantive = bool(route.decline_reasons) or len(route.method_dag) >= 2
+        if route.matched_task_package == "unknown_task_intake" and is_substantive:
+            existing_ids = {t["id"] for t in merged["tasks"] if "id" in t}
+            new_id = "t_intake"
+            i = 1
+            while new_id in existing_ids:
+                i += 1
+                new_id = f"t_intake_{i}"
+            merged["tasks"].append(
+                {
+                    "id": new_id,
+                    "expert": "aviv",
+                    "task_package": "unknown_task_intake",
+                    "sub_goal": (
+                        "Compose method DAG for patient question; route "
+                        f"per intake_router (matched={route.matched_task_package})"
+                    ),
+                }
+            )
+            # Make sure aviv is in the experts roster — _build_handlers
+            # instantiates only experts in plan_dict["experts"]; an aviv
+            # task with no aviv expert blows up with KeyError.
+            experts = list(merged.get("experts", []))
+            if "aviv" not in experts:
+                experts.append("aviv")
+            merged["experts"] = experts
+        return merged
+
     async def _build_plan(
         self, patient_text: str, ctx: dict[str, Any]
     ) -> tuple[Plan, dict[str, Any]]:
@@ -401,6 +414,10 @@ class Wave1Runner:
             response_format={"type": "json_object"},
         ))
         plan_dict: dict[str, Any] = json.loads(plan_resp.content)
+        # v2.5.1 B2 — fold intake_router output before constructing the Plan,
+        # so the c3195b66 AutoML case adds `unknown_task_intake` + method DAG
+        # rather than silently passing through the LLM planner.
+        plan_dict = self._apply_intake_router(plan_dict, patient_text)
         run_id = f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}"
         plan = Plan(
             run_id=run_id,

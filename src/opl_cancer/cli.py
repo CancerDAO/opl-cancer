@@ -24,7 +24,7 @@ from opl_cancer.compute.native_runner import NativeAnalysisRunner
 from opl_cancer.compute.runner import BixbenchRunner
 from opl_cancer.experts.roster import ROSTER
 
-VERSION = "2.5.0"
+VERSION = "2.5.1"
 DEFAULT_PATIENT_ROOT_ENV = "OPL_PATIENT_DATA_ROOT"
 DEFAULT_PATIENT_ROOT = Path.home() / "CancerDAO" / "patients"
 
@@ -333,6 +333,32 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
         except ProfileTriggerMismatch as exc:
             raise click.ClickException(str(exc)) from exc
     tasks, fired = maybe_expand_for_comorbid(base_tasks, profile_data, goal=goal)
+
+    # v2.5.1 B2 — route the verbatim goal through intake_router so unknown
+    # tasks (the c3195b66 AutoML / prognosis case) are routed to
+    # `unknown_task_intake` with a composed method DAG. The intake task is
+    # appended to Wave 1 alongside the comorbid expansion.
+    from opl_cancer.plan.intake_router import route_intake
+
+    intake_route = route_intake(goal, profile=profile_data)
+    intake_task: Task | None = None
+    # Only inject the unknown_task_intake task when the route is
+    # meaningfully populated — see Wave1Runner._apply_intake_router
+    # docstring for the same gating rule.
+    _is_substantive = bool(intake_route.decline_reasons) or len(intake_route.method_dag) >= 2
+    if intake_route.matched_task_package == "unknown_task_intake" and _is_substantive:
+        intake_task = Task(
+            id="t_intake",
+            expert="aviv",  # Aviv owns method-composition + N=1 framing
+            task_package="unknown_task_intake",
+            sub_goal=(
+                f"Compose method DAG for patient question; route per "
+                f"intake_router (matched={intake_route.matched_task_package})"
+            ),
+            dependencies=[],
+        )
+        tasks.append(intake_task)
+
     # v2.1 P0-#6: every emitted task_package must be a real file under
     # prompts/tasks/. Fail loud at emit, not silently at run.
     from opl_cancer.plan.task_validator import (
@@ -364,7 +390,19 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
             WaveAssignment(wave_number=4, task_ids=["t9"]),
         ],
     )
-    out_path.write_text(skeleton.model_dump_json(indent=2), encoding="utf-8")
+
+    # v2.5.1 B2 — persist the composed method DAG on the plan JSON.
+    # `Plan` (pydantic) does not yet model `method_dag` as a first-class
+    # field, so we re-serialise + inject. Downstream callers should read
+    # the plan via plain json.load() rather than `Plan.model_validate()`
+    # to see this extension; the SKILL main thread does both.
+    plan_payload = skeleton.model_dump(mode="json")
+    plan_payload["method_dag"] = list(intake_route.method_dag)
+    plan_payload["intake_route"] = intake_route.to_dict()
+    out_path.write_text(
+        json.dumps(plan_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     triggers_payload = [
         {"name": t.name, "rationale": t.rationale, "task_id": t.task.id, "expert": t.task.expert}
         for t in fired
@@ -377,6 +415,7 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
             "waves": 4,
             "tasks": len(tasks),
             "comorbid_expansion_triggers_fired": triggers_payload,
+            "intake_route": intake_route.to_dict(),
         },
         json_mode,
     )
@@ -731,29 +770,89 @@ def render(patient_dir: str, run_id: str, json_mode: bool) -> None:
 @main.command(
     name="deliver",
     help=(
-        "v2.2 P1-#16: atomic delivery — Henry audit + patient_plain_brief + "
-        "patient_pi_brief commit as ONE transaction. Partial failure rolls back."
+        "v2.2 P1-#16 + v2.5.1 B1+B5: atomic delivery — verifies upstream "
+        "Wave 1-5 artifacts, then runs real Henry audit + "
+        "patient_plain_brief + patient_pi_brief as ONE transaction. "
+        "Partial failure rolls back."
     ),
 )
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--dry-run", is_flag=True, help="Plan only; write nothing.")
+@click.option(
+    "--allow-missing-upstream",
+    is_flag=True,
+    default=False,
+    help=(
+        "v2.5.1 B5 debug escape hatch — proceed even when Wave 1-5 "
+        "artifacts are missing. Default OFF; production runs should leave it OFF."
+    ),
+)
 @click.option("--json", "json_mode", is_flag=True)
-def deliver(patient_dir: str, run_id: str, dry_run: bool, json_mode: bool) -> None:
+def deliver(
+    patient_dir: str,
+    run_id: str,
+    dry_run: bool,
+    allow_missing_upstream: bool,
+    json_mode: bool,
+) -> None:
     """Run the v2.2 atomic delivery transaction.
 
     On any failure the three artifacts (HENRY_AUDIT.json, patient_plain_brief.md,
     patient_pi_brief.md) are rolled back together. ADR-0022 invariant.
+
+    v2.5.1 B5: refuses to ship when upstream wave artifacts are missing.
+    Pass ``--allow-missing-upstream`` for local debugging only.
     """
     from opl_cancer.glue.delivery_runner import (
+        DeliveryArtifactsMissing,
         DeliveryFailure,
         run_atomic_delivery,
+        verify_upstream_artifacts,
     )
 
     pdir = Path(patient_dir)
-    out_dir = pdir / "triggers" / run_id / "delivery"
+    run_root = pdir / "triggers" / run_id
+    out_dir = run_root / "delivery"
+
+    # v2.5.1 B5: precondition check before invoking the runner so the CLI
+    # can emit a structured missing-artifacts payload.
+    if not dry_run:
+        missing = verify_upstream_artifacts(run_root)
+        if missing and not allow_missing_upstream:
+            _emit(
+                {
+                    "ok": False,
+                    "error": "upstream_artifacts_missing",
+                    "missing": missing,
+                    "run_root": str(run_root),
+                    "out_dir": str(out_dir),
+                    "hint": (
+                        "Run Wave 1-5 first, or pass --allow-missing-upstream "
+                        "for local debugging only (v2.5.1 B5)."
+                    ),
+                },
+                json_mode,
+            )
+            raise click.exceptions.Exit(2)
+
     try:
-        result = run_atomic_delivery(out_dir=out_dir, dry_run=dry_run)
+        result = run_atomic_delivery(
+            out_dir=out_dir,
+            dry_run=dry_run,
+            allow_missing_upstream=allow_missing_upstream,
+        )
+    except DeliveryArtifactsMissing as exc:
+        _emit(
+            {
+                "ok": False,
+                "error": "upstream_artifacts_missing",
+                "missing": exc.missing,
+                "out_dir": str(out_dir),
+            },
+            json_mode,
+        )
+        raise click.exceptions.Exit(2)
     except DeliveryFailure as exc:
         # Emit structured failure, exit non-zero
         _emit({"ok": False, "error": str(exc), "out_dir": str(out_dir)}, json_mode)

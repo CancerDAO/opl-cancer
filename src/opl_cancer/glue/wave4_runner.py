@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Any
 
 from opl_cancer.experts._common import LLMBackedExpert
+from opl_cancer.glue._post_write import SnifferHalt, post_write_safety_check
+from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
 from opl_cancer.provenance.hasher import hash_claim
 from opl_cancer.provenance.journal import ProvenanceJournal
 
@@ -167,8 +169,20 @@ class Wave4Runner:
                 1 for r in results if r["survival_status"] == "inconclusive"
             ),
         }
-        (run_dir / "wave4_validation.json").write_text(
+        out_path = run_dir / "wave4_validation.json"
+        out_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
+        )
+
+        # v2.5.1 B3 — same fakery_sniffer + reviewer pairing discipline as
+        # wave1_runner. Wave 4 has Aviv as primary validator and Iain as
+        # the meta-validator; we pair against Aviv to keep distinct-expert
+        # constraint satisfied (Iain → aviv pairing exists in the matrix).
+        post_write_safety_check(out_path, run_root=run_dir)
+        run_reviewer_pairing(
+            report_path=out_path,
+            primary_expert="aviv",
+            primary_model="claude-opus-4-7",
         )
         return payload

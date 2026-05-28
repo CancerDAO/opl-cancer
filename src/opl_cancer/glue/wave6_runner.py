@@ -59,7 +59,9 @@ from opl_cancer.delivery.n1a_bundle_writer import (
     BundleWriteError,
     N1ABundleWriter,
 )
+from opl_cancer.glue._post_write import SnifferHalt, post_write_safety_check
 from opl_cancer.memory.cost_tracker import aggregate_cost_log
+from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
 from opl_cancer.validators.gates import (
     G29ManuscriptAuthorshipDisclosedGate,
     G30ClaimPMIDAnchoredGate,
@@ -68,6 +70,11 @@ from opl_cancer.validators.gates import (
     G33N1DesignTransparentGate,
 )
 from opl_cancer.validators.mechanical_gates import GateStatus
+
+# v2.5.1 B3 — Wave 6 primary expert: Iain owns the manuscript per the
+# CONTRIBUTORS table; reviewer pairing routes to (vince | bert) per the
+# existing matrix in orchestrator.reviewer_hook.
+_WAVE6_PRIMARY_EXPERT = "iain"
 
 
 __all__ = [
@@ -79,7 +86,16 @@ __all__ = [
 
 
 # Required Wave 5 outputs the runner expects to find before starting.
+# v2.5.1 B5 tightening: Wave 6 now also requires a valid plan.json + at
+# least one wave1/2/3/4 artifact upstream of the briefs, so a half-baked
+# run cannot escape Wave 5 by hand-dropping two markdown files.
 WAVE5_PREREQUISITES = ("patient_plain_brief.md", "patient_pi_brief.md")
+WAVE6_UPSTREAM_OPTIONAL_ARTIFACTS = (
+    "tasks/w1_*/report.md",
+    "wave2_hypotheses.json",
+    "wave3_data_evidence.json",
+    "wave4_validation.json",
+)
 
 # Files the runner expects to be present (or scaffolds with TODO stubs in
 # draft mode) before running the gates + bundle.
@@ -177,10 +193,25 @@ class Wave6Runner:
             f for f in WAVE5_PREREQUISITES
             if not (self.run_dir / f).is_file()
         ]
+        # v2.5.1 B5: tighten — also require plan.json + at least one
+        # wave1/2/3/4 artifact upstream of the briefs.
+        plan = self.run_dir / "plan.json"
+        if not plan.is_file() or plan.stat().st_size == 0:
+            missing.append("plan.json (missing or empty — v2.5.1 B5)")
+        upstream_hits = 0
+        for pattern in WAVE6_UPSTREAM_OPTIONAL_ARTIFACTS:
+            upstream_hits += sum(1 for _ in self.run_dir.glob(pattern))
+        if upstream_hits == 0:
+            missing.append(
+                "wave1/2/3/4 evidence: none of "
+                + ", ".join(WAVE6_UPSTREAM_OPTIONAL_ARTIFACTS)
+                + " present (v2.5.1 B5)"
+            )
         if missing:
             raise Wave6PrerequisiteError(
-                f"Wave 6 cannot start: Wave 5 outputs missing in "
-                f"{self.run_dir}: {missing}. Ship plain + pi briefs first."
+                f"Wave 6 cannot start: Wave 5 / upstream outputs missing in "
+                f"{self.run_dir}: {missing}. Ship plain + pi briefs and at "
+                "least one Wave 1-4 artifact first."
             )
 
     def _run_gates(self) -> dict[str, Any]:
@@ -315,6 +346,30 @@ class Wave6Runner:
             self._written.append(p)
         return scaffolded
 
+    def _run_post_write_safety_sweep(self) -> None:
+        """v2.5.1 B3 — sniff every manuscript-shaped artifact for fakery
+        + run reviewer pairing on the canonical `manuscript.md`.
+
+        Wave 6 has special skin in the game because the manuscript is the
+        last stop before .n1a bundle export — fakery here ships
+        publication-grade noise. We scan every markdown file in
+        WAVE6_ARTIFACTS that is actually present, plus the manuscript.md.
+        """
+        manuscript_md_files = [
+            self.run_dir / name
+            for name in WAVE6_ARTIFACTS
+            if name.endswith(".md") and (self.run_dir / name).is_file()
+        ]
+        for p in manuscript_md_files:
+            post_write_safety_check(p, run_root=self.run_dir)
+        primary = self.run_dir / "manuscript.md"
+        if primary.is_file():
+            run_reviewer_pairing(
+                report_path=primary,
+                primary_expert=_WAVE6_PRIMARY_EXPERT,
+                primary_model="claude-opus-4-7",
+            )
+
     def _rollback(self) -> None:
         for p in reversed(self._written):
             try:
@@ -349,6 +404,10 @@ class Wave6Runner:
                 if self.mode == "draft"
                 else []
             )
+            # v2.5.1 B3 — sniff manuscript artifacts BEFORE the gates so
+            # fakery is surfaced as SnifferHalt (richer signal than gate
+            # block) rather than as a G30 PMID-anchoring failure later.
+            self._run_post_write_safety_sweep()
             gate_results = self._run_gates()
             audit_path = self._merge_henry_audit(gate_results)
 
@@ -389,9 +448,10 @@ class Wave6Runner:
                 "wave6_gate_results": gate_results,
                 "cost_summary": cost_summary,
             }
-        except (Wave6PrerequisiteError, BundleWriteError, Wave6Failure):
-            # Pre-condition / bundle failures: do NOT roll back files the
-            # caller produced; only roll back files THIS runner wrote.
+        except (Wave6PrerequisiteError, BundleWriteError, Wave6Failure, SnifferHalt):
+            # Pre-condition / bundle / sniffer failures: do NOT roll back
+            # files the caller produced; only roll back files THIS runner
+            # wrote.
             self._rollback()
             raise
         except Exception as exc:
