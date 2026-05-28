@@ -13,6 +13,8 @@ class G1PMIDExistenceGate(Gate):
     name = "G1_pmid_existence"
     description = "Every PMID cited must be verifiable on PubMed."
     failure_mode_code = "A1"
+    # v2.5 RFC 0001 §2.5 — provenance gate family migration.
+    family_id = "provenance"
 
     def __init__(self, pubmed: PubMedIntegrator) -> None:
         self.pubmed = pubmed
