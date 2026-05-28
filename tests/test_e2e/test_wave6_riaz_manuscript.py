@@ -93,6 +93,11 @@ def _seed_synthetic_riaz(patient_dir: Path) -> Path:
         "# Riaz reference — PI brief\n\nMethodology demonstration.\n",
         encoding="utf-8",
     )
+    # v2.5.1 B5: Wave 6 now requires plan.json + ≥1 wave1-4 artifact.
+    (run_dir / "plan.json").write_text('{"tasks": []}', encoding="utf-8")
+    w1 = run_dir / "tasks" / "w1_seed"
+    w1.mkdir(parents=True, exist_ok=True)
+    (w1 / "report.md").write_text("# wave 1 stub\n", encoding="utf-8")
     # Wave 6 artifacts
     (run_dir / "manuscript.md").write_text(GOOD_MS, encoding="utf-8")
     (run_dir / "manuscript_methods.md").write_text(
