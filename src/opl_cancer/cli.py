@@ -431,7 +431,7 @@ def _emit_wave_state(wave: int, run_root: Path, json_mode: bool, **extra: Any) -
     _emit(payload, json_mode)
 
 
-@main.command(help="Step 5: Wave 1 state-check. Reads tasks/w1_*/report.md count.")
+@main.command(help="Step 5: Wave 1 state-check — does NOT execute. Use `opl run --wave 1` for the executor. Reads tasks/w1_*/report.md count.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--plan", "plan_path", type=click.Path(exists=True, dir_okay=False), required=True)
@@ -441,7 +441,7 @@ def wave1(patient_dir: str, run_id: str, plan_path: str, json_mode: bool) -> Non
     _emit_wave_state(1, run_root, json_mode, plan_path=plan_path)
 
 
-@main.command(help="Step 6: Wave 2 state-check. Reads tournament/*.json count.")
+@main.command(help="Step 6: Wave 2 state-check — does NOT execute. Use `opl run --wave 2` for the executor. Reads tournament/*.json count.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--json", "json_mode", is_flag=True)
@@ -450,7 +450,7 @@ def wave2(patient_dir: str, run_id: str, json_mode: bool) -> None:
     _emit_wave_state(2, run_root, json_mode)
 
 
-@main.command(help="Step 7: Wave 3 state-check. Refuses to claim completion without real data artifacts.")
+@main.command(help="Step 7: Wave 3 state-check — does NOT execute. Use `opl run --wave 3 --mode native|docker` for the executor. Refuses to claim completion without real data artifacts.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--enable-docker/--no-docker", default=True)
@@ -460,7 +460,7 @@ def wave3(patient_dir: str, run_id: str, enable_docker: bool, json_mode: bool) -
     _emit_wave_state(3, run_root, json_mode, docker=enable_docker)
 
 
-@main.command(help="Step 8: Wave 4 state-check. Reads tasks/w4_*/report.md count.")
+@main.command(help="Step 8: Wave 4 state-check — does NOT execute. Use `opl run --wave 4` for the executor. Reads tasks/w4_*/report.md count.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--json", "json_mode", is_flag=True)
