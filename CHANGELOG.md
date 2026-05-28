@@ -1,5 +1,124 @@
 # Changelog
 
+## [2.2.0] — 2026-05-28 — Equipped Experts
+
+ADR-0022. Vendors 8 bio-skill task packages (7 required + 1 optional CPIC)
+from `BioTender-max/awesome-bio-agent-skills` (CC0-1.0) as OPL-native
+task-package + integrator pairs. Closes P1 fixes #10-#16 from the
+007-zhiqiang real-patient run post-mortem. New mechanical gate G28 closes
+the "5 weeks → 5 months" LLM time-confusion failure mode.
+
+### Added — task packages (8)
+
+- **`prompts/tasks/msi_detection.md`** — Bert; Wave 3; G14. MSI status
+  call from MSIsensor-pro percent-unstable; KEYNOTE-158 + Lynch hooks.
+- **`prompts/tasks/tmb_calculation.md`** — Bert; Wave 3; G21. Vendor-aware
+  TMB→mut/Mb harmonisation (TSO500 1.94 / FoundationOne 0.8 /
+  MSK-IMPACT-468 1.22 / WES 30 Mb). ≥10/Mb = TMB-H.
+- **`prompts/tasks/cosmic_signature_extraction.md`** — Bert; Wave 3; G14.
+  COSMIC v3.x SBS signature interpretation (HRD / MMR / POLE / APOBEC /
+  UV / tobacco / TMZ).
+- **`prompts/tasks/acmg_germline_classification.md`** — Bert; Wave 1; G2.
+  ACMG 2015 5-tier classification + ClinVar conflict policy.
+- **`prompts/tasks/opentargets_evidence.md`** — Maya; Wave 1+2; G1+G2.
+  Per-datasource evidence breakdown (chembl / genetics / literature /
+  reactome) for orthogonal-source evidence tier scoring.
+- **`prompts/tasks/biostats_survival.md`** — Aviv; Wave 3; G15. KM + log-rank
+  with explicit subset-filter rule (P1-#12 cBioPortal L3+, P1-#13 KRAS-G12C
+  subset).
+- **`prompts/tasks/biostats_subgroup.md`** — Aviv; Wave 3; G15+G17. Forest
+  plot + interaction-p + multiple-testing correction.
+- **`prompts/tasks/pharmacogenomics_cpic.md`** — Mary; Wave 3; G3.
+  CPIC reference table for DPYD / TPMT / NUDT15 / UGT1A1 / CYP2D6 / CYP2C19.
+
+### Added — integrators (8)
+
+- **`integrators/msi_sensor.py`** — MSIsensor-pro wrapper + threshold helper.
+- **`integrators/tmb_harmonization.py`** — vendor-aware TMB harmoniser
+  with `PANEL_FOOTPRINTS_MB` map + `classify_tmb_status()`.
+- **`integrators/cosmic_sigprofiler.py`** — SigProfilerAssignment wrapper
+  (lazy-import; heavy ~1.5 GB ref) + curated `SBS_INTERPRETATION` table.
+- **`integrators/varsome_acmg.py`** — pure-Python ACMG 2015 decision-table
+  classifier with conflict-flag policy.
+- **`integrators/lifelines_km.py`** — KM + log-rank + `apply_subgroup_filter()`
+  helper with `min_n_per_arm` enforcement (G15/G17 prereq).
+- **`integrators/cpic.py`** — curated CPIC v2.2 reference table.
+- **`integrators/figure_render.py`** — matplotlib renderer for KM curve /
+  forest plot / Monte Carlo trajectory PNG (P1-#14).
+- **`integrators/paperqa_full_text.py`** — PMC OA full-text fetch shim +
+  `CalibrationProvenance` enum (P1-#10).
+
+### Added — P1 fixes
+
+- **P1-#10** `glue/wave3_runner.py:record_monte_carlo_calibration()` —
+  every Monte Carlo / model-fit site now emits `parameter_calibration:
+  paper_derived | informed_estimate | literature_default` with PMID anchor.
+- **P1-#11** `prompts/auditor/quote_verify_numerics.md` + reviewer_hook
+  chain — per-PMID `n_resp`/`n_total` verifier auto-runs after Iain
+  meta-analysis. Mismatches with `block_downstream:true` halt downstream wave.
+- **P1-#12** subset-filter auto rule in `biostats_survival.md` —
+  cBioPortal L3+ cohort KM narrows via `apply_subgroup_filter({"line":[3,4,5]})`
+  before fit.
+- **P1-#13** TROP2 KRAS-G12C subset filter — same `apply_subgroup_filter`
+  mechanism (`{"kras":"G12C"}`) before KM.
+- **P1-#14** matplotlib forest / KM / Monte Carlo PNG render via
+  `figure_render` integrator — required Wave 3 output.
+- **P1-#15** **`validators/gates/g28_absolute_date.py`** — relative date
+  language (`X mo/week/day ago`, `约 N 月前`) must carry from_date+to_date
+  anchor or `[BACKGROUND]` tag. Mechanical closure of the v2.1 LLM
+  "5 weeks confused for 5 months" failure mode.
+- **P1-#16** **`glue/delivery_runner.py`** + `opl deliver` command —
+  Henry audit + patient_plain_brief + patient_pi_brief run as ONE
+  atomic transaction; partial failure rolls back all three files.
+
+### Added — extensions
+
+- **`integrators/open_targets.py`** gains `evidence:<sym>:<efo>` key form
+  returning per-datasource evidence breakdown.
+- **`experts/roster.py`** — `task_package_portfolio` + `preferred_integrator_families`
+  populated for Bert / Aviv / Mary / Maya (v2.0 stubs become real).
+- **`ATTRIBUTIONS.md`** (top level) — credits BioTender-max/awesome-bio-agent-skills
+  + every upstream tool dependency.
+- **ADR-0022** Bio-skills vendoring as task packages with scope boundary.
+- `pyproject.toml` adds `[bio]` extras group (`lifelines`, `matplotlib`;
+  SigProfilerAssignment opt-in via comment).
+- `goal_router.yaml` already added MSI / TMB / HRD / germline / DPYD /
+  ctDNA keyword rows in v2.1 — v2.2 confirms the rows are still wired.
+
+### Changed
+
+- `pyproject.toml` version 2.1.0 → 2.2.0.
+- `SKILL.md` frontmatter `version` 2.1.0 → 2.2.0; tags add
+  `equipped-experts bio-skills msi tmb hrd acmg cpic survival-analysis`.
+- `cli.py:status` — mechanical gates 27 → 28; integrators 29 → 36.
+- `validators/mechanical_gates.py:all_gate_classes()` — registers G28
+  AbsoluteDateGate (27 → 28).
+- `experts/roster.py` — task_package_portfolio stubs become real for the
+  4 v2.2 owning experts (Bert, Aviv, Mary, Maya).
+
+### Tests
+
+- `tests/test_validators/test_g28_absolute_date.py` (9 tests)
+- `tests/test_validators/test_gate_registry.py` — bumped EXPECTED_GATE_COUNT 27 → 28
+- `tests/test_integrators/test_msi_sensor.py` (10)
+- `tests/test_integrators/test_tmb_harmonization.py` (12)
+- `tests/test_integrators/test_cosmic_sigprofiler.py` (7)
+- `tests/test_integrators/test_varsome_acmg.py` (11)
+- `tests/test_integrators/test_open_targets_extended.py` (4)
+- `tests/test_integrators/test_lifelines_km.py` (7)
+- `tests/test_integrators/test_cpic.py` (9)
+- `tests/test_integrators/test_figure_render.py` (6)
+- `tests/test_integrators/test_paperqa_full_text.py` (7)
+- `tests/test_glue/test_wave3_calibration.py` (4)
+- `tests/test_glue/test_delivery_runner.py` (6)
+- `tests/test_orchestrator/test_quote_verify_numerics.py` (6)
+- `tests/test_experts/test_roster_v22_portfolios.py` (7)
+- `tests/test_integration/test_subset_filter.py` (3) — P1-#12/#13 verification
+- `tests/test_e2e/test_bio_skills_riaz.py` — Riaz reference, all 7 packages
+- `tests/test_e2e/test_bio_skills_real_007.py` — 007-zhiqiang (gated)
+
+---
+
 ## [2.1.0] — 2026-05-28 — Truthful Execution
 
 ADR-0021. Closes the eight P0-class design / execution gaps identified in

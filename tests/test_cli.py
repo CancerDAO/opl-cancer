@@ -19,13 +19,13 @@ def test_cli_status_runs() -> None:
     #   - SKILL.md Step 4: TNBC + LM planner row
     #   - cli.py acknowledge --batch ack-batch UX + ack_consolidation_card
     assert "OPL for Cancer" in r.output
-    assert "v2.1.0" in r.output  # v2.1.0 Truthful Execution release (ADR-0021)
+    assert "v2.2.0" in r.output  # v2.2.0 Equipped Experts release (ADR-0022)
     # v2.0.0 (ADR-0010): roster expanded 18 → 20 with Maya + Julius
     assert "Experts active: 20" in r.output
-    # v1.5.6 registered G21/G25/G26/G27 (was 23). The status string is the
-    # advertised public count; status.py is updated below.
-    assert "Mechanical gates: 27" in r.output
-    assert "Integrators wired: 29" in r.output
+    # v2.2 (ADR-0022): G28 absolute_date added (P1-#15 LLM 5wk/5mo fix). 27 → 28.
+    assert "Mechanical gates: 28" in r.output
+    # v2.2 (ADR-0022): +7 bio-skill integrators (MSI/TMB/SigProfiler/ACMG/KM/CPIC/PaperQA-FT)
+    assert "Integrators wired: 36" in r.output
 
 
 def test_cli_init_patient_runs(tmp_path: Path) -> None:

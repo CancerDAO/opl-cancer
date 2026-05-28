@@ -4,8 +4,8 @@ description: "OPL for Cancer — open-source AI scientist team for a single canc
 license: Apache-2.0
 metadata:
   author: CancerDAO Contributors
-  version: "2.1.0"
-  tags: oncology precision-medicine ai-scientist-team founder-mode hypothesis-generation co-scientist robin bixbench meta-analysis clinical-trials evidence-grounded world-unknown-candidates kg-synergy undrugged-target-design trace-digest-evolution
+  version: "2.2.0"
+  tags: oncology precision-medicine ai-scientist-team founder-mode hypothesis-generation co-scientist robin bixbench meta-analysis clinical-trials evidence-grounded world-unknown-candidates kg-synergy undrugged-target-design trace-digest-evolution equipped-experts bio-skills msi tmb hrd acmg cpic survival-analysis
 ---
 
 # OPL for Cancer — your own AI scientist team

@@ -24,7 +24,7 @@ from opl_cancer.compute.native_runner import NativeAnalysisRunner
 from opl_cancer.compute.runner import BixbenchRunner
 from opl_cancer.experts.roster import ROSTER
 
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 DEFAULT_PATIENT_ROOT_ENV = "OPL_PATIENT_DATA_ROOT"
 DEFAULT_PATIENT_ROOT = Path.home() / "CancerDAO" / "patients"
 
@@ -728,6 +728,39 @@ def render(patient_dir: str, run_id: str, json_mode: bool) -> None:
     _emit({"ok": True, "delivery_dir": str(delivery)}, json_mode)
 
 
+@main.command(
+    name="deliver",
+    help=(
+        "v2.2 P1-#16: atomic delivery — Henry audit + patient_plain_brief + "
+        "patient_pi_brief commit as ONE transaction. Partial failure rolls back."
+    ),
+)
+@click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
+@click.option("--run-id", required=True)
+@click.option("--dry-run", is_flag=True, help="Plan only; write nothing.")
+@click.option("--json", "json_mode", is_flag=True)
+def deliver(patient_dir: str, run_id: str, dry_run: bool, json_mode: bool) -> None:
+    """Run the v2.2 atomic delivery transaction.
+
+    On any failure the three artifacts (HENRY_AUDIT.json, patient_plain_brief.md,
+    patient_pi_brief.md) are rolled back together. ADR-0022 invariant.
+    """
+    from opl_cancer.glue.delivery_runner import (
+        DeliveryFailure,
+        run_atomic_delivery,
+    )
+
+    pdir = Path(patient_dir)
+    out_dir = pdir / "triggers" / run_id / "delivery"
+    try:
+        result = run_atomic_delivery(out_dir=out_dir, dry_run=dry_run)
+    except DeliveryFailure as exc:
+        # Emit structured failure, exit non-zero
+        _emit({"ok": False, "error": str(exc), "out_dir": str(out_dir)}, json_mode)
+        raise click.exceptions.Exit(2)
+    _emit({"ok": True, **result}, json_mode)
+
+
 # ─── ADR-0020: Evolution (post-mortem proposal generator) ─────────────────
 
 @main.command(
@@ -790,8 +823,8 @@ def status() -> None:
     click.echo(f"OPL for Cancer — v{VERSION}")
     click.echo(f"  Experts active: {len(ROSTER)} (Sid PI + Henry Auditor + {len(ROSTER)} named experts)")
     click.echo("  Wave runners ready: Wave1 / Wave2 / Wave3 / Wave4 / Wave5 (render)")
-    click.echo("  Integrators wired: 29 (NCCN / PubMed / CT.gov / ChiCTR / ISRCTN / EU-CTR / HKCTR / FDA-EAP / NMPA-EAP / EMA-EAP / RxNorm / GEO / Open Targets / Hartwig / BeatAML / ICGC / etc.)")
-    click.echo("  Mechanical gates: 27 (G1-G20 + G21 quantitative-anchor + G22 DDR-zygosity + G23 recency-band + G24 crisis-detection + v1.5 G25 deferred-evidence-block + G26 evidence-strength-ranking + G27 privacy-scrub)")
+    click.echo("  Integrators wired: 36 (29 v2.1 + v2.2 ADR-0022 bio-skills: MSIsensor / TMB-harmonization / SigProfiler / VarSome-ACMG / lifelines-KM / CPIC / PaperQA-full-text)")
+    click.echo("  Mechanical gates: 28 (G1-G27 + v2.2 G28 absolute_date — ADR-0022, P1-#15 LLM '5 weeks → 5 months' fix)")
     click.echo("  License: Apache-2.0")
     click.echo("  Read DISCLAIMER.md before use — not clinical decision support; not for emergencies.")
     click.echo(f"  Patient data root: {_patient_root()}")
