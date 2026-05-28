@@ -1,0 +1,130 @@
+# Expert Role Taxonomy — RFC 0001 §2.1 (v2.5 compositional foundation)
+#
+# An ExpertRole is a tuple (discipline × subspecialty × method_specialty
+#                            × bridging_role). The 20 v2.4 named personas
+# become FAST_PATH_ROLES entries in role_taxonomy.py — references into this
+# enumeration.
+#
+# v2.5 seeds ≥ 30 values per axis; M2 expands and adds LLM curation.
+
+discipline:
+  - oncology
+  - pathology
+  - radiology
+  - radiation_oncology
+  - interventional_oncology
+  - hematology
+  - palliative_care
+  - infectious_disease
+  - endocrinology
+  - pharmacology
+  - clinical_pharmacology
+  - bioinformatics
+  - statistics
+  - molecular_biology
+  - medicinal_chemistry
+  - traditional_chinese_medicine
+  - nutrition
+  - genetics
+  - clinical_genetics
+  - medical_oncology
+  - surgical_oncology
+  - psycho_oncology
+  - regulatory_affairs
+  - cross_border_medicine
+  - meta_research
+  - clinical_trial_methodology
+  - knowledge_graph_reasoning
+  - wet_lab_biology
+  - public_health
+  - precision_medicine
+  - neuro_oncology
+  - pediatric_oncology
+
+subspecialty:
+  # surgical / clinical
+  - surgical_pathology
+  - molecular_pathology
+  - cytopathology
+  - solid_tumor_oncology
+  - hematologic_oncology
+  - GI_radiation
+  - HCC_TARE
+  - early_integrated_palliative_care
+  - neutropenic_fever
+  - irAE_endocrine
+  - DDI_ADME
+  - cross_border_us_cn_hk
+  - expanded_access
+  # imaging
+  - oncologic_imaging
+  - functional_imaging
+  # bio / -omics
+  - single_cell_genomics
+  - cancer_genomics
+  - germline_variant_classification
+  - TCM_oncology
+  - oncology_nutrition
+  # methods / methodology
+  - cochrane_systematic_review
+  - in_silico_drug_design
+  - generative_chemistry
+  - network_medicine
+  - knowledge_graph_synthesis
+  - bayesian_adaptive_trials
+  - regulatory_NMPA
+  - mouse_modeling
+  - cfDNA_liquid_biopsy
+  - pediatric_DIPG
+
+method_specialty:
+  - histomorphologic_diagnosis
+  - IHC_panel_interpretation
+  - NGS_variant_interpretation
+  - combination_chemotherapy_design
+  - phase_1_trial_design
+  - tumor_imaging_response
+  - tpmt_pharmacogenomics
+  - scRNAseq_reanalysis
+  - genetic_engineering_mouse_models
+  - meta_analysis_methodology
+  - radiation_dose_modeling
+  - interventional_embolization
+  - end_of_life_communication
+  - antifungal_stewardship
+  - irAE_workup_algorithm
+  - chinese_herbal_pharmacology
+  - macronutrient_oncology_planning
+  - acmg_amp_classification
+  - safe_drug_access_navigation
+  - cross_jurisdiction_referral
+  - network_propagation
+  - de_novo_molecule_design
+  - bayesian_decision_analysis
+  - regulatory_dossier_assembly
+  - kg_synergy_reasoning
+  - cohort_projection_n1
+
+bridging_role:
+  - patient_facing
+  - clinician_facing
+  - regulator_facing
+  - bench_to_bedside
+  - bedside_to_bench
+  - cross_border_coordinator
+  - kg_to_treatment_translator
+  - lab_design
+  - pi_advisor
+  - ethics_navigator
+  - access_navigator
+  - palliative_translator
+  - irAE_consultant
+  - imaging_radiologist
+  - oncology_nutritionist
+  - tcm_oncology_consultant
+  - meta_analysis_synthesizer
+  - precision_medicine_translator
+  - regulatory_translator
+  - in_silico_designer
+  - safety_advisor
+  - palliative_specialist
