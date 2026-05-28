@@ -333,6 +333,32 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
         except ProfileTriggerMismatch as exc:
             raise click.ClickException(str(exc)) from exc
     tasks, fired = maybe_expand_for_comorbid(base_tasks, profile_data, goal=goal)
+
+    # v2.5.1 B2 — route the verbatim goal through intake_router so unknown
+    # tasks (the c3195b66 AutoML / prognosis case) are routed to
+    # `unknown_task_intake` with a composed method DAG. The intake task is
+    # appended to Wave 1 alongside the comorbid expansion.
+    from opl_cancer.plan.intake_router import route_intake
+
+    intake_route = route_intake(goal, profile=profile_data)
+    intake_task: Task | None = None
+    # Only inject the unknown_task_intake task when the route is
+    # meaningfully populated — see Wave1Runner._apply_intake_router
+    # docstring for the same gating rule.
+    _is_substantive = bool(intake_route.decline_reasons) or len(intake_route.method_dag) >= 2
+    if intake_route.matched_task_package == "unknown_task_intake" and _is_substantive:
+        intake_task = Task(
+            id="t_intake",
+            expert="aviv",  # Aviv owns method-composition + N=1 framing
+            task_package="unknown_task_intake",
+            sub_goal=(
+                f"Compose method DAG for patient question; route per "
+                f"intake_router (matched={intake_route.matched_task_package})"
+            ),
+            dependencies=[],
+        )
+        tasks.append(intake_task)
+
     # v2.1 P0-#6: every emitted task_package must be a real file under
     # prompts/tasks/. Fail loud at emit, not silently at run.
     from opl_cancer.plan.task_validator import (
@@ -364,7 +390,19 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
             WaveAssignment(wave_number=4, task_ids=["t9"]),
         ],
     )
-    out_path.write_text(skeleton.model_dump_json(indent=2), encoding="utf-8")
+
+    # v2.5.1 B2 — persist the composed method DAG on the plan JSON.
+    # `Plan` (pydantic) does not yet model `method_dag` as a first-class
+    # field, so we re-serialise + inject. Downstream callers should read
+    # the plan via plain json.load() rather than `Plan.model_validate()`
+    # to see this extension; the SKILL main thread does both.
+    plan_payload = skeleton.model_dump(mode="json")
+    plan_payload["method_dag"] = list(intake_route.method_dag)
+    plan_payload["intake_route"] = intake_route.to_dict()
+    out_path.write_text(
+        json.dumps(plan_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     triggers_payload = [
         {"name": t.name, "rationale": t.rationale, "task_id": t.task.id, "expert": t.task.expert}
         for t in fired
@@ -377,6 +415,7 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
             "waves": 4,
             "tasks": len(tasks),
             "comorbid_expansion_triggers_fired": triggers_payload,
+            "intake_route": intake_route.to_dict(),
         },
         json_mode,
     )
