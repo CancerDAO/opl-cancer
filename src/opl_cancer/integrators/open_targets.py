@@ -78,6 +78,28 @@ query targetDiseaseAssoc($efo: String!, $sym: String!) {
 }
 """.strip()
 
+# v2.2 ADR-0022: detailed evidence query per (target × disease) — returns
+# datasource-level breakdown that Maya uses in Wave 1/2 to evaluate
+# hypothesis strength across orthogonal evidence sources.
+_QUERY_EVIDENCE_BY_DATASOURCE = """
+query targetEvidenceByDatasource($sym: String!, $efo: String!) {
+  target(approvedSymbol: $sym) {
+    id
+    approvedSymbol
+    evidences(efoIds: [$efo], size: 50) {
+      count
+      rows {
+        datasource
+        score
+        disease { id name }
+        drug { name }
+        literature
+      }
+    }
+  }
+}
+""".strip()
+
 
 class OpenTargetsIntegrator(Integrator):
     family = "F9"
@@ -96,9 +118,19 @@ class OpenTargetsIntegrator(Integrator):
                 )
             sym, efo = rest.split(":", 1)
             return await self._query_target_disease(sym.strip(), efo.strip())
+        # v2.2 ADR-0022 — evidence-by-datasource breakdown for Maya
+        if key.startswith("evidence:"):
+            rest = key[len("evidence:"):].strip()
+            if ":" not in rest:
+                raise IntegratorError(
+                    f"Open Targets: evidence:<symbol>:<EFO> required, got {key!r}"
+                )
+            sym, efo = rest.split(":", 1)
+            return await self._query_evidence_by_datasource(sym.strip(), efo.strip())
         raise IntegratorError(
             f"Open Targets: unrecognised key prefix {key!r} — "
-            "expected target:<id>, disease:<EFO>, or target_disease:<symbol>:<EFO>"
+            "expected target:<id>, disease:<EFO>, target_disease:<symbol>:<EFO>, "
+            "or evidence:<symbol>:<EFO>"
         )
 
     async def _post(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
@@ -185,4 +217,51 @@ class OpenTargetsIntegrator(Integrator):
                  "datasource_scores": r.get("datasourceScores") or []}
                 for r in rows
             ],
+        }
+
+    async def _query_evidence_by_datasource(
+        self, sym: str, efo: str
+    ) -> dict[str, Any]:
+        """v2.2 ADR-0022: per-datasource evidence breakdown for (target, disease).
+
+        Used by Maya in Wave 1/2 hypothesis tournaments — orthogonal datasource
+        agreement (chembl + genetics + literature + pathways all supporting
+        same target) raises the evidence-strength tier.
+        """
+        data = await self._post(
+            _QUERY_EVIDENCE_BY_DATASOURCE, {"sym": sym, "efo": efo}
+        )
+        t = data.get("target") or {}
+        if not t:
+            raise IntegratorError(
+                f"Open Targets: target {sym!r} not found for disease {efo!r}"
+            )
+        ev = (t.get("evidences") or {})
+        rows = ev.get("rows") or []
+        # Group by datasource
+        buckets: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            ds = row.get("datasource") or "unknown"
+            b = buckets.setdefault(
+                ds, {"datasource": ds, "row_count": 0, "max_score": 0.0, "samples": []}
+            )
+            b["row_count"] += 1
+            score = row.get("score") or 0.0
+            if score > b["max_score"]:
+                b["max_score"] = float(score)
+            if len(b["samples"]) < 3:
+                b["samples"].append(
+                    {
+                        "score": score,
+                        "drug": (row.get("drug") or {}).get("name"),
+                        "literature": row.get("literature") or [],
+                    }
+                )
+        return {
+            "symbol": t.get("approvedSymbol") or sym,
+            "ensembl": t.get("id"),
+            "disease_efo": efo,
+            "total_evidence_count": ev.get("count", len(rows)),
+            "evidence_by_datasource": list(buckets.values()),
+            "orthogonal_source_count": len(buckets),
         }

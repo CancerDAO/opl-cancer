@@ -23,8 +23,41 @@ from opl_cancer.compute.native_runner import NativeAnalysisRunner
 from opl_cancer.compute.runner import BixbenchRunner
 from opl_cancer.experts._common import LLMBackedExpert
 from opl_cancer.glue.progress_reporter import ProgressReporter
+from opl_cancer.integrators.paperqa_full_text import (
+    CalibrationProvenance,
+    classify_calibration_provenance,
+)
 from opl_cancer.provenance.hasher import hash_claim
 from opl_cancer.provenance.journal import ProvenanceJournal
+
+
+def record_monte_carlo_calibration(
+    *,
+    parameter_name: str,
+    value: float,
+    extracted_quote: str | None,
+    was_from_full_text: bool,
+    used_default: bool = False,
+    pmid_anchor: str | None = None,
+) -> dict[str, Any]:
+    """v2.2 P1-#10 helper — call this from any Wave-3 Monte Carlo / model
+    fit site that uses a literature-anchored parameter. Returns a record
+    suitable for inclusion in ``analysis_runs[i].calibration[]``.
+
+    Provenance is one of: paper_derived / informed_estimate / literature_default.
+    """
+    provenance = classify_calibration_provenance(
+        extracted_quote=extracted_quote,
+        was_from_full_text=was_from_full_text,
+        used_default=used_default,
+    )
+    return {
+        "parameter_name": parameter_name,
+        "value": value,
+        "parameter_calibration": provenance.value,
+        "extracted_quote": extracted_quote,
+        "pmid_anchor": pmid_anchor,
+    }
 
 
 # Type alias — Wave 3 accepts either compute runner. They share the

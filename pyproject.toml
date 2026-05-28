@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "opl-cancer"
-version = "2.1.0"
+version = "2.2.0"
 description = "Open-source AI scientist team skill plugin for cancer patients — installed via npx skills add CancerDAO/opl-cancer-skill"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -33,6 +33,15 @@ dev = [
     "respx>=0.21",
     "freezegun>=1.5",
     "types-PyYAML>=6.0",
+]
+
+# v2.2 ADR-0022: heavy bio-skill dependencies. Optional — most workflows
+# work in mock-mode without these. Install via: `pip install opl-cancer[bio]`.
+bio = [
+    "lifelines>=0.27",
+    "matplotlib>=3.7",
+    # SigProfilerAssignment downloads ~1.5 GB on first run — opt-in only.
+    # "SigProfilerAssignment>=0.0.30",
 ]
 
 [tool.pytest.ini_options]
