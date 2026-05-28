@@ -19,13 +19,63 @@ def test_cli_status_runs() -> None:
     #   - SKILL.md Step 4: TNBC + LM planner row
     #   - cli.py acknowledge --batch ack-batch UX + ack_consolidation_card
     assert "OPL for Cancer" in r.output
-    assert "v2.2.0" in r.output  # v2.2.0 Equipped Experts release (ADR-0022)
+    assert "v2.3.0" in r.output  # v2.3.0 Wave 6 Manuscript + .n1a (ADR-0023)
     # v2.0.0 (ADR-0010): roster expanded 18 → 20 with Maya + Julius
     assert "Experts active: 20" in r.output
-    # v2.2 (ADR-0022): G28 absolute_date added (P1-#15 LLM 5wk/5mo fix). 27 → 28.
-    assert "Mechanical gates: 28" in r.output
+    # v2.3 (ADR-0023): G29-G33 added (Wave 6 manuscript invariants). 28 → 33.
+    assert "Mechanical gates: 33" in r.output
     # v2.2 (ADR-0022): +7 bio-skill integrators (MSI/TMB/SigProfiler/ACMG/KM/CPIC/PaperQA-FT)
     assert "Integrators wired: 36" in r.output
+    # v2.3 (ADR-0023): Wave 6 manuscript+.n1a wave runner.
+    assert "Wave6" in r.output
+
+
+def test_cli_wave6_help_lists_command() -> None:
+    """The `opl wave6` command must be in the help output."""
+    r = CliRunner().invoke(main, ["--help"])
+    assert r.exit_code == 0
+    assert "wave6" in r.output
+
+
+def test_cli_wave6_refuses_without_wave5(tmp_path: Path) -> None:
+    """`opl wave6` must fail with exit_code 2 when Wave 5 outputs missing."""
+    patient_dir = tmp_path / "patient"
+    (patient_dir / "triggers" / "abc").mkdir(parents=True)
+    r = CliRunner().invoke(
+        main,
+        [
+            "wave6",
+            "--patient-dir", str(patient_dir),
+            "--run-id", "abc",
+            "--patient-code", "cli-test",
+            "--final",
+            "--json",
+        ],
+    )
+    assert r.exit_code == 2
+    assert "wave5_prerequisite_missing" in r.output
+
+
+def test_cli_wave6_dry_run_returns_plan(tmp_path: Path) -> None:
+    """`opl wave6 --dry-run` returns the planned steps without writing disk."""
+    patient_dir = tmp_path / "patient"
+    run_dir = patient_dir / "triggers" / "abc"
+    run_dir.mkdir(parents=True)
+    (run_dir / "patient_plain_brief.md").write_text("p", encoding="utf-8")
+    (run_dir / "patient_pi_brief.md").write_text("p", encoding="utf-8")
+    r = CliRunner().invoke(
+        main,
+        [
+            "wave6",
+            "--patient-dir", str(patient_dir),
+            "--run-id", "abc",
+            "--patient-code", "cli-test",
+            "--dry-run",
+            "--json",
+        ],
+    )
+    assert r.exit_code == 0
+    assert "dry_run" in r.output
 
 
 def test_cli_init_patient_runs(tmp_path: Path) -> None:
