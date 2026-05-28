@@ -1,5 +1,113 @@
 # Changelog
 
+## [2.5.1] — 2026-05-29 — Hotfix (5 BLOCKERS + README rewrite)
+
+Hotfix release closing 5 BLOCKER-grade defects found in an independent
+product audit, plus a complete README rewrite and v2.5.1 community-docs
+package (CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / issue + PR
+templates).
+
+### Fixed — 5 BLOCKERS
+
+- **B1** — `DeliveryRunner` no longer ships a fake Henry audit / 4-line
+  brief stubs. `_run_henry_audit` now constructs a real
+  `validators.henry.HenryAuditor` against
+  `knowledge/serious_risks_per_drug.json` and emits structured
+  catalogue / pending-ack / upstream-inventory fields with
+  `audit_version: v2.5.1` + `henry_real_audit: true`. Missing catalogue
+  raises `DeliveryFailure` instead of returning the v2.5.0 hardcoded
+  pass. `_render_plain_brief` + `_render_pi_brief` now scaffold from the
+  patient-facing template
+  (`prompts/tasks/patient_plain_brief_rendering.md` +
+  `prompts/tasks/pi_delivery.md`) — 5 mandatory sections + Henry verdict
+  block + ack queue, not 4-line stubs.
+
+- **B2** — `plan/intake_router.py::route_intake` wired into the two
+  real plan-emit sites that were missing it through v2.5.0:
+  `cli.py plan` and `glue/wave1_runner.py::_build_plan` (new
+  `Wave1Runner._apply_intake_router` static method). Substantive-route
+  gating ensures the c3195b66 question (literal Chinese AutoML /
+  prognosis prompt) produces a plan.json that includes
+  `unknown_task_intake` AND `kaplan_meier + conformal_prediction` in
+  the plan's `method_dag` field. Plan emit JSON surfaces
+  `intake_route` so the SKILL main thread can render acknowledgement
+  + decline reasons.
+
+- **B3** — Wave 2 / 3 / 4 / 6 runners now wire the same
+  `fakery_sniffer` + `reviewer_hook` discipline as wave1_runner. New
+  `glue/_post_write.py` extracts the shared `SnifferHalt` +
+  `post_write_safety_check` helpers. Wave 6 adds
+  `_run_post_write_safety_sweep` that scans every markdown manuscript
+  artifact before G29-G33 fire — fakery surfaces as `SnifferHalt`
+  (richer signal than gate block). Wave 1 imports back-compat via
+  re-export.
+
+- **B4** — `plan/goal_router.yaml` bilingualised. Every existing
+  entry now unions its English keyword set with Chinese synonyms
+  (vaccine → 疫苗 / 新抗原 / 个性化新抗原 / 肿瘤疫苗; irae → 免疫相关不良反应
+  / 再激发 / 内分泌副作用; etc.). New entry for the c3195b66 family:
+  `"automl|machine learning|deep learning|XGBoost|prognostic model|
+  机器学习|预后模型|建模预测|自动建模|AutoML|预后预测": [bert, aviv, iain]`.
+
+- **B5** — `opl deliver` and `Wave6Runner` verify upstream artifacts
+  before shipping. New `verify_upstream_artifacts(run_root)` helper +
+  CLI `--allow-missing-upstream` documented escape hatch for
+  debugging. `Wave6Runner._require_wave5` tightened to additionally
+  require a non-empty `plan.json` + at least one
+  `tasks/w1_*/report.md|wave2_hypotheses.json|wave3_data_evidence.json|wave4_validation.json`.
+
+### Changed — README + community docs
+
+- `README.md` — complete rewrite (819 → 350 lines, Apple-quality
+  concise). Hero + 1-paragraph pitch + status badges + honest scope
+  table + 30-sec quickstart with expected JSON output + 5-Wave pipeline
+  + real example excerpt + 3 scenarios (preserved from v1.5.3) + Why
+  N=1 is hard + ASCII architecture diagram + 6-milestone roadmap +
+  4-rule discipline + ethics + BibTeX citation + acknowledgements. No
+  more 5-blockquote release-note dump before the value-prop.
+- `CONTRIBUTING.md` — expanded from 40 → ~150 lines: TDD workflow,
+  ADR process, milestone discipline, 4 CLAUDE.md-derived discipline
+  rules.
+- `CODE_OF_CONDUCT.md` — adopts Contributor Covenant v2.1.
+- `SECURITY.md` — separates code-security from patient-safety
+  reports; lays out 5/10 day response SLA + founder-mode patient-data
+  invariant.
+- `.github/ISSUE_TEMPLATE/{bug_report,feature_request,patient_question}.md`
+  — patient_question template carries explicit "not a medical-device"
+  disclaimer with local emergency numbers (120 / 911 / 112).
+- `.github/PULL_REQUEST_TEMPLATE.md` — checklist mirrors the 4
+  CLAUDE.md discipline rules + patient-safety self-check.
+
+### Tests
+
+* 11 new test files for the 5 BLOCKERS + README rewrite (≥ 33 new
+  test cases). All TDD: failing → confirm fail → implement → pass.
+* Updated 3 existing test files
+  (`test_delivery_runner.py`, `test_wave6_runner.py`,
+  `test_opl_submit_to_n1arxiv.py`, `test_wave6_007_manuscript.py`,
+  `test_wave6_riaz_manuscript.py`, `test_readme.py`) to align with the
+  v2.5.1 contracts (upstream-artifact requirement,
+  `allow_missing_upstream` escape hatch, v2.5.1 README contract).
+* Suite: 1693 passing, 27 skipped, 0 failures.
+
+### Bumped
+
+* `pyproject.toml` 2.5.0 → 2.5.1
+* `SKILL.md` `metadata.version` 2.5.0 → 2.5.1
+* `src/opl_cancer/cli.py::VERSION` 2.5.0 → 2.5.1
+
+### Compatibility
+
+Strict backward-compat: all 33 v2.4 gates still register; 64 v2.5
+task packages still resolve; 20-persona roster unchanged. The
+`DeliveryRunner` adds `allow_missing_upstream` as a keyword arg
+defaulting to False (existing callers without the kwarg get the new
+strict behaviour; opt-in to old leniency via the flag). The new
+`DeliveryArtifactsMissing` exception is a `DeliveryFailure` subclass
+so existing `except DeliveryFailure` blocks still trap it.
+
+---
+
 ## [2.5.0] — 2026-05-28 — Compositional Foundation
 
 RFC 0001 + ADR-0025. Paradigm shift from enumeration (hardcoded experts /

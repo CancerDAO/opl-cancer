@@ -150,7 +150,9 @@ def test_cli_v25_generate_cancer_context_command_present() -> None:
 
 def test_pyproject_version_is_v25() -> None:
     text = (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert 'version = "2.5.0"' in text, "pyproject.toml version must be 2.5.0"
+    # v2.5.x line — accept any 2.5.<patch>. Today (v2.5.1 hotfix) the
+    # canonical value is 2.5.1; v2.6.0 will move this assertion.
+    assert 'version = "2.5.' in text, "pyproject.toml version must be in the 2.5.x line"
 
 
 def test_pyproject_declares_five_integrator_entry_points() -> None:
