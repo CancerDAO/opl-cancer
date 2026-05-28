@@ -1,0 +1,22 @@
+# OPL v2.1 P0-#4: goal → expert routing table.
+#
+# Each entry's key is a Python regex (compiled with re.IGNORECASE). The
+# pattern is matched against the verbatim patient goal text; on a hit the
+# listed experts are added to the planner's task list at expansion time.
+#
+# Keep patterns tight (anchored with word boundaries where possible) — false
+# positives here pull non-relevant experts onto the team and slow Wave 1.
+#
+# ADR-0021 invariant: the router supplements the comorbid_planner trigger
+# expansion; it does NOT replace it. Both run.
+keywords:
+  "vaccine|neoantigen|TCR-T":      [tyler, frances, maya, julius, mark]
+  "irae|rechallenge|endocrine_AE": [mark, mary]
+  "cross_border|expanded_access":   [dennis, frances]
+  "metastatic_resistance":          [bert, julius, maya]
+  "MSI-H|MSS|mismatch_repair":      [bert]
+  "TMB|mutational_burden":          [bert]
+  "HRD|BRCA|platinum_sensitivity":  [bert]
+  "germline|hereditary|BRCA1|BRCA2": [bert]
+  "DPYD|TPMT|UGT1A1|CYP2D6":         [mary]
+  "ctDNA|MRD":                       [bert, aviv]
