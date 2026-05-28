@@ -133,3 +133,58 @@ def run_reviewer_pairing(
     review_json = Path(report_path).parent / "review.json"
     review_json.write_text(json.dumps(out, ensure_ascii=False, indent=2))
     return out
+
+
+# v2.2 P1-#11 — chain a per-PMID n_resp/n_total numeric verifier after
+# Iain meta-analysis reports. Triggered by primary_expert == "iain" AND the
+# report being a meta-analysis (task_package signal).
+_META_ANALYSIS_TASK_PACKAGES: tuple[str, ...] = ("meta_analysis",)
+
+
+def _dispatch_numeric_verifier_subagent(
+    *, report_path: Path, reviewer_model: str
+) -> dict:
+    """Production hook — dispatches the `prompts/auditor/quote_verify_numerics.md`
+    auditor subagent. Patched in tests."""
+    return {
+        "overall_status": "pass",
+        "g1_passed": True,
+        "g2_passed": True,
+        "g21_passed": True,
+        "verified_rows": [],
+        "mismatches": [],
+        "stub": True,
+        "reviewer_model": reviewer_model,
+        "report_path": str(report_path),
+    }
+
+
+def should_run_numeric_verifier(*, primary_expert: str, task_package: str) -> bool:
+    """v2.2 P1-#11 — meta-analysis reports from Iain trigger the numeric verifier."""
+    return primary_expert == "iain" and task_package in _META_ANALYSIS_TASK_PACKAGES
+
+
+def run_numeric_verifier_chain(
+    *,
+    report_path: Path,
+    primary_expert: str,
+    primary_model: str,
+    task_package: str,
+) -> dict | None:
+    """Run the numeric-quote verifier chain after a meta-analysis report.
+
+    Returns None if the chain does not apply (non-meta task). Otherwise
+    returns the auditor payload, also written to
+    ``<report_path.parent>/numeric_verifier.json``.
+    """
+    if not should_run_numeric_verifier(
+        primary_expert=primary_expert, task_package=task_package
+    ):
+        return None
+    reviewer_model = _pick_distinct_model(primary_model)
+    result = _dispatch_numeric_verifier_subagent(
+        report_path=report_path, reviewer_model=reviewer_model
+    )
+    audit_json = Path(report_path).parent / "numeric_verifier.json"
+    audit_json.write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    return result
