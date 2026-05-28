@@ -33,8 +33,10 @@ _PMID_ANCHOR_RE = re.compile(
     r"\[PMID\s*:\s*\d{4,9}\](?:\s*[.;:,?!\)\]])*\s*$",
     re.IGNORECASE,
 )
+# run_id is hex SHA-256 in production but allow any alphanumeric token
+# so test fixtures + reference-case bundles can use human-readable IDs.
 _INTEGRATOR_ANCHOR_RE = re.compile(
-    r"\[integrator\s*:\s*[A-Za-z0-9_.\-]+\s+run_id\s*:\s*[A-Fa-f0-9]+\](?:\s*[.;:,?!\)\]])*\s*$",
+    r"\[integrator\s*:\s*[A-Za-z0-9_.\-]+\s+run_id\s*:\s*[A-Za-z0-9_\-]+\](?:\s*[.;:,?!\)\]])*\s*$",
     re.IGNORECASE,
 )
 # `[BACKGROUND]` tag exempts a claim sentence from PMID anchoring. To be
