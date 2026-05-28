@@ -12,6 +12,7 @@ from typing import Any
 import httpx
 import yaml
 
+from ._abc import IntegratorABC
 from .base import Integrator, IntegratorError
 
 
@@ -35,9 +36,39 @@ def _flatten(study: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-class ClinicalTrialsGovIntegrator(Integrator):
+class ClinicalTrialsGovIntegrator(Integrator, IntegratorABC):
+    """v2.5 RFC 0001 §2.4 — first proof-of-protocol multi-inheritor.
+
+    Inherits both:
+    - v2.4 ``Integrator`` (cached fetch + TTL + family) — unchanged behaviour
+    - v2.5 ``IntegratorABC`` (query / normalize / provenance protocol)
+    """
+
     family = "F3"
     ttl_seconds = 24 * 3600  # spec §17.5 P2: CT.gov 1-day TTL
+    id = "clinicaltrials"  # v2.5 entry-point name
+
+    # ─── v2.5 IntegratorABC ────────────────────────────────────────────
+    def query(self, key: str) -> Any:
+        """Delegate to the (async) fetch chain; sync callers can `asyncio.run`."""
+        import anyio
+
+        return anyio.run(self.fetch, key)
+
+    def normalize(self, raw: Any) -> dict[str, Any]:
+        """CT.gov flat dict — already normalized by ``_flatten``."""
+        if isinstance(raw, dict):
+            return raw
+        return {"value": raw}
+
+    def provenance(self) -> dict[str, Any]:
+        return {
+            "integrator": "clinicaltrials.gov",
+            "endpoint": _BASE,
+            "family": self.family,
+            "ttl_seconds": self.ttl_seconds,
+            "version": "v2",
+        }
 
     async def fetch(self, key: str) -> dict[str, Any]:
         if key.startswith("NCT:"):
