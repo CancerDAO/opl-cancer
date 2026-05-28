@@ -291,6 +291,19 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
         except ProfileTriggerMismatch as exc:
             raise click.ClickException(str(exc)) from exc
     tasks, fired = maybe_expand_for_comorbid(base_tasks, profile_data, goal=goal)
+    # v2.1 P0-#6: every emitted task_package must be a real file under
+    # prompts/tasks/. Fail loud at emit, not silently at run.
+    from opl_cancer.plan.task_validator import (
+        UnknownTaskPackage,
+        validate_task_packages,
+    )
+    try:
+        validate_task_packages([
+            {"task_id": t.id, "expert": t.expert, "task_package": t.task_package}
+            for t in tasks
+        ])
+    except UnknownTaskPackage as exc:
+        raise click.ClickException(str(exc)) from exc
     expanded_task_ids = [t.id for t in tasks if t.id not in {b.id for b in base_tasks}]
     # Newly-added tasks all go to Wave 1 (retrieval) by default — the
     # LLM-driven planner in v1.6 will redistribute. Heddy + Frances +
