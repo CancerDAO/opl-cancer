@@ -199,9 +199,81 @@ class FigureRenderIntegrator(Integrator):
         )
 
 
+def watermark_png(
+    *,
+    in_path: Path,
+    out_path: Path,
+    banner_text: str,
+    alpha: float = 0.4,
+) -> dict[str, Any]:
+    """v2.3 P2-#18 — overlay a diagonal banner watermark on a PNG.
+
+    Re-loads the PNG, draws a translucent diagonal text overlay
+    (e.g. ``[METHODOLOGY DEMONSTRATION — NOT REAL PATIENT]``), and
+    writes the result. Used by the Wave 6 bundle pipeline when the
+    data_source is not ``real_patient`` so PDF readers cannot miss the
+    framing. Original ``in_path`` is unchanged.
+    """
+    in_path = Path(in_path)
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    img = plt.imread(in_path)
+    h, w = img.shape[:2]
+    fig, ax = plt.subplots(figsize=(max(w, 1) / 100, max(h, 1) / 100), dpi=100)
+    ax.imshow(img)
+    ax.axis("off")
+    ax.text(
+        0.5, 0.5, banner_text,
+        transform=ax.transAxes,
+        ha="center", va="center",
+        fontsize=24, color="red", alpha=alpha,
+        rotation=30, weight="bold",
+    )
+    fig.savefig(out_path, dpi=100, bbox_inches="tight", pad_inches=0)
+    plt.close(fig)
+    return _record(out_path)
+
+
+def watermark_directory(
+    *,
+    figures_dir: Path,
+    banner_text: str,
+    suffix: str = "_watermarked",
+) -> list[dict[str, Any]]:
+    """Apply ``watermark_png`` to every ``fig_*.png`` in ``figures_dir``.
+
+    Returns a list of output records. Watermark output files are named
+    ``fig_<N><suffix>.png`` so the original ``fig_<N>.png`` stays
+    untouched (G31 still finds the reproducer/PNG pair).
+    """
+    figures_dir = Path(figures_dir)
+    out: list[dict[str, Any]] = []
+    if not figures_dir.is_dir():
+        return out
+    for entry in sorted(figures_dir.iterdir()):
+        if not entry.is_file():
+            continue
+        if not entry.name.startswith("fig_") or not entry.name.endswith(".png"):
+            continue
+        if suffix in entry.stem:
+            continue  # already a watermark — never re-process
+        stem = entry.stem
+        out_path = figures_dir / f"{stem}{suffix}.png"
+        # Idempotent: skip if the corresponding watermark already exists.
+        if out_path.is_file():
+            continue
+        record = watermark_png(
+            in_path=entry, out_path=out_path, banner_text=banner_text
+        )
+        out.append(record)
+    return out
+
+
 __all__ = [
     "FigureRenderIntegrator",
     "render_km_curve",
     "render_forest_plot",
     "render_monte_carlo_trajectory",
+    "watermark_png",
+    "watermark_directory",
 ]

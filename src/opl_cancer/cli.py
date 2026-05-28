@@ -24,7 +24,7 @@ from opl_cancer.compute.native_runner import NativeAnalysisRunner
 from opl_cancer.compute.runner import BixbenchRunner
 from opl_cancer.experts.roster import ROSTER
 
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 DEFAULT_PATIENT_ROOT_ENV = "OPL_PATIENT_DATA_ROOT"
 DEFAULT_PATIENT_ROOT = Path.home() / "CancerDAO" / "patients"
 
@@ -761,6 +761,66 @@ def deliver(patient_dir: str, run_id: str, dry_run: bool, json_mode: bool) -> No
     _emit({"ok": True, **result}, json_mode)
 
 
+# ─── v2.3 ADR-0023: Wave 6 manuscript + .n1a bundle ───────────────────────
+
+@main.command(
+    name="wave6",
+    help=(
+        "v2.3 Wave 6: render the manuscript + emit the .n1a bundle. "
+        "Refuses if Wave 5 has not shipped patient_plain_brief + "
+        "patient_pi_brief. ADR-0023."
+    ),
+)
+@click.option("--patient-dir", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
+@click.option("--run-id", required=True)
+@click.option("--patient-code", required=True, help="Human-readable patient identifier (hashed for the manifest).")
+@click.option("--draft/--final", default=False, help="Draft mode scaffolds stubs; final mode blocks on any G29-G33 gate failure.")
+@click.option(
+    "--data-source",
+    type=click.Choice(["real_patient", "reference_case", "synthetic", "methodology_demo"]),
+    default="real_patient",
+    help="Banner is auto-stamped for non-real_patient.",
+)
+@click.option("--extends-prior-run", default=None, help="Override prior-run auto-detect (P2-#17).")
+@click.option("--dry-run", is_flag=True, help="Return planned steps only.")
+@click.option("--json", "json_mode", is_flag=True)
+def wave6(
+    patient_dir: str,
+    run_id: str,
+    patient_code: str,
+    draft: bool,
+    data_source: str,
+    extends_prior_run: str | None,
+    dry_run: bool,
+    json_mode: bool,
+) -> None:
+    """CLI surface for the Wave 6 runner."""
+    from opl_cancer.glue.wave6_runner import (
+        Wave6Failure,
+        Wave6PrerequisiteError,
+        run_wave6,
+    )
+
+    mode = "dry_run" if dry_run else ("draft" if draft else "final")
+    try:
+        result = run_wave6(
+            patient_dir=Path(patient_dir),
+            run_id=run_id,
+            patient_code=patient_code,
+            opl_version=VERSION,
+            data_source=data_source,
+            extends_prior_run=extends_prior_run,
+            mode=mode,
+        )
+    except Wave6PrerequisiteError as exc:
+        _emit({"ok": False, "error": "wave5_prerequisite_missing", "detail": str(exc)}, json_mode)
+        raise click.exceptions.Exit(2)
+    except Wave6Failure as exc:
+        _emit({"ok": False, "error": "wave6_failed", "detail": str(exc)}, json_mode)
+        raise click.exceptions.Exit(3)
+    _emit({"ok": True, **result}, json_mode)
+
+
 # ─── ADR-0020: Evolution (post-mortem proposal generator) ─────────────────
 
 @main.command(
@@ -822,9 +882,9 @@ def evolve(run_dir: str, iter_n: int, max_proposals: int, json_mode: bool) -> No
 def status() -> None:
     click.echo(f"OPL for Cancer — v{VERSION}")
     click.echo(f"  Experts active: {len(ROSTER)} (Sid PI + Henry Auditor + {len(ROSTER)} named experts)")
-    click.echo("  Wave runners ready: Wave1 / Wave2 / Wave3 / Wave4 / Wave5 (render)")
+    click.echo("  Wave runners ready: Wave1 / Wave2 / Wave3 / Wave4 / Wave5 (render) / Wave6 (manuscript+.n1a)")
     click.echo("  Integrators wired: 36 (29 v2.1 + v2.2 ADR-0022 bio-skills: MSIsensor / TMB-harmonization / SigProfiler / VarSome-ACMG / lifelines-KM / CPIC / PaperQA-full-text)")
-    click.echo("  Mechanical gates: 28 (G1-G27 + v2.2 G28 absolute_date — ADR-0022, P1-#15 LLM '5 weeks → 5 months' fix)")
+    click.echo("  Mechanical gates: 33 (G1-G27 + v2.2 G28 + v2.3 G29-G33 — ADR-0023 Wave 6 manuscript invariants)")
     click.echo("  License: Apache-2.0")
     click.echo("  Read DISCLAIMER.md before use — not clinical decision support; not for emergencies.")
     click.echo(f"  Patient data root: {_patient_root()}")

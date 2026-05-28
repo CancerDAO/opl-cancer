@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/CancerDAO/opl-cancer/schemas/n1a_bundle.v0.1.schema.json",
+  "title": "OPL .n1a bundle manifest (v0.1)",
+  "description": "Manifest schema for a Wave-6 .n1a bundle. ADR-0023. Mirrored to CancerDAO/n1arxiv in v2.4.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "opl_version",
+    "patient_id_hash",
+    "generated_at",
+    "data_source",
+    "file_index",
+    "sha256s"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1",
+      "description": "n1a bundle schema version."
+    },
+    "opl_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+",
+      "description": "Version of opl-cancer that produced this bundle."
+    },
+    "patient_id_hash": {
+      "type": "string",
+      "minLength": 8,
+      "description": "SHA-256 hex (truncated OK) of the patient_code. Never the raw patient_code."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp at the moment the bundle was packed."
+    },
+    "run_id": {
+      "type": "string",
+      "description": "OPL run_id this bundle was packed from."
+    },
+    "data_source": {
+      "type": "string",
+      "enum": ["real_patient", "reference_case", "synthetic", "methodology_demo"],
+      "description": "Classifier for the underlying input. Non-real_patient values force the bundle's banner / watermark (P2-#18)."
+    },
+    "file_index": {
+      "type": "array",
+      "description": "Ordered list of relative file paths included in the bundle.",
+      "items": {"type": "string"},
+      "minItems": 1
+    },
+    "sha256s": {
+      "type": "object",
+      "description": "Mapping from relative file path -> SHA-256 hex digest.",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-fA-F0-9]{64}$"
+      }
+    },
+    "cost_summary": {
+      "type": "object",
+      "description": "Aggregated session cost (P2-#20). May be empty if cost_tracker was disabled.",
+      "additionalProperties": true,
+      "properties": {
+        "total_usd": {"type": "number", "minimum": 0},
+        "tokens_input": {"type": "integer", "minimum": 0},
+        "tokens_output": {"type": "integer", "minimum": 0},
+        "by_model": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["model", "calls", "usd"],
+            "properties": {
+              "model": {"type": "string"},
+              "calls": {"type": "integer", "minimum": 0},
+              "usd": {"type": "number", "minimum": 0}
+            }
+          }
+        },
+        "by_wave": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["wave", "calls", "usd"],
+            "properties": {
+              "wave": {"type": "string"},
+              "calls": {"type": "integer", "minimum": 0},
+              "usd": {"type": "number", "minimum": 0}
+            }
+          }
+        },
+        "by_expert": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["expert", "calls", "usd"],
+            "properties": {
+              "expert": {"type": "string"},
+              "calls": {"type": "integer", "minimum": 0},
+              "usd": {"type": "number", "minimum": 0}
+            }
+          }
+        }
+      }
+    },
+    "henry_audit_summary": {
+      "type": "object",
+      "description": "Mirror of HENRY_AUDIT.json status field for quick CI inspection.",
+      "additionalProperties": true
+    },
+    "extends_prior_run": {
+      "type": ["string", "null"],
+      "description": "P2-#17 prior-run ingestion: run_id of the prior MTB / OPL run this manuscript extends, if any."
+    },
+    "banner": {
+      "type": ["string", "null"],
+      "description": "Optional banner string for non-real_patient bundles, e.g. '[METHODOLOGY DEMONSTRATION — NOT REAL PATIENT]'."
+    }
+  }
+}

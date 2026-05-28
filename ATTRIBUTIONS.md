@@ -3,7 +3,49 @@
 OPL for Cancer is Apache-2.0 licensed (see `LICENSE`). It vendors and adapts
 material from a number of open-source upstreams; this file lists every
 upstream credit. See `docs/adr/0022-bio-skills-vendoring.md` for the
-governance + scope-boundary rationale.
+v2.2 bio-skills governance rationale, and
+`docs/adr/0023-wave6-manuscript-and-n1a-bundle.md` for the v2.3 Wave 6
++ `.n1a` rationale.
+
+---
+
+## v2.3.0 — Wave 6 Manuscript + `.n1a` Bundle (2026-05-28)
+
+### Leey21 / awesome-ai-research-writing
+
+* Upstream: <https://github.com/Leey21/awesome-ai-research-writing>
+  (25.9K stars — widely-used research-writing prompt collection)
+* License: **license-pending-upstream-grant** — we have opened a
+  request issue with the upstream for explicit MIT or CC0 grant;
+  fallback if no response by v2.4 ship: rewrite borrowed prompts
+  from scratch. The borrowed prompts as shipped in v2.3 are
+  **paraphrased + oncology-adapted**, not verbatim, which we
+  understand to be transformative use; but the explicit license
+  grant is still pending.
+* Borrowed prompts (4): (1) Zh→En LaTeX translation prompt
+  (adapted for the introduction's bilingual framing where present),
+  (2) general polish prompt (adapted into the abstract self-check
+  loop), (3) chart-type recommendation prompt (adapted into
+  `figure_caption.md`'s figure-type-specific rules), (4)
+  reviewer-style critique prompt 16 (inverted and adapted into
+  `manuscript_discussion.md`'s mechanistic-interpretation framing).
+* Each borrow is acknowledged in the corresponding task-package
+  frontmatter via `source_skill:` + `original_license:` fields.
+
+### Tool chain credits (v2.3 additions)
+
+* **jsonschema (Python)** — Berman 2024;
+  <https://github.com/python-jsonschema/jsonschema>. MIT.
+  Used by `n1a_bundle_writer` to validate the manifest against
+  `schemas/n1a_bundle.v0.1.schema.json` before zipping.
+* **zipfile (Python stdlib)** — used by `n1a_bundle_writer` to pack
+  the bundle. No external dep; Python license.
+
+The Wave 6 manuscript task packages (`manuscript_introduction`,
+`_methods`, `_results`, `_discussion`, `_limitations`, `_abstract`,
+`citation_assembly`, `figure_caption`) are otherwise original
+authoring by the OPL maintainers, with each frontmatter declaring
+either `source_skill: original` or the specific upstream borrow.
 
 ---
 

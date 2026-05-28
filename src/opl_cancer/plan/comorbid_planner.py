@@ -362,6 +362,36 @@ def _goal_routed_triggers(
     return triggers
 
 
+def maybe_attach_prior_run(
+    profile: dict[str, Any],
+    patient_dir: Any = None,  # Path | str | None
+    current_run_id: str | None = None,
+) -> str | None:
+    """v2.3 P2-#17 — peek at prior runs and return the latest prior run_id.
+
+    The caller (planner / CLI) can carry this into the Plan metadata as
+    ``extends_prior_run`` and propagate it down to Wave 6 manuscript
+    framing ("this report extends prior MTB run X").
+
+    Returns None if ``patient_dir`` is missing or no prior runs are
+    present. The profile is read only for the optional
+    ``patient_dir_override`` field.
+    """
+    if patient_dir is None:
+        patient_dir = profile.get("patient_dir_override")
+    if patient_dir is None:
+        return None
+    try:
+        from pathlib import Path
+
+        from opl_cancer.plan.prior_run_ingestion import (
+            latest_prior_run_id,
+        )
+        return latest_prior_run_id(Path(patient_dir), current_run_id=current_run_id)
+    except Exception:  # pragma: no cover — defensive
+        return None
+
+
 def maybe_expand_for_comorbid(
     base_tasks: list[Task],
     profile: dict[str, Any],

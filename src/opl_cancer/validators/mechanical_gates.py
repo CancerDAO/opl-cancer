@@ -1,15 +1,22 @@
 """Mechanical gate framework — no-LLM hard rules. Spec §7.
 
 P0 ships only the framework (Gate abstract base + run_gates dispatcher).
-Concrete gates G1-G28 are implemented in P5 / v1.3.1 / v1.3.2 / v1.5 /
-v2.2 and registered via ``all_gate_classes()`` below so callers can
-introspect/instantiate the full set without re-import-listing every module.
+Concrete gates G1-G33 are implemented in P5 / v1.3.1 / v1.3.2 / v1.5 /
+v2.2 / v2.3 and registered via ``all_gate_classes()`` below so callers
+can introspect/instantiate the full set without re-import-listing every
+module.
 
-History: through v1.5.5 only G1-G20 + G22-G24 were registered (23 gates) while
-G21/G25/G26/G27 were defined and re-exported but never picked up by the
-orchestrator loop. The P0-3 fix (v2.1) registered all 27.
+History: through v1.5.5 only G1-G20 + G22-G24 were registered (23 gates)
+while G21/G25/G26/G27 were defined and re-exported but never picked up by
+the orchestrator loop. The P0-3 fix (v2.1) registered all 27.
 v2.2 adds G28 absolute_date (P1-#15) — closes the LLM-confused-
-weeks-for-months failure mode. ADR-0022.
+weeks-for-months failure mode (ADR-0022).
+v2.3 adds G29-G33 (ADR-0023) for Wave 6 manuscript invariants:
+  G29 manuscript_authorship_disclosed
+  G30 claim_pmid_anchored
+  G31 figure_reproducible
+  G32 data_availability_declared
+  G33 n1_design_transparent
 """
 from __future__ import annotations
 
@@ -58,18 +65,19 @@ def run_gates(claim: dict[str, Any], gates: list[Gate]) -> list[GateResult]:
 
 
 def all_gate_classes() -> list[type[Gate]]:
-    """Return the full G1-G28 gate-class registry.
+    """Return the full G1-G33 gate-class registry.
 
     Wrapped in a function to defer the import-cycle: ``mechanical_gates`` is
     imported by every concrete gate module, so we cannot import the gates at
     top-level here. Call this at orchestrator-bootstrap time.
 
-    Order is canonical (G1 → G28) to match spec §7 + ADR-0022 numbering.
-    G24 (crisis_detection) is the SAFETY floor — keyword-scan no-LLM gate
-    that locks Wave runners on SI / self-harm language (v1.3.2 hot-fix).
-    G21 / G25-G27 added to registry in P0-3 (previously defined but unhooked).
-    G28 (absolute_date) added in v2.2 — closes the LLM "5 weeks → 5 months"
-    failure mode (P1-#15, ADR-0022).
+    Order is canonical (G1 → G33) to match spec §7 + ADR-0022 + ADR-0023
+    numbering. G24 (crisis_detection) is the SAFETY floor — keyword-scan
+    no-LLM gate that locks Wave runners on SI / self-harm language
+    (v1.3.2 hot-fix). G21 / G25-G27 added to registry in P0-3 (previously
+    defined but unhooked). G28 (absolute_date) added in v2.2 — closes the
+    LLM "5 weeks → 5 months" failure mode (P1-#15, ADR-0022). G29-G33
+    added in v2.3 (ADR-0023) for Wave 6 manuscript invariants.
     """
     from .gates import (  # noqa: PLC0415 — intentional lazy import
         G1PMIDExistenceGate,
@@ -100,6 +108,11 @@ def all_gate_classes() -> list[type[Gate]]:
         G26EvidenceStrengthRankingGate,
         G27PrivacyScrubGate,
         G28AbsoluteDateGate,
+        G29ManuscriptAuthorshipDisclosedGate,
+        G30ClaimPMIDAnchoredGate,
+        G31FigureReproducibleGate,
+        G32DataAvailabilityDeclaredGate,
+        G33N1DesignTransparentGate,
     )
 
     return [
@@ -131,4 +144,9 @@ def all_gate_classes() -> list[type[Gate]]:
         G26EvidenceStrengthRankingGate,
         G27PrivacyScrubGate,
         G28AbsoluteDateGate,
+        G29ManuscriptAuthorshipDisclosedGate,
+        G30ClaimPMIDAnchoredGate,
+        G31FigureReproducibleGate,
+        G32DataAvailabilityDeclaredGate,
+        G33N1DesignTransparentGate,
     ]
