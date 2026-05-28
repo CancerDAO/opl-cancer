@@ -164,9 +164,11 @@ class G33N1DesignTransparentGate(Gate):
         flagged: list[tuple[int, str]] = []
         for idx, s in enumerate(sentences):
             if _RISKY_RE.search(s):
-                # Look in this sentence + previous one for a caveat token.
-                prev = sentences[idx - 1] if idx > 0 else ""
-                if _CAVEAT_RE.search(s) or _CAVEAT_RE.search(prev):
+                # Caveat MUST be in the same sentence. A general N=1
+                # declaration in an earlier sentence does not legitimize a
+                # later unhedged cohort claim — the reader can lose the
+                # framing across paragraphs.
+                if _CAVEAT_RE.search(s):
                     continue
                 flagged.append((idx, s[:160]))
 

@@ -37,7 +37,7 @@ _INTEGRATOR_ANCHOR_RE = re.compile(
     r"\[integrator\s*:\s*[A-Za-z0-9_.\-]+\s+run_id\s*:\s*[A-Fa-f0-9]+\](?:\s*[.;:,?!\)\]])*\s*$",
     re.IGNORECASE,
 )
-_BACKGROUND_TAG_RE = re.compile(r"^\s*\[BACKGROUND\]\b", re.IGNORECASE)
+_BACKGROUND_TAG_RE = re.compile(r"^\s*\[BACKGROUND\]", re.IGNORECASE)
 _HEADING_RE = re.compile(r"^\s{0,3}#")
 _TABLE_ROW_RE = re.compile(r"^\s*\|")
 _FENCE_RE = re.compile(r"^\s*```")
