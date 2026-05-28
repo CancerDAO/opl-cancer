@@ -89,8 +89,9 @@ def test_wave6_package_length_minimum(filename: str) -> None:
 
 
 def test_total_task_package_count_is_62() -> None:
-    """v2.2 had 54 task packages. v2.3 adds 8 = 62."""
+    """v2.2 had 54 task packages. v2.3 adds 8 = 62. v2.4 adds 1
+    (`n1arxiv_pr_assembly.md`) = 63."""
     count = sum(
         1 for _ in TASK_PACKAGES_DIR.iterdir() if _.suffix == ".md"
     )
-    assert count == 62, f"expected 62 task packages, got {count}"
+    assert count == 63, f"expected 63 task packages, got {count}"

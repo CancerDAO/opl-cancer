@@ -91,6 +91,23 @@ OPL 的核心信念是 **founder mode against cancer**：
 
 > **v2.3.0 Wave 6 Manuscript + `.n1a` Bundle (2026-05-28)**: a new Wave 6 sibling to Wave 5 takes the shipped patient brief and emits a preprint-style manuscript (`manuscript.md` + sub-section files + `references.bib` + `figures/` + `tables/` + `provenance.jsonl` + `reproducibility.md` + `ethics_declaration.md` + `ai_authorship_disclosure.md` + `world_unknown_appendix.md`) plus a self-contained `<id>_<date>.n1a.zip` bundle validated against `schemas/n1a_bundle.v0.1.schema.json`. 5 new mechanical gates **G29-G33** (28 → 33 total) enforce: AI authorship disclosed (CRediT-style), every claim sentence PMID-anchored or integrator-anchored, every `figures/fig_N.png` paired with a `fig_N.py` reproducer (`random_seed` declared if stochastic), `reproducibility.md` tier-labels every data source (`public` / `DUA` / `patient-private`), and methods text explicitly declares "single-subject (N=1) design". 8 new task packages (`manuscript_introduction/methods/results/discussion/limitations/abstract`, `citation_assembly`, `figure_caption`) — 54 → 62 total. P2 fixes folded in: prior-run ingestion (#17), reference-case banner + PNG watermark (#18), per-session cost tracker (#20), patient value hierarchy weights (#21), TaskCreate JSONL sync (#22). New CLI: `opl wave6 --patient-dir ... --run-id ... --patient-code ... [--draft|--final|--dry-run]`. The N1Arxiv platform (v2.4) will consume `.n1a` bundles via PR-based submission. See [ADR-0023](docs/adr/0023-wave6-manuscript-and-n1a-bundle.md).
 
+> **v2.4.0 N1Arxiv Platform Skeleton (2026-05-28)**: cross-repo release. New companion repo [`CancerDAO/n1arxiv`](https://github.com/CancerDAO/n1arxiv) (v0.1.0) — public Hugo static site that consumes `.n1a` bundles via **PR-based submission** (schema + Henry G29-G33 + consent-attestation CI gates). opl-cancer adds `opl wave6 --final --submit-to-n1arxiv [--n1arxiv-repo PATH]`: stages the bundle into `static/bundles/`, generates a Hugo content stub into `content/papers/` from `manifest.json` (never inlines the manuscript prose), drafts the PR body (Frances persona; ethics + consent + scope-aware), and prints the `gh pr create` command. **The submitter NEVER auto-PRs** — founder-mode invariant: the patient is the sole entity that pushes to the public PR surface. Dual licence on the n1arxiv side: CC-BY 4.0 for `content/` + `static/`, MIT for `layouts/` + `scripts/` + `tests/` + `.github/`. `schemas/n1a_bundle.v0.1.schema.json` is canonical here; n1arxiv ships a byte-identical mirror; any schema change is a two-PR change. New task package `prompts/tasks/n1arxiv_pr_assembly.md`. See [ADR-0024](docs/adr/0024-n1arxiv-platform-skeleton.md).
+
+---
+
+## N1Arxiv — the publication surface
+
+OPL's Wave 6 emits a self-contained `.n1a` bundle (`schema_v0.1`). v2.4 ships the
+companion platform that consumes those bundles:
+
+- Repo: [`CancerDAO/n1arxiv`](https://github.com/CancerDAO/n1arxiv)
+- Site: `n1arxiv.cancerdao.org` via GitHub Pages (placeholder for `n1arxiv.org`)
+- Submission contract: PR-based; CI validates schema + SHA-256 + G29-G33 + consent
+- Patient flow: `opl wave6 --final --submit-to-n1arxiv --n1arxiv-repo /path/to/clone`
+  → review the staged diff → `git push` → `gh pr create` → maintainer reviews → merge
+
+The OPL submitter never pushes for the patient. It only prepares the diff.
+
 ---
 
 ## 实验室在做什么

@@ -783,6 +783,23 @@ def deliver(patient_dir: str, run_id: str, dry_run: bool, json_mode: bool) -> No
 )
 @click.option("--extends-prior-run", default=None, help="Override prior-run auto-detect (P2-#17).")
 @click.option("--dry-run", is_flag=True, help="Return planned steps only.")
+@click.option(
+    "--submit-to-n1arxiv",
+    "submit_to_n1arxiv",
+    is_flag=True,
+    help=(
+        "v2.4 ADR-0024: after a successful --final run, stage the .n1a "
+        "bundle + content stub against CancerDAO/n1arxiv and print the "
+        "PR body draft. Founder-mode: NEVER auto-PRs."
+    ),
+)
+@click.option(
+    "--n1arxiv-repo",
+    "n1arxiv_repo",
+    type=click.Path(exists=False, file_okay=False),
+    default=None,
+    help="Optional local clone of CancerDAO/n1arxiv to stage into.",
+)
 @click.option("--json", "json_mode", is_flag=True)
 def wave6(
     patient_dir: str,
@@ -792,6 +809,8 @@ def wave6(
     data_source: str,
     extends_prior_run: str | None,
     dry_run: bool,
+    submit_to_n1arxiv: bool,
+    n1arxiv_repo: str | None,
     json_mode: bool,
 ) -> None:
     """CLI surface for the Wave 6 runner."""
@@ -800,6 +819,22 @@ def wave6(
         Wave6PrerequisiteError,
         run_wave6,
     )
+
+    # v2.4: --submit-to-n1arxiv requires --final (publishing a draft is a
+    # category error; the gates have not been enforced yet).
+    if submit_to_n1arxiv and draft:
+        _emit(
+            {
+                "ok": False,
+                "error": "submit_requires_final",
+                "detail": (
+                    "--submit-to-n1arxiv requires --final. Drafts cannot "
+                    "be published: G29-G33 are not enforced in draft mode."
+                ),
+            },
+            json_mode,
+        )
+        raise click.exceptions.Exit(2)
 
     mode = "dry_run" if dry_run else ("draft" if draft else "final")
     try:
@@ -818,7 +853,39 @@ def wave6(
     except Wave6Failure as exc:
         _emit({"ok": False, "error": "wave6_failed", "detail": str(exc)}, json_mode)
         raise click.exceptions.Exit(3)
-    _emit({"ok": True, **result}, json_mode)
+
+    payload: dict[str, Any] = {"ok": True, **result}
+
+    # v2.4 ADR-0024: optional submission staging
+    if submit_to_n1arxiv and mode == "final":
+        try:
+            from opl_cancer.delivery.n1arxiv_submitter import (
+                SubmitterError,
+                assemble_submission,
+            )
+
+            zip_path = result.get("zip_path")
+            if not zip_path:
+                payload["n1arxiv_submission"] = {
+                    "error": "no_zip_path",
+                    "detail": "wave6 result did not include a zip_path.",
+                }
+            else:
+                clone = Path(n1arxiv_repo) if n1arxiv_repo else None
+                sub_plan = assemble_submission(
+                    bundle_zip=Path(zip_path),
+                    n1arxiv_clone=clone,
+                    patient_code=patient_code,
+                    execute=False,
+                )
+                payload["n1arxiv_submission"] = sub_plan
+        except SubmitterError as exc:
+            payload["n1arxiv_submission"] = {
+                "error": "submitter_failed",
+                "detail": str(exc),
+            }
+
+    _emit(payload, json_mode)
 
 
 # ─── ADR-0020: Evolution (post-mortem proposal generator) ─────────────────

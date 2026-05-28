@@ -1,5 +1,98 @@
 # Changelog
 
+## [2.4.0] — 2026-05-28 — N1Arxiv Platform Skeleton
+
+ADR-0024. Cross-repo release: opl-cancer v2.4.0 + new
+`CancerDAO/n1arxiv` v0.1.0. Adds the `--submit-to-n1arxiv` flag to
+`opl wave6 --final` so a patient who has just shipped a `.n1a` bundle
+can stage a PR-ready diff against the public N=1 preprint platform
+without leaving the founder-mode flow. The submitter NEVER calls
+`git push` or `gh pr create`; the patient triggers publication.
+
+### Added — cross-repo PR assembly
+
+- **`src/opl_cancer/delivery/n1arxiv_submitter.py`** — takes a `.n1a`
+  bundle + an optional local clone of `CancerDAO/n1arxiv`, derives a
+  deterministic `paper_id` (`YYYY-MM-DD-<slug>`), byte-copies the
+  bundle into `static/bundles/`, generates a Hugo content stub into
+  `content/papers/` from `manifest.json` (never inlines the manuscript
+  prose), and drafts the PR body. `assemble_submission(execute=True)`
+  is a hard refusal at the API level — future callers cannot quietly
+  enable auto-PRs.
+- **`prompts/tasks/n1arxiv_pr_assembly.md`** — Frances-owned task
+  package; expands the PR body with ethics + consent + scope-aware
+  framing. `henry_gates_invoked: [G29, G30, G32, G33]`.
+- **CLI: `opl wave6 --submit-to-n1arxiv [--n1arxiv-repo PATH]`** —
+  requires `--final`; refuses in `--draft` mode (G29-G33 not enforced
+  for drafts). Without `--n1arxiv-repo` the CLI still produces the PR
+  body + suggested commands so the patient can stage the diff later.
+
+### Added — ADR-0024
+
+- **`docs/adr/0024-n1arxiv-platform-skeleton.md`** — documents the
+  cross-repo split, the PR-based submission philosophy, the canonical
+  schema location, the dual licence (CC-BY 4.0 content + MIT code on
+  the n1arxiv side), and the three medical red lines: never auto-PR,
+  never edit the bundle, never silently relax a gate.
+
+### Schema mirror discipline
+
+- **`schemas/n1a_bundle.v0.1.schema.json`** now carries a header
+  comment naming itself as the canonical copy. `CancerDAO/n1arxiv`
+  ships a byte-identical mirror; any schema change is a two-PR change
+  (both repos in lockstep).
+
+### Companion repo: `CancerDAO/n1arxiv` v0.1.0
+
+Brand-new public repo. Static Hugo site with:
+
+- `schemas/n1a_bundle.v0.1.schema.json` (mirror)
+- `content/papers/2026-05-28-riaz-reference.md` (seed Riaz stub)
+- `static/bundles/2026-05-28-riaz-reference.n1a.zip` (seed bundle —
+  banner `[REFERENCE CASE — PUBLIC DATA, NOT THIS PATIENT]`)
+- `scripts/validate_bundle.py` (schema + SHA + G29-G33 + consent
+  attestation; called by CI)
+- `.github/workflows/validate_submission.yml` (PR gate)
+- `.github/workflows/build_site.yml` (Hugo → `gh-pages`)
+- `tests/test_schema_v0_1.py`, `tests/test_ci_rejects_bad_bundle.py`,
+  `tests/test_hugo_build.py` (Hugo test gated on `which hugo`)
+- `docs/submission_guide.md`, `docs/n1_ethics.md`,
+  `docs/ai_authorship_policy.md`, `docs/faq.md`
+- `LICENSE` documenting the dual CC-BY-4.0 + MIT split
+- `.gitignore` includes `docs/superpowers/` from day one
+
+### Added — tests (opl-cancer side)
+
+- `tests/test_delivery/test_n1arxiv_submitter.py` — 6 unit +
+  integration tests: content-stub generation, deterministic paper_id,
+  byte-exact zip copy, PR-body real_patient consent reminder,
+  no-shell-out invariant, zip integrity round-trip.
+- `tests/test_cli/test_opl_submit_to_n1arxiv.py` — 4 CLI tests:
+  --help wiring, end-to-end with local clone, instructions-only
+  without clone, draft+submit refusal.
+
+### Modified
+
+- `pyproject.toml`: 2.3.0 → 2.4.0
+- `SKILL.md`: 2.3.0 → 2.4.0; triggers extended with `n1arxiv`,
+  `submission`, `preprint platform`, `submit my paper`
+- `README.md`: v2.4.0 line in Recent changes; `## N1Arxiv` section
+  linking to `CancerDAO/n1arxiv`
+- `src/opl_cancer/cli.py`: `wave6` gains `--submit-to-n1arxiv` +
+  `--n1arxiv-repo`; refuses `--submit-to-n1arxiv --draft`
+
+### Deferred to N1Arxiv v0.2
+
+- DOI registration (CrossRef / DataCite)
+- Patient one-click submission UI wrapping `gh`
+- Domain registration (`n1arxiv.org` — placeholder in README +
+  `config.toml`; v0.1 ships on `n1arxiv.cancerdao.org` via GitHub Pages)
+- Backend search beyond Hugo's built-in list page
+- Formal AI-authorship CRediT taxonomy beyond ADR-0023's
+  `ai_authorship_disclosure.md`
+
+---
+
 ## [2.3.0] — 2026-05-28 — Wave 6 Manuscript + `.n1a` Bundle
 
 ADR-0023. Adds a publication-grade Wave 6 sibling to Wave 5: takes a
