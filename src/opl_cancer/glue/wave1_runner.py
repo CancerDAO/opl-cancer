@@ -32,6 +32,7 @@ from opl_cancer.glue.renderer import PatientBriefRenderer
 from opl_cancer.llm.base import LLMClient, LLMRequest
 from opl_cancer.llm.prompts import PromptTemplate, find_prompts_root
 from opl_cancer.orchestrator.dispatch import ExpertHandler, dispatch_wave
+from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
 from opl_cancer.plan.schemas import Plan, Task, WaveAssignment
 from opl_cancer.provenance.hasher import hash_claim
 from opl_cancer.provenance.journal import ProvenanceJournal
@@ -222,6 +223,15 @@ class Wave1Runner:
         prov = ProvenanceJournal(run_dir / "provenance.jsonl")
         rendered_experts, risk_cards = await self._collect_claims(
             plan=plan, outputs=outputs, provenance=prov,
+        )
+
+        # v2.1 P0-#7: reviewer pairing. For each task that just landed, we
+        # persist a per-expert report sidecar AND dispatch a distinct-model
+        # + distinct-expert reviewer subagent which writes review.json
+        # alongside. Failures escalate (return value will include
+        # status="fail" which the SKILL main thread can act on).
+        self._persist_per_expert_reports_and_review(
+            plan=plan, outputs=outputs, run_dir=run_dir,
         )
 
         # v2.0.1 (post-review): bridge Wave 2 → renderer so the World-Unknown
@@ -476,6 +486,44 @@ class Wave1Runner:
                 "claims": claims,
             })
         return rendered_experts, risk_cards
+
+    def _persist_per_expert_reports_and_review(
+        self,
+        *,
+        plan: Plan,
+        outputs: dict[str, dict[str, Any]],
+        run_dir: Path,
+    ) -> None:
+        """v2.1 P0-#7: write per-expert reports + run reviewer pairing.
+
+        Each task gets its own ``tasks/w1_<task_id>/report.md`` sidecar
+        (which the artifact-state probe in `cli.wave1` looks for). After
+        each write we dispatch a distinct-model + distinct-expert reviewer
+        and persist review.json next to it. Reviewer failures are surfaced
+        via the review.json status field but do NOT raise here — the
+        main thread (SKILL) is the final arbiter of how to react.
+        """
+        tasks_root = run_dir / "tasks"
+        tasks_root.mkdir(parents=True, exist_ok=True)
+        for task in plan.tasks:
+            data = outputs.get(task.id) or {}
+            exec_out = data.get("output", {})
+            report_dir = tasks_root / f"w1_{task.id}"
+            report_dir.mkdir(parents=True, exist_ok=True)
+            report_path = report_dir / "report.md"
+            report_path.write_text(
+                f"# Wave 1 — {task.expert} / {task.task_package}\n\n"
+                f"task_id: {task.id}\n\n"
+                "## Raw output\n\n"
+                f"```json\n{json.dumps(exec_out, ensure_ascii=False, indent=2)}\n```\n",
+                encoding="utf-8",
+            )
+            # Reviewer pairing — distinct model + distinct expert.
+            run_reviewer_pairing(
+                report_path=report_path,
+                primary_expert=task.expert,
+                primary_model=self.executor_model_id,
+            )
 
     @staticmethod
     def _iter_claim_records(exec_out: dict[str, Any]) -> list[dict[str, Any]]:
