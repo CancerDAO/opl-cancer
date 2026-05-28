@@ -731,29 +731,89 @@ def render(patient_dir: str, run_id: str, json_mode: bool) -> None:
 @main.command(
     name="deliver",
     help=(
-        "v2.2 P1-#16: atomic delivery — Henry audit + patient_plain_brief + "
-        "patient_pi_brief commit as ONE transaction. Partial failure rolls back."
+        "v2.2 P1-#16 + v2.5.1 B1+B5: atomic delivery — verifies upstream "
+        "Wave 1-5 artifacts, then runs real Henry audit + "
+        "patient_plain_brief + patient_pi_brief as ONE transaction. "
+        "Partial failure rolls back."
     ),
 )
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--dry-run", is_flag=True, help="Plan only; write nothing.")
+@click.option(
+    "--allow-missing-upstream",
+    is_flag=True,
+    default=False,
+    help=(
+        "v2.5.1 B5 debug escape hatch — proceed even when Wave 1-5 "
+        "artifacts are missing. Default OFF; production runs should leave it OFF."
+    ),
+)
 @click.option("--json", "json_mode", is_flag=True)
-def deliver(patient_dir: str, run_id: str, dry_run: bool, json_mode: bool) -> None:
+def deliver(
+    patient_dir: str,
+    run_id: str,
+    dry_run: bool,
+    allow_missing_upstream: bool,
+    json_mode: bool,
+) -> None:
     """Run the v2.2 atomic delivery transaction.
 
     On any failure the three artifacts (HENRY_AUDIT.json, patient_plain_brief.md,
     patient_pi_brief.md) are rolled back together. ADR-0022 invariant.
+
+    v2.5.1 B5: refuses to ship when upstream wave artifacts are missing.
+    Pass ``--allow-missing-upstream`` for local debugging only.
     """
     from opl_cancer.glue.delivery_runner import (
+        DeliveryArtifactsMissing,
         DeliveryFailure,
         run_atomic_delivery,
+        verify_upstream_artifacts,
     )
 
     pdir = Path(patient_dir)
-    out_dir = pdir / "triggers" / run_id / "delivery"
+    run_root = pdir / "triggers" / run_id
+    out_dir = run_root / "delivery"
+
+    # v2.5.1 B5: precondition check before invoking the runner so the CLI
+    # can emit a structured missing-artifacts payload.
+    if not dry_run:
+        missing = verify_upstream_artifacts(run_root)
+        if missing and not allow_missing_upstream:
+            _emit(
+                {
+                    "ok": False,
+                    "error": "upstream_artifacts_missing",
+                    "missing": missing,
+                    "run_root": str(run_root),
+                    "out_dir": str(out_dir),
+                    "hint": (
+                        "Run Wave 1-5 first, or pass --allow-missing-upstream "
+                        "for local debugging only (v2.5.1 B5)."
+                    ),
+                },
+                json_mode,
+            )
+            raise click.exceptions.Exit(2)
+
     try:
-        result = run_atomic_delivery(out_dir=out_dir, dry_run=dry_run)
+        result = run_atomic_delivery(
+            out_dir=out_dir,
+            dry_run=dry_run,
+            allow_missing_upstream=allow_missing_upstream,
+        )
+    except DeliveryArtifactsMissing as exc:
+        _emit(
+            {
+                "ok": False,
+                "error": "upstream_artifacts_missing",
+                "missing": exc.missing,
+                "out_dir": str(out_dir),
+            },
+            json_mode,
+        )
+        raise click.exceptions.Exit(2)
     except DeliveryFailure as exc:
         # Emit structured failure, exit non-zero
         _emit({"ok": False, "error": str(exc), "out_dir": str(out_dir)}, json_mode)

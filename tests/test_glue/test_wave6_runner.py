@@ -82,6 +82,17 @@ def _seed_wave5(patient_dir: Path, run_id: str) -> Path:
     (run_dir / "patient_pi_brief.md").write_text(
         "# PI brief\n\nFor the clinician.\n", encoding="utf-8"
     )
+    # v2.5.1 B5: Wave 6 now also requires a plan.json + at least one
+    # wave1/2/3/4 artifact. Seed minimum.
+    (run_dir / "plan.json").write_text(
+        '{"run_id": "' + run_id + '", "tasks": []}',
+        encoding="utf-8",
+    )
+    w1 = run_dir / "tasks" / "w1_seed_expert"
+    w1.mkdir(parents=True, exist_ok=True)
+    (w1 / "report.md").write_text(
+        "# wave 1 stub for v2.5.1 prereq\n", encoding="utf-8"
+    )
     return run_dir
 
 

@@ -79,7 +79,16 @@ __all__ = [
 
 
 # Required Wave 5 outputs the runner expects to find before starting.
+# v2.5.1 B5 tightening: Wave 6 now also requires a valid plan.json + at
+# least one wave1/2/3/4 artifact upstream of the briefs, so a half-baked
+# run cannot escape Wave 5 by hand-dropping two markdown files.
 WAVE5_PREREQUISITES = ("patient_plain_brief.md", "patient_pi_brief.md")
+WAVE6_UPSTREAM_OPTIONAL_ARTIFACTS = (
+    "tasks/w1_*/report.md",
+    "wave2_hypotheses.json",
+    "wave3_data_evidence.json",
+    "wave4_validation.json",
+)
 
 # Files the runner expects to be present (or scaffolds with TODO stubs in
 # draft mode) before running the gates + bundle.
@@ -177,10 +186,25 @@ class Wave6Runner:
             f for f in WAVE5_PREREQUISITES
             if not (self.run_dir / f).is_file()
         ]
+        # v2.5.1 B5: tighten — also require plan.json + at least one
+        # wave1/2/3/4 artifact upstream of the briefs.
+        plan = self.run_dir / "plan.json"
+        if not plan.is_file() or plan.stat().st_size == 0:
+            missing.append("plan.json (missing or empty — v2.5.1 B5)")
+        upstream_hits = 0
+        for pattern in WAVE6_UPSTREAM_OPTIONAL_ARTIFACTS:
+            upstream_hits += sum(1 for _ in self.run_dir.glob(pattern))
+        if upstream_hits == 0:
+            missing.append(
+                "wave1/2/3/4 evidence: none of "
+                + ", ".join(WAVE6_UPSTREAM_OPTIONAL_ARTIFACTS)
+                + " present (v2.5.1 B5)"
+            )
         if missing:
             raise Wave6PrerequisiteError(
-                f"Wave 6 cannot start: Wave 5 outputs missing in "
-                f"{self.run_dir}: {missing}. Ship plain + pi briefs first."
+                f"Wave 6 cannot start: Wave 5 / upstream outputs missing in "
+                f"{self.run_dir}: {missing}. Ship plain + pi briefs and at "
+                "least one Wave 1-4 artifact first."
             )
 
     def _run_gates(self) -> dict[str, Any]:

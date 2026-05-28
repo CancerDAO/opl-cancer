@@ -27,6 +27,11 @@ def _seed_run(tmp_path: Path) -> tuple[Path, str, str]:
     # Wave 5 prerequisites
     (triggers / "patient_plain_brief.md").write_text("# brief\n", encoding="utf-8")
     (triggers / "patient_pi_brief.md").write_text("# pi brief\n", encoding="utf-8")
+    # v2.5.1 B5: Wave 6 also requires plan.json + ≥1 wave1/2/3/4 artifact.
+    (triggers / "plan.json").write_text('{"tasks": []}', encoding="utf-8")
+    w1 = triggers / "tasks" / "w1_demo"
+    w1.mkdir(parents=True, exist_ok=True)
+    (w1 / "report.md").write_text("# w1\n", encoding="utf-8")
 
     # Wave 6 artifacts — these will be scaffolded in draft mode, or
     # pre-populated for final mode test.
