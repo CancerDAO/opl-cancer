@@ -1100,5 +1100,47 @@ def reproduce(patient_dir: str, run_id: str, json_mode: bool) -> None:
     _emit({"ok": True, "patient": patient_dir, "run_id": run_id, "note": "delegates to tools/reproduce.py"}, json_mode)
 
 
+# ─── v2.5 RFC 0001 §2.3 — Cancer-context generator ─────────────────────────
+
+
+@main.command(
+    name="generate-cancer-context",
+    help=(
+        "v2.5 RFC 0001 §2.3 — emit a cancer_context.json for a given ICD-O-3 "
+        "(or SNOMED) code. Seed data ships for HCC (C22.0) + NSCLC EGFR+ "
+        "(C34.9_EGFR); other codes return a scaffold stub explaining M6 "
+        "deferral (live PrimeKG + OncoKB + NCCN + ClinicalTrials.gov queries)."
+    ),
+)
+@click.option("--icdo3", required=True, help="ICD-O-3 (or SNOMED) cancer code.")
+@click.option(
+    "--output",
+    "output_path",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="Path to write the JSON output. Default: stdout.",
+)
+@click.option(
+    "--force-refresh",
+    is_flag=True,
+    help="Skip cache + seed lookup, write a scaffold stub even if seed exists.",
+)
+@click.option("--json", "json_mode", is_flag=True, help="Pretty-print JSON to stdout if --output not set.")
+def generate_cancer_context(
+    icdo3: str, output_path: str | None, force_refresh: bool, json_mode: bool
+) -> None:
+    from opl_cancer.cancer_context import CancerContextGenerator
+
+    cache_dir = Path(output_path).parent if output_path else None
+    gen = CancerContextGenerator(icdo3, cache_dir=cache_dir, force_refresh=force_refresh)
+    ctx = gen.generate()
+    payload = json.dumps(ctx, ensure_ascii=False, indent=2)
+    if output_path:
+        Path(output_path).write_text(payload, encoding="utf-8")
+        click.echo(f"wrote {output_path}")
+    else:
+        click.echo(payload)
+
+
 if __name__ == "__main__":
     main()

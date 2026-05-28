@@ -1,0 +1,40 @@
+{
+  "icdo3": "C34.9_EGFR",
+  "snomed": "254637007",
+  "display_name": "NSCLC, EGFR-mutant",
+  "soc_chain": [
+    {"line": "1L_egfr_common_mutation", "treatments": ["osimertinib", "osimertinib+chemo (FLAURA2)"]},
+    {"line": "1L_egfr_exon20_insertion", "treatments": ["amivantamab+chemo", "platinum_doublet"]},
+    {"line": "2L_post_osi_T790M_neg", "treatments": ["amivantamab+lazertinib", "platinum_doublet+bevacizumab", "datopotamab_deruxtecan (research/access)"]},
+    {"line": "3L+", "treatments": ["docetaxel±ramucirumab", "MET-i if MET amp present", "trial referral"]}
+  ],
+  "frequent_actionables": [
+    {"target": "EGFR_L858R / del19", "indication": "osimertinib 1L"},
+    {"target": "EGFR_exon20_insertion", "indication": "amivantamab+chemo"},
+    {"target": "EGFR_C797S", "indication": "investigational 4th-gen EGFR-i"},
+    {"target": "MET_amplification", "indication": "savolitinib / tepotinib add-on"},
+    {"target": "HER2", "indication": "trastuzumab-deruxtecan after osi failure"}
+  ],
+  "typical_comorbidities": [
+    "interstitial_lung_disease_baseline_imaging",
+    "diabetes",
+    "QTc_baseline_for_osimertinib",
+    "venous_thromboembolism",
+    "prior_radiation_pneumonitis"
+  ],
+  "imaging": [
+    "chest_CT_with_contrast",
+    "brain_MRI_baseline_and_q3mo_until_CNS_event",
+    "FDG_PET_CT_at_progression_decision_point"
+  ],
+  "active_trials_summary": [
+    "post_osimertinib_resistance_combinations",
+    "exon20_insertion_specific_trials",
+    "CNS_directed_strategies",
+    "antibody_drug_conjugate_landscape"
+  ],
+  "_provenance": {
+    "source": "v2.5 seed (hand-curated from NCCN NSCLC v.4.2024 + FLAURA / FLAURA2 / PAPILLON / MARIPOSA primary publications)",
+    "M6_plan": "Replace with live PrimeKG + OncoKB + NCCN PageIndex + ClinicalTrials.gov query"
+  }
+}
