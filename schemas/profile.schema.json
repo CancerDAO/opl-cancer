@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cancerdao.org/schemas/profile.v0.1.json",
+  "title": "OPL Patient Profile",
+  "description": "Minimum patient profile required by OPL v2.1 planner. See ADR-0021.",
+  "type": "object",
+  "required": ["patient_id_hash"],
+  "properties": {
+    "patient_id_hash": {"type": "string", "minLength": 1},
+    "prior_lines": {"type": "integer", "minimum": 0},
+    "prior_therapy_lines": {
+      "oneOf": [
+        {"type": "integer", "minimum": 0},
+        {"type": "array", "items": {}}
+      ]
+    },
+    "concurrent_meds": {"type": "array", "items": {"type": "string"}},
+    "concurrent_medications": {
+      "oneOf": [
+        {"type": "array"},
+        {"type": "object"},
+        {"type": "integer", "minimum": 0}
+      ]
+    },
+    "egfr_ml_min": {"type": "number", "minimum": 0},
+    "lvef_pct": {"type": "number", "minimum": 0, "maximum": 100},
+    "age_years": {"type": "integer", "minimum": 0},
+    "active_irae": {
+      "type": ["object", "null", "boolean"],
+      "properties": {
+        "organ": {"type": "string"},
+        "grade": {"type": "integer", "minimum": 1, "maximum": 5}
+      }
+    },
+    "toxicity_history": {"type": ["object", "null"]},
+    "comorbidities": {
+      "oneOf": [
+        {"type": "array"},
+        {"type": "string"},
+        {"type": "null"}
+      ]
+    },
+    "comorbidities_text": {"type": ["string", "null"]},
+    "country": {"type": ["string", "null"]},
+    "city": {"type": ["string", "null"]},
+    "imaging_gaps": {"type": ["array", "null"]},
+    "diagnosis": {"type": ["string", "object", "null"]},
+    "current_status": {"type": ["string", "object", "null"]},
+    "concise_summary": {"type": ["string", "null"]},
+    "active_problems": {"type": ["array", "string", "null"]},
+    "patient_value_hierarchy": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}
