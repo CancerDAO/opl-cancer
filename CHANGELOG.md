@@ -1,5 +1,120 @@
 # Changelog
 
+## [2.5.0] — 2026-05-28 — Compositional Foundation
+
+RFC 0001 + ADR-0025. Paradigm shift from enumeration (hardcoded experts /
+task packages / cancer types / integrators / gates) to composition.
+v2.5 ships **foundations only**; M1-M6 follow over the next 24 weeks.
+The c3195b66 bug fix is release-gating — patient questions outside the
+63 hand-written task packages no longer flat-refuse.
+
+### Added — compositional foundations
+
+- **`docs/rfc/0001-compositional-paradigm.md`** — new top-level RFC dir;
+  full v2 vision spec committed to repo
+- **`src/opl_cancer/methods/`** — `MethodPrimitive` dataclass +
+  `MethodRegistry` with `load_all() / find_by_domain() /
+  find_by_capability() / find_by_gate_family()`. 8 seed YAML primitives
+  in `prompts/methods/` across 4 domains:
+    - statistical: `cox_proportional_hazards`, `kaplan_meier`,
+      `conformal_prediction`
+    - bioinformatics: `deseq2_differential_expression`, `gsea_enrichment`
+    - clinical-research: `recist_response_assessment`,
+      `acmg_germline_classification` (cross-linked to v2.2 task package)
+    - pharmacology: `popPK_NONMEM_proxy`
+- **`src/opl_cancer/validators/gate_families.py`** — `GateFamily` ABC +
+  6 concrete families (provenance / statistical-validity /
+  temporal-recency / scope-isolation / safety-disclosure /
+  reproducibility). **Provenance family fully migrated**: G1 + G2 + G30
+  inherit + register (`family_id = "provenance"` class attribute; zero
+  public-API breakage). Other 30 gates tagged in `gates_registry.yaml`
+  for M1 migration.
+- **`src/opl_cancer/experts/role_taxonomy.py`** — `ExpertRole` 4-axis
+  dataclass + `references/role_taxonomy.yaml` enumeration +
+  `prompts/experts/_template.md` parametric persona template. All 20
+  v2.4 personas declared in `FAST_PATH_ROLES`. `compose_role()` v2.5
+  STUB: matches FAST_PATH first; raises
+  `RoleCompositionNotYetImplemented` for novel constraints (real LLM
+  composition is M2 / v2.7).
+- **`src/opl_cancer/cancer_context/`** —
+  `CancerContextGenerator(icdo3, cache_dir, force_refresh)` + 2 seed
+  JSONs (`references/cancer_contexts/C22.0.json` HCC +
+  `C34.9_EGFR.json` NSCLC EGFR+). New CLI:
+  `opl generate-cancer-context --icdo3 <code> [--output] [--force-refresh]`.
+  Live PrimeKG + OncoKB + NCCN + CT.gov queries: M6.
+- **`src/opl_cancer/integrators/_abc.py`** — `IntegratorABC` (id / query
+  / normalize / provenance) + `IntegratorRegistry.discover()` over
+  Python entry points. 5 of 44 integrators registered in `pyproject.toml`
+  (pubmed / opentargets / clinicaltrials / cbioportal / oncokb);
+  `ClinicalTrialsGov` + `OpenTargets` multi-inherit `Integrator` +
+  `IntegratorABC` as proof. 39 others tagged for M3.
+- **`src/opl_cancer/integrators/universal_adapter.py`** —
+  `from_openapi(schema_url, dry_run=True)` parses an OpenAPI schema and
+  returns an `AdHocIntegrator`. Live calls raise
+  `UniversalAdapterLiveNotEnabled` unless
+  `OPL_UNIVERSAL_ADAPTER_LIVE=1` (M3 ships the sanity-probe gate +
+  LLM-generated request shaping).
+- **`prompts/tasks/unknown_task_intake.md`** + **`src/opl_cancer/plan/intake_router.py`**
+  — the c3195b66 bug fix. Any patient question outside the existing 63
+  task packages routes through Sid-level `unknown_task_intake`:
+  acknowledge → decline naive shortcut → compose method DAG → emit L4
+  disclosure card. v2.5 ships keyword-driven stub; M5 swaps for full
+  LLM TaskComposer.
+- **`src/opl_cancer/orchestrator/best_first_journal.py`** — best-first
+  hypothesis-tree journal adapted from SakanaAI/AI-Scientist-v2 (Cong
+  Lu et al., ICLR 2025 workshop) under their Responsible-AI v1.0
+  license. We adopt the **journal pattern** only; we do NOT use their
+  unguarded LLM code-gen sandbox. OPL stays closed-world for drug /
+  trial / dose IDs. Wired into Wave 2 tournament as a non-driving
+  audit layer.
+- **`docs/adr/0025-compositional-paradigm.md`** — ADR memorialising
+  the paradigm; cross-references RFC 0001 + lists M1-M6 deferrals.
+
+### Added — tests
+
+- 9 new test modules (`tests/test_methods/test_registry.py`,
+  `tests/test_validators/test_gate_families.py`,
+  `tests/test_experts/test_role_taxonomy.py`,
+  `tests/test_cancer_context/test_generator.py`,
+  `tests/test_integrators/test_abc_discovery.py`,
+  `tests/test_integrators/test_universal_adapter.py`,
+  `tests/test_plan/test_intake_router.py`,
+  `tests/test_orchestrator/test_best_first_journal.py`,
+  `tests/test_integration/test_v2_5_backward_compat.py`)
+- **Release-gating regression** —
+  `test_c3195b66_automl_prognosis_routes_to_unknown_task_intake`: feeds
+  the literal session-c3195b66 question and asserts
+  `unknown_task_intake` route + DAG contains `conformal_prediction` +
+  `kaplan_meier` + L4 card emitted
+- Backward-compat invariants — 33 gates still register, 64 task packages
+  (was 63 + `unknown_task_intake.md`) all resolve, 44 integrators still
+  importable, 20-persona roster unchanged, all v2.4 CLI commands
+  unchanged
+
+### Changed
+
+- `pyproject.toml`: version `2.4.0` → `2.5.0`; new
+  `[project.entry-points."opl_cancer.integrators"]` table
+- `src/opl_cancer/cli.py`: `VERSION` bumped to `2.5.0`; new
+  `generate-cancer-context` command
+- `SKILL.md`: version `2.4.0` → `2.5.0`; tags add `compositional`,
+  `method-primitive`, `role-taxonomy`, `n=1`, `automl`, `prognosis`
+- `README.md`: new v2.5.0 entry in Recent changes + architecture
+  diagram shows the compositional layer above the v2.4 enumerated stack
+- `tests/test_v23_wave6_prompts.py`: task-package count expectation
+  `63` → `64` (added `unknown_task_intake.md`)
+- `src/opl_cancer/orchestrator/tournament_loop.py`: returns a
+  `best_first_journal` key (Sakana audit layer)
+
+### Deferred (M1-M6)
+
+- M1 (v2.6): migrate remaining 30 gates to families; EVAL benchmark corpus
+- M2 (v2.7): 20-persona roster migration; real LLM `compose_role()`
+- M3 (v2.8): migrate 39 integrators to entry points; live UniversalAdapter
+- M4 (v2.9): expand method primitives to ~50
+- M5 (v3.0-rc1): TaskComposer LLM upgrade; full compositional planner
+- M6 (v3.0): live PrimeKG + OncoKB + NCCN + CT.gov cancer-context
+
 ## [2.4.0] — 2026-05-28 — N1Arxiv Platform Skeleton
 
 ADR-0024. Cross-repo release: opl-cancer v2.4.0 + new

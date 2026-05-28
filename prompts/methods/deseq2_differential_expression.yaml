@@ -1,0 +1,26 @@
+id: deseq2_differential_expression
+domain: bioinformatics
+display_name: DESeq2 Differential Expression
+inputs:
+  count_matrix: matrix
+  sample_metadata: dataframe
+  design_formula: string
+outputs:
+  results_table: dataframe
+  shrunken_log2fc: dataframe
+  size_factors: dict
+  dispersion_estimates: dataframe
+assumptions:
+  - negative_binomial_count_distribution
+  - independent_replicates_within_condition
+  - library_size_normalization_via_median_of_ratios
+  - multiple_testing_via_benjamini_hochberg
+applicable_gate_families:
+  - statistical-validity
+  - reproducibility
+  - provenance
+implementation_ref: TBD
+literature_refs:
+  - PMID:25516281      # DESeq2 Love, Huber, Anders 2014
+  - PMID:23104886      # DESeq earlier paper
+fast_path_task_package: bioinformatics_data_analysis

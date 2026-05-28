@@ -1,0 +1,39 @@
+{
+  "icdo3": "C22.0",
+  "snomed": "93870000",
+  "display_name": "Hepatocellular Carcinoma",
+  "soc_chain": [
+    {"line": "early", "treatments": ["surgical_resection", "RFA", "liver_transplantation"]},
+    {"line": "intermediate", "treatments": ["TACE", "TARE"]},
+    {"line": "advanced_1L", "treatments": ["atezolizumab+bevacizumab", "tremelimumab+durvalumab", "sorafenib", "lenvatinib"]},
+    {"line": "advanced_2L", "treatments": ["regorafenib", "cabozantinib", "ramucirumab(AFP≥400)", "nivolumab"]}
+  ],
+  "frequent_actionables": [
+    {"target": "AFP", "indication": "ramucirumab if ≥400"},
+    {"target": "FGF19", "indication": "research-stage FGFR4-i candidates"},
+    {"target": "MET", "indication": "tepotinib / capmatinib in MET-amplified cohort"},
+    {"target": "TP53", "indication": "prognostic; no direct actionability"}
+  ],
+  "typical_comorbidities": [
+    "cirrhosis_HBV",
+    "cirrhosis_HCV",
+    "MASH",
+    "portal_hypertension",
+    "esophageal_varices",
+    "hepatic_encephalopathy"
+  ],
+  "imaging": [
+    "MRI_with_hepatocyte_contrast",
+    "multiphasic_CT_LIRADS",
+    "ultrasound_screening_6mo"
+  ],
+  "active_trials_summary": [
+    "phase_3_combination_immunotherapy_landscape",
+    "TKI_plus_ICI_combinations",
+    "locoregional_plus_systemic_studies"
+  ],
+  "_provenance": {
+    "source": "v2.5 seed (hand-curated from NCCN HCC v2.2024 + Galle ESMO HCC 2018 reference frame)",
+    "M6_plan": "Replace with live PrimeKG + OncoKB + NCCN PageIndex + ClinicalTrials.gov query"
+  }
+}

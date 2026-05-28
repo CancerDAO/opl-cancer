@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from opl_cancer.memory.schemas import Hypothesis, TournamentOutcome, TournamentRound
+from opl_cancer.orchestrator.best_first_journal import Journal, Node
 from opl_cancer.orchestrator.debate import DebateJudge
 from opl_cancer.orchestrator.experimental_insights import (
     ExperimentalInsightsFeedback,
@@ -112,6 +113,22 @@ async def run_tournament(
         ):
             break
 
+    # v2.5 RFC 0001 §8 item 12 — record final ratings into a best-first
+    # Journal as an audit layer (Sakana borrow). The tournament outcome is
+    # unchanged; the journal lets downstream auditors trace which branches
+    # were considered + their final Elo.
+    journal = Journal()
+    for h in hypotheses:
+        journal.add_node(
+            Node(
+                id=h.id,
+                parent_id=None,
+                payload={"hypothesis_id": h.id},
+                metric=float(ratings.get(h.id, h.elo_rating)),
+                status="alive",
+            )
+        )
+
     return {
         "rounds": rounds_log,
         "final_ratings": ratings,
@@ -119,4 +136,6 @@ async def run_tournament(
         "meta_critique_chain": meta_chain,
         "experimental_insights_chain": insights_chain,
         "hypotheses": hypotheses,
+        # v2.5 audit layer — RFC 0001 §8 item 12 (Sakana borrow).
+        "best_first_journal": journal,
     }

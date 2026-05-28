@@ -93,6 +93,8 @@ OPL 的核心信念是 **founder mode against cancer**：
 
 > **v2.4.0 N1Arxiv Platform Skeleton (2026-05-28)**: cross-repo release. New companion repo [`CancerDAO/n1arxiv`](https://github.com/CancerDAO/n1arxiv) (v0.1.0) — public Hugo static site that consumes `.n1a` bundles via **PR-based submission** (schema + Henry G29-G33 + consent-attestation CI gates). opl-cancer adds `opl wave6 --final --submit-to-n1arxiv [--n1arxiv-repo PATH]`: stages the bundle into `static/bundles/`, generates a Hugo content stub into `content/papers/` from `manifest.json` (never inlines the manuscript prose), drafts the PR body (Frances persona; ethics + consent + scope-aware), and prints the `gh pr create` command. **The submitter NEVER auto-PRs** — founder-mode invariant: the patient is the sole entity that pushes to the public PR surface. Dual licence on the n1arxiv side: CC-BY 4.0 for `content/` + `static/`, MIT for `layouts/` + `scripts/` + `tests/` + `.github/`. `schemas/n1a_bundle.v0.1.schema.json` is canonical here; n1arxiv ships a byte-identical mirror; any schema change is a two-PR change. New task package `prompts/tasks/n1arxiv_pr_assembly.md`. See [ADR-0024](docs/adr/0024-n1arxiv-platform-skeleton.md).
 
+> **v2.5.0 Compositional Foundation (2026-05-28)**: paradigm shift — see [RFC 0001](docs/rfc/0001-compositional-paradigm.md) and [ADR-0025](docs/adr/0025-compositional-paradigm.md). v2.5 ships **foundations** (4 module ABCs + 8 method primitives + provenance gate-family migration + intake router); **M1-M6 follow**. The c3195b66 bug fix: any patient question outside the 63 hand-written task packages now routes through `unknown_task_intake` (acknowledge → decline naive shortcut → compose method DAG → L4 disclosure card) instead of flat-refusing. New modules: `methods/` (MethodRegistry + 8 seed primitives across statistical / bioinformatics / clinical-research / pharmacology), `validators/gate_families.py` (6 families; provenance family fully migrated — G1/G2/G30 inherit; 30 others tagged for M1), `experts/role_taxonomy.py` (ExpertRole 4-axis taxonomy + FAST_PATH_ROLES wraps 20 personas; `compose_role()` stub raises for novel constraints until M2), `cancer_context/` (CLI `opl generate-cancer-context --icdo3 <code>` + 2 seed JSONs HCC + NSCLC EGFR+; M6 wires PrimeKG/OncoKB/NCCN/CT.gov live), `integrators/_abc.py` (IntegratorABC + entry-point discovery; 5 of 44 registered, 39 deferred to M3), `integrators/universal_adapter.py` (sandbox-only — live raises until `OPL_UNIVERSAL_ADAPTER_LIVE=1` in M3), `plan/intake_router.py` (Sid-level), `orchestrator/best_first_journal.py` (Sakana AI-Scientist-v2 journal pattern adapted as Wave 2 audit layer). Backward-compat strict: all 33 v2.4 gates still register; 63 v2.4 task packages still resolve (64 with `unknown_task_intake.md`); 44 v2.4 integrators still importable; 20-persona roster unchanged.
+
 ---
 
 ## N1Arxiv — the publication surface
@@ -360,6 +362,27 @@ OPL 的核心信念："**患者本人是自己案例的唯一决策人**。"
 
 ### 系统架构
 
+> **v2.5 compositional layer (above v2.4 enumerated assets)** — RFC 0001:
+>
+> ```
+> ┌─────────────────────────────────────────────────────────────────┐
+> │  v2.5 Compositional Layer (foundations only — full M1-M6)        │
+> │  ┌────────────────┐  ┌──────────────────┐  ┌──────────────────┐ │
+> │  │ MethodRegistry │  │ GateFamily ABC   │  │ RoleTaxonomy +   │ │
+> │  │ 8 primitives   │  │ 6 families (1 mig)│  │ FAST_PATH_ROLES  │ │
+> │  └────────────────┘  └──────────────────┘  └──────────────────┘ │
+> │  ┌────────────────┐  ┌──────────────────┐  ┌──────────────────┐ │
+> │  │ Cancer Context │  │ IntegratorABC    │  │ intake_router    │ │
+> │  │ Generator (2)  │  │ + entry points(5)│  │ + unknown_task   │ │
+> │  └────────────────┘  └──────────────────┘  └──────────────────┘ │
+> │  ┌────────────────┐                                              │
+> │  │ Universal      │  ┌──────────────────────────────────────┐    │
+> │  │ Adapter (dry)  │  │ best_first_journal (Sakana borrow)    │   │
+> │  └────────────────┘  └──────────────────────────────────────┘    │
+> └─────────────────────────────────────────────────────────────────┘
+>           ▲▲ feeds + audits the v2.4 stack below ▲▲
+> ```
+
 ```
                        ┌─────────────────────────┐
                        │  患者输入                 │
@@ -370,6 +393,8 @@ OPL 的核心信念："**患者本人是自己案例的唯一决策人**。"
                        │  Sid · PI                │
                        │  main-thread orchestrator │
                        │  intent_parser → planner  │
+                       │  v2.5 intake_router       │
+                       │   (compositional fallback)│
                        └────────────┬────────────┘
                                     ▼
    ┌────────────────────────────────────────────────────────────────┐

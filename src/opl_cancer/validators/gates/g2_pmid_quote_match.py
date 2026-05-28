@@ -12,6 +12,8 @@ class G2PMIDQuoteMatchGate(Gate):
     name = "G2_pmid_quote_match"
     description = "Each PMID's quote must be retrievable via PaperQA2 RAG."
     failure_mode_code = "A2"
+    # v2.5 RFC 0001 §2.5 — provenance gate family migration.
+    family_id = "provenance"
 
     def __init__(self, paperqa: PaperQA2Integrator) -> None:
         self.paperqa = paperqa

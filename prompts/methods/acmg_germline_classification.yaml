@@ -1,0 +1,28 @@
+id: acmg_germline_classification
+domain: clinical-research
+display_name: ACMG/AMP Germline Variant Classification
+inputs:
+  variant_record: dict
+  population_frequency_evidence: dict
+  functional_evidence: dict
+  computational_evidence: dict
+  segregation_evidence: optional_dict
+outputs:
+  acmg_classification: enum    # benign / likely_benign / VUS / likely_pathogenic / pathogenic
+  criteria_invoked: list
+  justification: string
+assumptions:
+  - reference_genome_grch38_or_declared
+  - population_databases_current_within_18mo
+  - independent_evidence_lines_not_double_counted
+  - secondary_findings_disclosure_policy_decided
+applicable_gate_families:
+  - provenance
+  - temporal-recency
+  - safety-disclosure
+  - reproducibility
+implementation_ref: opl_cancer.integrators.varsome_acmg:classify
+literature_refs:
+  - PMID:25741868      # Richards et al. 2015 ACMG/AMP guidelines
+  - PMID:29543229      # ClinGen sequence variant interpretation working group
+fast_path_task_package: acmg_germline_classification

@@ -1,0 +1,179 @@
+# Gate-family registry — v2.5 compositional foundation (RFC 0001 §2.5)
+#
+# Each of the 33 v2.4 gates (G1-G33) is mapped to one of the six families:
+#   provenance / statistical-validity / temporal-recency / scope-isolation
+#   / safety-disclosure / reproducibility
+#
+# Migration status:
+#   migrated=true   ⇒ class inherits-or-tags via family_id attribute already
+#   migrated=false  ⇒ scheduled for M1 (v2.6) deferred work
+#
+# applicability_predicate: claim-shape rule (free-form for now; M1 makes it
+# executable). Mostly informational — bind_gates() uses method.applicable_gate_families.
+
+gates:
+  G1:
+    family: provenance
+    name: pmid_existence
+    migrated: true
+    applicability_predicate: "claim.evidence[*].type == 'pmid'"
+  G2:
+    family: provenance
+    name: pmid_quote_match
+    migrated: true
+    applicability_predicate: "claim.evidence[*].type == 'pmid' and claim.evidence[*].quote"
+  G3:
+    family: provenance
+    name: drug_normalization
+    migrated: false
+    applicability_predicate: "claim.references_drug == true"
+  G4:
+    family: safety-disclosure
+    name: dose_unit_declared
+    migrated: false
+    applicability_predicate: "claim.references_dose == true"
+  G5:
+    family: scope-isolation
+    name: patient_context_isolation
+    migrated: false
+    applicability_predicate: "claim has cross_patient_payload"
+  G6:
+    family: safety-disclosure
+    name: injection_scan
+    migrated: false
+    applicability_predicate: "claim is_text or claim is_prompt_field"
+  G7:
+    family: safety-disclosure
+    name: imperative_detector
+    migrated: false
+    applicability_predicate: "claim is patient_facing"
+  G8:
+    family: safety-disclosure
+    name: level34_disclosure
+    migrated: false
+    applicability_predicate: "claim.risk_tier in ['L3','L4']"
+  G9:
+    family: provenance
+    name: retraction_check
+    migrated: false
+    applicability_predicate: "claim.evidence[*].type == 'pmid'"
+  G10:
+    family: temporal-recency
+    name: guideline_version
+    migrated: false
+    applicability_predicate: "claim.cites_guideline == true"
+  G11:
+    family: provenance
+    name: no_silent_fallback
+    migrated: false
+    applicability_predicate: "always"
+  G12:
+    family: scope-isolation
+    name: memory_overflow
+    migrated: false
+    applicability_predicate: "wave_runner_active == true"
+  G13:
+    family: scope-isolation
+    name: reviewer_model_distinct
+    migrated: false
+    applicability_predicate: "claim.reviewed_by_model_id != null"
+  G14:
+    family: statistical-validity
+    name: dataset_patient_match
+    migrated: false
+    applicability_predicate: "claim.uses_external_cohort == true"
+  G15:
+    family: statistical-validity
+    name: multiple_testing_correction
+    migrated: false
+    applicability_predicate: "claim.contains_p_values == true"
+  G16:
+    family: statistical-validity
+    name: batch_effect_declared
+    migrated: false
+    applicability_predicate: "claim.uses_multibatch_data == true"
+  G17:
+    family: statistical-validity
+    name: meta_i2_policy
+    migrated: false
+    applicability_predicate: "claim.is_meta_analysis == true"
+  G18:
+    family: statistical-validity
+    name: meta_search_strategy
+    migrated: false
+    applicability_predicate: "claim.is_meta_analysis == true"
+  G19:
+    family: safety-disclosure
+    name: pi_imperative_detector
+    migrated: false
+    applicability_predicate: "claim from pi_session"
+  G20:
+    family: scope-isolation
+    name: pi_disagreement_surfacing
+    migrated: false
+    applicability_predicate: "model_disagreement_detected == true"
+  G21:
+    family: statistical-validity
+    name: quantitative_anchor
+    migrated: false
+    applicability_predicate: "claim contains numeric outcome"
+  G22:
+    family: statistical-validity
+    name: ddr_zygosity
+    migrated: false
+    applicability_predicate: "claim references DDR-pathway gene"
+  G23:
+    family: temporal-recency
+    name: recency_band
+    migrated: false
+    applicability_predicate: "claim.cites_drug_or_guideline == true"
+  G24:
+    family: safety-disclosure
+    name: crisis_detection
+    migrated: false
+    applicability_predicate: "patient text scan"
+  G25:
+    family: provenance
+    name: deferred_evidence_block
+    migrated: false
+    applicability_predicate: "claim.evidence missing"
+  G26:
+    family: provenance
+    name: evidence_strength_ranking
+    migrated: false
+    applicability_predicate: "claim.evidence ≥ 2 sources"
+  G27:
+    family: safety-disclosure
+    name: privacy_scrub
+    migrated: false
+    applicability_predicate: "claim is patient_facing or document_output"
+  G28:
+    family: temporal-recency
+    name: absolute_date
+    migrated: false
+    applicability_predicate: "claim contains relative date phrase"
+  G29:
+    family: safety-disclosure
+    name: manuscript_authorship_disclosed
+    migrated: false
+    applicability_predicate: "wave == 6"
+  G30:
+    family: provenance
+    name: claim_pmid_anchored
+    migrated: true
+    applicability_predicate: "wave == 6 and manuscript present"
+  G31:
+    family: reproducibility
+    name: figure_reproducible
+    migrated: false
+    applicability_predicate: "wave == 6 and figure present"
+  G32:
+    family: reproducibility
+    name: data_availability_declared
+    migrated: false
+    applicability_predicate: "wave == 6"
+  G33:
+    family: reproducibility
+    name: n1_design_transparent
+    migrated: false
+    applicability_predicate: "wave == 6"

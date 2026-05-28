@@ -1,0 +1,28 @@
+id: popPK_NONMEM_proxy
+domain: pharmacology
+display_name: Population PK (NONMEM-style proxy)
+inputs:
+  concentration_time_records: dataframe
+  dosing_history: dataframe
+  covariates: dataframe
+  structural_model: string
+outputs:
+  population_parameters: dict
+  inter_individual_variability: dict
+  residual_error: dict
+  individual_post_hoc_estimates: dataframe
+assumptions:
+  - mixed_effects_model_appropriate_for_sparse_sampling
+  - linearity_or_declared_nonlinearity_around_dose_range
+  - covariate_distributions_representative
+  - identifiability_of_parameters_with_available_data
+applicable_gate_families:
+  - statistical-validity
+  - safety-disclosure
+  - reproducibility
+  - provenance
+implementation_ref: TBD
+literature_refs:
+  - PMID:17653033      # Mould & Upton popPK methodology review
+  - PMID:32030871      # PK/PD in oncology dose individualization
+fast_path_task_package: ddi_adme_dosing

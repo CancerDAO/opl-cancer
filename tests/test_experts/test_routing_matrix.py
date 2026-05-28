@@ -102,10 +102,12 @@ PATIENT_EXPECTED_CANDIDATES: dict[str, set[str]] = {
 
 def _expert_modules() -> list[str]:
     pkg_root = Path(__file__).resolve().parents[2] / "src" / "opl_cancer" / "experts"
+    # v2.5 (RFC 0001 §2.1): role_taxonomy lives alongside the persona
+    # modules but is not itself a persona — exclude it from the count.
     return sorted(
         p.stem
         for p in pkg_root.glob("*.py")
-        if p.stem not in {"__init__", "base", "_common", "roster"}
+        if p.stem not in {"__init__", "base", "_common", "roster", "role_taxonomy"}
     )
 
 

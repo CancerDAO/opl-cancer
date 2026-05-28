@@ -113,6 +113,8 @@ class G30ClaimPMIDAnchoredGate(Gate):
         "are exempt (same convention as G28)."
     )
     failure_mode_code = "F-WAVE6-CLAIM-UNANCHORED"
+    # v2.5 RFC 0001 §2.5 — provenance gate family migration.
+    family_id = "provenance"
 
     # If a manuscript has 0 claim sentences (e.g. abstract-only stub) we
     # SKIP rather than PASS, so callers can detect "no claims to anchor".

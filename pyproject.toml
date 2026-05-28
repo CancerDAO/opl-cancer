@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "opl-cancer"
-version = "2.4.0"
+version = "2.5.0"
 description = "Open-source AI scientist team skill plugin for cancer patients — installed via npx skills add CancerDAO/opl-cancer-skill"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -55,6 +55,17 @@ markers = [
 
 [project.scripts]
 opl-cancer = "opl_cancer.cli:main"
+
+# v2.5 RFC 0001 §2.4 — integrator plugin protocol via entry points.
+# 5 v2.4 integrators registered as the first entry points; 39 others tagged
+# for M3 migration. New external plugins drop in by registering against the
+# same group without touching this repo.
+[project.entry-points."opl_cancer.integrators"]
+pubmed = "opl_cancer.integrators.pubmed:PubMedIntegrator"
+opentargets = "opl_cancer.integrators.open_targets:OpenTargetsIntegrator"
+clinicaltrials = "opl_cancer.integrators.clinicaltrials:ClinicalTrialsGovIntegrator"
+cbioportal = "opl_cancer.integrators.cbioportal:CBioPortalIntegrator"
+oncokb = "opl_cancer.integrators.oncokb:OncoKBIntegrator"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/opl_cancer"]

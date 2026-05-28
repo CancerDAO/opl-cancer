@@ -27,6 +27,7 @@ from typing import Any
 
 import httpx
 
+from ._abc import IntegratorABC
 from .base import Integrator, IntegratorError
 
 
@@ -101,9 +102,32 @@ query targetEvidenceByDatasource($sym: String!, $efo: String!) {
 """.strip()
 
 
-class OpenTargetsIntegrator(Integrator):
+class OpenTargetsIntegrator(Integrator, IntegratorABC):
+    """v2.5 RFC 0001 §2.4 — second proof-of-protocol multi-inheritor."""
+
     family = "F9"
     ttl_seconds = 7 * 24 * 3600
+    id = "opentargets"  # v2.5 entry-point name
+
+    # ─── v2.5 IntegratorABC ────────────────────────────────────────────
+    def query(self, key: str) -> Any:
+        import anyio
+
+        return anyio.run(self.fetch, key)
+
+    def normalize(self, raw: Any) -> dict[str, Any]:
+        if isinstance(raw, dict):
+            return raw
+        return {"value": raw}
+
+    def provenance(self) -> dict[str, Any]:
+        return {
+            "integrator": "opentargets",
+            "endpoint": _ENDPOINT,
+            "family": self.family,
+            "ttl_seconds": self.ttl_seconds,
+            "version": "v4",
+        }
 
     async def fetch(self, key: str) -> dict[str, Any]:
         if key.startswith("target:"):
