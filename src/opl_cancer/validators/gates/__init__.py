@@ -1,8 +1,9 @@
-"""Concrete mechanical gates. Spec §7 (G1-G27).
+"""Concrete mechanical gates. Spec §7 (G1-G33).
 
-Registered in `mechanical_gates.all_gate_classes()` (P0-3 fix bumped count
-from 23 → 27 by adding G21/G25/G26/G27 to the registry; previously only
-G25-G27 were re-exported but never picked up by the orchestrator loop).
+Registered in `mechanical_gates.all_gate_classes()`:
+- P0-3 fix (v2.1) bumped count from 23 → 27 by adding G21/G25/G26/G27.
+- v2.2 ADR-0022 added G28 (absolute_date).
+- v2.3 ADR-0023 adds G29-G33 (Wave 6 manuscript invariants).
 """
 from __future__ import annotations
 
@@ -37,6 +38,11 @@ from .g25_deferred_evidence_block import G25DeferredEvidenceBlockGate
 from .g26_evidence_strength_ranking import G26EvidenceStrengthRankingGate
 from .g27_privacy_scrub import G27PrivacyScrubGate, redact_text, scan_text
 from .g28_absolute_date import G28AbsoluteDateGate
+from .g29_manuscript_authorship_disclosed import G29ManuscriptAuthorshipDisclosedGate
+from .g30_claim_pmid_anchored import G30ClaimPMIDAnchoredGate
+from .g31_figure_reproducible import G31FigureReproducibleGate
+from .g32_data_availability_declared import G32DataAvailabilityDeclaredGate
+from .g33_n1_design_transparent import G33N1DesignTransparentGate
 
 __all__ = [
     "CrossPatientContaminationError",
@@ -68,6 +74,11 @@ __all__ = [
     "G26EvidenceStrengthRankingGate",
     "G27PrivacyScrubGate",
     "G28AbsoluteDateGate",
+    "G29ManuscriptAuthorshipDisclosedGate",
+    "G30ClaimPMIDAnchoredGate",
+    "G31FigureReproducibleGate",
+    "G32DataAvailabilityDeclaredGate",
+    "G33N1DesignTransparentGate",
     "redact_text",
     "scan_text",
 ]
