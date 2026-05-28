@@ -1,5 +1,148 @@
 # Changelog
 
+## [2.3.0] — 2026-05-28 — Wave 6 Manuscript + `.n1a` Bundle
+
+ADR-0023. Adds a publication-grade Wave 6 sibling to Wave 5: takes a
+shipped patient brief and emits a preprint-style manuscript + a
+self-contained `.n1a` bundle (schema v0.1). Closes P2 fixes #17, #18,
+#20, #21, #22 from the 007-zhiqiang post-mortem. Adds 5 new mechanical
+gates (G29-G33) for Wave 6 manuscript invariants. The N1Arxiv platform
+(v2.4) will consume `.n1a` bundles via PR-based submission.
+
+### Added — Wave 6 runner + bundle
+
+- **`src/opl_cancer/glue/wave6_runner.py`** — transactional sibling to
+  `delivery_runner.py` (v2.2 P1-#16 envelope). Three modes:
+  `dry_run` / `draft` / `final`. Refuses if Wave 5 has not shipped
+  both briefs. Rolls back on any gate-block failure.
+- **`src/opl_cancer/delivery/n1a_bundle_writer.py`** — collects Wave 6
+  artifacts from `triggers/<run_id>/`, computes SHA-256 per file,
+  writes `manifest.json`, zips to `<id>_<date>.n1a.zip`, validates
+  against the schema. Banner injection for non-`real_patient`
+  data_sources (P2-#18).
+- **`schemas/n1a_bundle.v0.1.schema.json`** — JSON Schema draft-2020-12.
+  Required fields: schema_version, opl_version, patient_id_hash,
+  generated_at, data_source enum, file_index, sha256s. Optional:
+  cost_summary, henry_audit_summary, extends_prior_run, banner.
+
+### Added — mechanical gates G29-G33 (28 → 33)
+
+- **G29 `manuscript_authorship_disclosed`** —
+  `ai_authorship_disclosure.md` must list every contributing expert
+  (CRediT-style table) + attest "no human author beyond patient &
+  supervising clinician."
+- **G30 `claim_pmid_anchored`** — every claim sentence in
+  `manuscript.md` ends with `[PMID:XXXXX]` or `[integrator:NAME
+  run_id:HASH]`; `[BACKGROUND]` exempts framing prose.
+- **G31 `figure_reproducible`** — each `figures/fig_N.png` has matching
+  `figures/fig_N.py`; stochastic reproducers must declare
+  `random_seed = X`.
+- **G32 `data_availability_declared`** — `reproducibility.md`
+  tier-labels every data source (`public` / `DUA` / `patient-private`).
+  Patient-private sources MUST be labelled.
+- **G33 `n1_design_transparent`** — methods text must declare
+  "single-subject (N=1) design"; cohort/population language without
+  a same-sentence caveat is flagged.
+
+### Added — task packages (8) (54 → 62)
+
+- `prompts/tasks/manuscript_introduction.md` — Iain; Wave 6;
+  G29+G30. Wave 1 retrieval → intro + related work (cite-anchored).
+- `prompts/tasks/manuscript_methods.md` — Aviv; Wave 6;
+  G29+G30+G32+G33. N=1 design + integrators + data-source tiers
+  + Henry gate inventory + consent framing.
+- `prompts/tasks/manuscript_results.md` — Aviv; Wave 6; G29+G30+G31.
+  Wave 3 evidence → results with figure/table refs.
+- `prompts/tasks/manuscript_discussion.md` — Vince; Wave 6;
+  G29+G30+G33. Wave 2 hypotheses + Wave 4 validation synthesis;
+  N=1 caveats on every cohort/population claim.
+- `prompts/tasks/manuscript_limitations.md` — Henry; Wave 6;
+  G29+G30+G33. N=1 limits + AI-authorship + integrator snapshots
+  + non-PASS gate enumeration.
+- `prompts/tasks/manuscript_abstract.md` — Iain; Wave 6;
+  G29+G30+G33. 250-word structured abstract (Background/Methods/
+  Results/Conclusions).
+- `prompts/tasks/citation_assembly.md` — Henry-adjacent; Wave 6;
+  G1+G2+G30. PMIDs → BibTeX via PubMed esummary; G1 existence + G2
+  first-author match re-verification.
+- `prompts/tasks/figure_caption.md` — Aviv; Wave 6; G30+G31.
+  Publication-grade captions with axes/N/test/reproducer.
+
+### Added — P2 fixes
+
+- **P2-#17** `src/opl_cancer/plan/prior_run_ingestion.py` — ingests
+  `runs/<prior>/chair_final_report.md`; Wave 6 runner auto-detects
+  latest prior run; carried into `manifest.extends_prior_run`;
+  manuscript framing notes "extends prior MTB run X".
+- **P2-#18** `src/opl_cancer/integrators/figure_render.py` —
+  `watermark_png()` + `watermark_directory()` overlay diagonal banner
+  text on every fig PNG for non-`real_patient` bundles. `manuscript.md`
+  also gets the banner stamped into its header.
+- **P2-#20** `src/opl_cancer/memory/cost_tracker.py` — append-only
+  `runs/<run_id>/cost_log.jsonl`. `CostTracker.record_call()` +
+  `record_subagent()` log per-call cost; `aggregate_cost_log()` builds
+  the `manifest.cost_summary` shape (total_usd + tokens_input +
+  tokens_output + by_model + by_wave + by_expert).
+- **P2-#21** `patient_value_hierarchy_weights()` in
+  `prior_run_ingestion.py` — reads `profile.patient_value_hierarchy`
+  ordering for Wave 2/3 ranking pre-pending.
+- **P2-#22** `src/opl_cancer/plan/task_sync.py` — JSONL TaskCreate /
+  TaskUpdate writer. OFF by default; `OPL_TASKCREATE_INTEGRATION=1`
+  enables. `emit_plan_tasks_for_waves()` + `mark_wave_completed()`.
+
+### CLI
+
+- **`opl wave6`** — new subcommand wiring the Wave 6 runner.
+  Options: `--patient-dir` / `--run-id` / `--patient-code` (required);
+  `--draft` / `--final` / `--dry-run` (mode); `--data-source` enum;
+  `--extends-prior-run` override; `--json`. Exit codes: 0 ok / 2
+  Wave5 prereq missing / 3 Wave6Failure.
+- **`opl status`** — now reports `Mechanical gates: 33` (was 28) and
+  `Wave runners ready: Wave1 / Wave2 / Wave3 / Wave4 / Wave5 (render) /
+  Wave6 (manuscript+.n1a)`.
+
+### Tests
+
+- `tests/test_validators/test_g29..g33_*.py` — 39 unit tests across
+  the 5 new gates.
+- `tests/test_validators/test_gate_registry.py` — updated to 33 gates.
+- `tests/test_integration/test_n1a_bundle_schema.py` — 9 integration
+  tests on the bundle writer + 4-bundle schema-valid check.
+- `tests/test_memory/test_cost_tracker.py` — 10 unit tests on the
+  cost tracker.
+- `tests/test_glue/test_wave6_runner.py` — 10 integration tests on
+  the runner.
+- `tests/test_v23_wave6_prompts.py` — 41 structural tests on the 8
+  new task packages.
+- `tests/test_plan/test_prior_run_ingestion.py` — 8 unit tests on
+  P2-#17 + P2-#21.
+- `tests/test_plan/test_task_sync.py` — 7 unit tests on P2-#22.
+- `tests/test_integrators/test_figure_render_watermark.py` — 4 unit
+  tests on P2-#18.
+- `tests/test_cli.py` — 3 new CLI tests + status string update.
+- `tests/test_e2e/test_wave6_riaz_manuscript.py` — Riaz reference
+  E2E (data-presence-gated).
+- `tests/test_e2e/test_wave6_007_manuscript.py` — real-patient E2E
+  (gated on `OPL_REAL_PATIENT_OK`).
+
+### Attribution
+
+- Leey21/awesome-ai-research-writing prompts adapted (4 borrows:
+  Zh→En translation, polish, chart-type recommendation, figure
+  caption rules). All paraphrased + oncology-framed; not verbatim.
+  License pending upstream grant (Leey21 issue open); fallback:
+  rewrite from scratch if no response by v2.4 ship.
+
+### Docs
+
+- **ADR-0023** `docs/adr/0023-wave6-manuscript-and-n1a-bundle.md` —
+  rationale, gate definitions, bundle format, P2 implementation
+  surface, hand-off to v2.4 N1Arxiv.
+- **SKILL.md** — frontmatter version 2.2.0 → 2.3.0; added `wave6`,
+  `manuscript`, `n1a`, `preprint` triggers.
+- **README.md** — v2.3.0 line in Recent changes.
+- **`pyproject.toml`** version 2.2.0 → 2.3.0.
+
 ## [2.2.0] — 2026-05-28 — Equipped Experts
 
 ADR-0022. Vendors 8 bio-skill task packages (7 required + 1 optional CPIC)
