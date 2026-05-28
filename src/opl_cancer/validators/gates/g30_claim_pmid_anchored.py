@@ -37,7 +37,11 @@ _INTEGRATOR_ANCHOR_RE = re.compile(
     r"\[integrator\s*:\s*[A-Za-z0-9_.\-]+\s+run_id\s*:\s*[A-Fa-f0-9]+\](?:\s*[.;:,?!\)\]])*\s*$",
     re.IGNORECASE,
 )
-_BACKGROUND_TAG_RE = re.compile(r"^\s*\[BACKGROUND\]", re.IGNORECASE)
+# `[BACKGROUND]` tag exempts a claim sentence from PMID anchoring. To be
+# robust against markdown bold/italic prefixes (e.g. "**Background.**
+# [BACKGROUND] ..."), we allow the tag anywhere in the sentence — same
+# convention as G28.
+_BACKGROUND_TAG_RE = re.compile(r"\[BACKGROUND\]", re.IGNORECASE)
 _HEADING_RE = re.compile(r"^\s{0,3}#")
 _TABLE_ROW_RE = re.compile(r"^\s*\|")
 _FENCE_RE = re.compile(r"^\s*```")
@@ -146,7 +150,7 @@ class G30ClaimPMIDAnchoredGate(Gate):
 
         unanchored: list[tuple[int, str]] = []
         for ln, sentence in sentences:
-            if _BACKGROUND_TAG_RE.match(sentence):
+            if _BACKGROUND_TAG_RE.search(sentence):
                 continue
             if _has_anchor(sentence):
                 continue
