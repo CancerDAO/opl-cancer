@@ -66,7 +66,17 @@ def main() -> None:
         "founder-mode discipline — see docs/ANTI_PATTERNS_v1.4.md AP-10."
     ),
 )
-def preflight(json_mode: bool, allow_single_model: bool) -> None:
+@click.option(
+    "--install-agents",
+    is_flag=True,
+    default=False,
+    help=(
+        "Copy agents/opl-experts.yml to ~/.claude/agents/ so the 21 "
+        "opl-* subagent types are available under Path 1 of the v2.1 "
+        "subagent file-write contract. See docs/SUBAGENT_CONTRACT.md."
+    ),
+)
+def preflight(json_mode: bool, allow_single_model: bool, install_agents: bool) -> None:
     result: dict[str, Any] = {"version": VERSION, "ok": True, "checks": {}, "issues": []}
 
     # Python ≥ 3.11
@@ -212,6 +222,38 @@ def preflight(json_mode: bool, allow_single_model: bool) -> None:
     # Patient root
     pr = _patient_root()
     result["checks"]["patient_root"] = {"path": str(pr), "exists": pr.exists()}
+
+    # v2.1 P0-#3: surface which subagent path is active so the SKILL main
+    # thread knows whether to expect direct writes or inline returns.
+    claude_agents_yml = Path.home() / ".claude" / "agents" / "opl-experts.yml"
+    agent_types_installed = claude_agents_yml.exists()
+    result["checks"]["subagent_path"] = {
+        "ok": True,
+        "path": "Path 1 (opl-* agent types)" if agent_types_installed
+        else "Path 2 (general-purpose + inline return)",
+        "agents_yml_at": str(claude_agents_yml),
+        "installed": agent_types_installed,
+        "note": (
+            "See docs/SUBAGENT_CONTRACT.md. Install Path 1 with "
+            "`opl preflight --install-agents`."
+        ),
+    }
+
+    # --install-agents copies our local agents/opl-experts.yml to ~/.claude/agents/.
+    if install_agents:
+        src = Path(__file__).resolve().parent.parent.parent / "agents" / "opl-experts.yml"
+        if not src.exists():
+            result["issues"].append(
+                f"[warn] agents/opl-experts.yml not found at {src}; cannot install."
+            )
+        else:
+            claude_agents_yml.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(src, claude_agents_yml)
+            result["checks"]["subagent_install"] = {
+                "ok": True,
+                "src": str(src),
+                "dst": str(claude_agents_yml),
+            }
 
     _emit(result, json_mode)
     sys.exit(0 if result["ok"] else 1)
