@@ -36,6 +36,7 @@ from .g24_crisis_detection import G24CrisisDetectionGate
 from .g25_deferred_evidence_block import G25DeferredEvidenceBlockGate
 from .g26_evidence_strength_ranking import G26EvidenceStrengthRankingGate
 from .g27_privacy_scrub import G27PrivacyScrubGate, redact_text, scan_text
+from .g28_absolute_date import G28AbsoluteDateGate
 
 __all__ = [
     "CrossPatientContaminationError",
@@ -66,6 +67,7 @@ __all__ = [
     "G25DeferredEvidenceBlockGate",
     "G26EvidenceStrengthRankingGate",
     "G27PrivacyScrubGate",
+    "G28AbsoluteDateGate",
     "redact_text",
     "scan_text",
 ]
