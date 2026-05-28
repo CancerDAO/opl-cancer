@@ -1,0 +1,26 @@
+id: cox_proportional_hazards
+domain: statistical
+display_name: Cox Proportional-Hazards Regression
+inputs:
+  event_time: float
+  event_status: bool
+  covariates: dataframe
+outputs:
+  hazard_ratios: dict
+  ci95: dict
+  ph_test_p: float
+  schoenfeld_residuals: dataframe
+assumptions:
+  - proportional_hazards
+  - no_competing_risks
+  - linearity_of_log_hazard_in_continuous_covariates
+  - independent_censoring
+applicable_gate_families:
+  - statistical-validity
+  - reproducibility
+  - provenance
+implementation_ref: opl_cancer.integrators.lifelines_km:cox_fit
+literature_refs:
+  - PMID:7144749       # Cox 1972 original paper (printed PMID for the JRSS-B classic)
+  - PMID:25530440      # Schoenfeld residuals primer
+fast_path_task_package: biostats_survival

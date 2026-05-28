@@ -1,0 +1,25 @@
+id: kaplan_meier
+domain: statistical
+display_name: Kaplan-Meier Survival Estimator
+inputs:
+  event_time: float
+  event_status: bool
+  group: optional_categorical
+outputs:
+  survival_curve: dataframe
+  median_survival: float
+  ci95: dict
+  logrank_p: optional_float
+assumptions:
+  - independent_censoring
+  - homogeneous_baseline_hazard_within_group
+  - no_time_varying_covariates_for_curve_estimation
+applicable_gate_families:
+  - statistical-validity
+  - reproducibility
+  - provenance
+implementation_ref: opl_cancer.integrators.lifelines_km:km_fit
+literature_refs:
+  - PMID:13655060      # Kaplan & Meier 1958 (JASA)
+  - PMID:7587228       # Bland JM logrank explainer
+fast_path_task_package: biostats_survival

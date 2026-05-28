@@ -1,0 +1,25 @@
+id: conformal_prediction
+domain: statistical
+display_name: Conformal Prediction (distribution-free coverage)
+inputs:
+  point_predictions: array
+  calibration_residuals: array
+  target_coverage: float
+outputs:
+  prediction_intervals: dataframe
+  empirical_coverage: float
+  conformity_scores: array
+assumptions:
+  - exchangeability_of_calibration_and_test_data
+  - finite_calibration_set
+  - distribution_free_guarantee_marginal_not_conditional
+applicable_gate_families:
+  - statistical-validity
+  - safety-disclosure
+  - reproducibility
+  - provenance
+implementation_ref: TBD
+literature_refs:
+  - PMID:36777088      # Angelopoulos & Bates conformal tutorial (Foundations and Trends)
+  - PMID:38130612      # Conformal in clinical-prediction review
+fast_path_task_package: n1_cohort_projection

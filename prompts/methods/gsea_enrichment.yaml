@@ -1,0 +1,26 @@
+id: gsea_enrichment
+domain: bioinformatics
+display_name: GSEA Pathway Enrichment
+inputs:
+  ranked_gene_list: array
+  gene_sets: dict
+  permutations: int
+outputs:
+  enrichment_table: dataframe
+  leading_edge_genes: dict
+  normalized_enrichment_score: dict
+  fdr_q_values: dict
+assumptions:
+  - ranking_metric_meaningful_for_phenotype
+  - independent_permutations
+  - gene_set_curation_quality_known
+  - multiple_testing_via_fdr
+applicable_gate_families:
+  - statistical-validity
+  - reproducibility
+  - provenance
+implementation_ref: TBD
+literature_refs:
+  - PMID:16199517      # Subramanian et al. 2005 GSEA PNAS
+  - PMID:34062119      # MSigDB v7 update
+fast_path_task_package: pathway_enrichment

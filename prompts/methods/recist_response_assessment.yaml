@@ -1,0 +1,25 @@
+id: recist_response_assessment
+domain: clinical-research
+display_name: RECIST 1.1 Response Assessment
+inputs:
+  target_lesion_measurements_over_time: dataframe
+  non_target_lesion_status_over_time: dataframe
+  new_lesion_events: list
+outputs:
+  best_overall_response: enum
+  time_to_progression: float
+  response_category_per_assessment: dataframe
+assumptions:
+  - measurable_disease_per_recist_1_1_definitions
+  - consistent_imaging_modality_across_timepoints
+  - independent_radiology_review_or_blinded_assessment
+applicable_gate_families:
+  - temporal-recency
+  - reproducibility
+  - provenance
+  - safety-disclosure
+implementation_ref: TBD
+literature_refs:
+  - PMID:19097774      # Eisenhauer et al. 2009 RECIST 1.1
+  - PMID:11000337      # Therasse et al. 2000 RECIST 1.0
+fast_path_task_package: pathology_interpretation
