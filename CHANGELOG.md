@@ -1,5 +1,94 @@
 # Changelog
 
+## [2.1.0] — 2026-05-28 — Truthful Execution
+
+ADR-0021. Closes the eight P0-class design / execution gaps identified in
+session 4b177138, plus the fakery class (P1-#9, P2-#19).
+
+### Added
+
+- **`opl run --wave N`** real executor command (P0-#1, #2). Wave 3
+  supports `--mode {docker,native,dry-run}` and auto-selects native when
+  Docker is absent. `wave1`/`wave2`/`wave3`/`wave4` stay as state-checks
+  with explicit help text now marking them so.
+- **`src/opl_cancer/plan/goal_router.py`** + `goal_router.yaml` keyword
+  routing (P0-#4). Vaccine / irAE / cross-border / MSI-H / TMB / HRD /
+  germline / DPYD / ctDNA patterns route to specific expert subsets.
+- **`src/opl_cancer/plan/schema_validator.py`** profile↔trigger field
+  alignment hard-fail at plan emit (P0-#5). Did-you-mean suggestions.
+- **`src/opl_cancer/plan/task_validator.py`** task_package fail-fast
+  (P0-#6). 46 task packages glob-loaded at runtime; typos rejected with
+  Levenshtein Did-you-mean top-3.
+- **`agents/opl-experts.yml`** — 21 OPL-specific subagent types
+  (20 experts + Henry) with `Write` scoped to
+  `patients/*/triggers/*/tasks/**` (audit/** for Henry) (P0-#3).
+- **`docs/SUBAGENT_CONTRACT.md`** explaining Path 1 vs Path 2.
+- **`opl preflight --install-agents`** installs the opl-* subagent types.
+- **`src/opl_cancer/orchestrator/reviewer_hook.py`** distinct-model +
+  distinct-expert reviewer dispatch after every expert write (P0-#7).
+  Persisted as `review.json` next to each `report.md`.
+- **`src/opl_cancer/integrators/clinicaltrials.verify_site_open()`** +
+  `site_verification_map.yaml` — cross-verify CT.gov RECRUITING status
+  against the hospital's own page (P0-#8).
+- **`src/opl_cancer/validators/fakery_sniffer.py`** cross-cutting
+  safety net (P1-#9). Scans every artifact for placeholder language;
+  hits halt the wave + emit `SNIFFER_HALT.md`. `[BACKGROUND]` lines are
+  exempt.
+- **`src/opl_cancer/orchestrator/pushback_router.py`** keyword + sniffer
+  auto-trigger (P2-#19). Appends rows to `pushback_trigger_log.jsonl`.
+- **ADR-0021** Truthful Execution Invariants — three orthogonal
+  invariants that every future release must preserve.
+- **`schemas/profile.schema.json`** v0.1 — JSON Schema with required
+  `patient_id_hash` + optional triggers; `additionalProperties: true`.
+- **`KNOWN_EXPERTS`** in `plan/schemas.py` extended 18 → 20 (adds
+  maya + julius) to align with the v2.0 roster declared in SKILL.md.
+
+### Changed
+
+- `wave1`/`wave2`/`wave3`/`wave4` help text now begins with "state-check
+  only — does NOT execute. Use `opl run --wave N` for the executor."
+- `pyproject.toml` version 1.5.7 → 2.1.0.
+- `pyproject.toml` adds `jsonschema>=4.21` dependency.
+- `SKILL.md` frontmatter version 2.0.0 → 2.1.0.
+
+### Tests
+
+- `tests/cli/test_opl_run_wave3_native.py` — opl run --wave 3 wires
+  NativeAnalysisRunner.
+- `tests/cli/test_wave_status_aliases.py` — wave1-4 help marks them
+  state-check.
+- `tests/cli/test_preflight_refuses_no_executor.py`.
+- `tests/plan/test_goal_router.py` + `test_comorbid_planner_with_goal_router.py`.
+- `tests/plan/test_profile_schema.py` + `test_schema_validator.py`.
+- `tests/plan/test_task_validator.py`.
+- `tests/agents/test_opl_experts_yml.py`.
+- `tests/test_orchestrator/test_reviewer_hook.py`.
+- `tests/test_orchestrator/test_pushback_router.py`.
+- `tests/test_validators/test_fakery_sniffer.py`.
+- `tests/test_glue/test_sniffer_halt.py`.
+- `tests/test_integrators/test_ct_gov_site_verify.py`.
+- `tests/test_e2e/test_v2_1_riaz.py` + `test_v2_1_007.py` (skipped when
+  patient data not present locally — see file headers).
+
+### Deviations from the original v2.1 plan
+
+* `opl run --wave 3` directly drives `NativeAnalysisRunner.run_notebook`
+  on a smoke notebook rather than instantiating the full `Wave3Runner`
+  class (which requires populated LLM client + experts). This proves the
+  compute path while remaining honest about LLM responsibility staying
+  with the SKILL main thread (per ADR-2026-04-22).
+* `Wave1Runner.run` now writes per-task `tasks/w1_<task_id>/report.md`
+  sidecars; in v2.0 these were aggregated into the final brief without
+  per-task persistence. The sidecars are the surface the reviewer hook +
+  fakery sniffer attach to.
+* `Wave2Runner` / `Wave3Runner` / `Wave4Runner` retain their existing
+  signatures unchanged; the reviewer pairing + sniffer hooks are wired
+  only in Wave 1 for this release. Extending to Waves 2-4 is tracked for
+  v2.1.1 (the hooks are reusable; the wiring is mechanical).
+* `goal_router.yaml` lives under `src/opl_cancer/plan/` (Python package
+  data) rather than at the repo top-level — this keeps the yaml inside
+  the installed wheel and reachable from `Path(__file__).parent`.
+
 ## [2.1.0-rc1] — 2026-05-26 — Trace-Digest Evolution (borrowed from EvoMaster, NOT policy)
 
 Branch: `iter/v2-followup-evolution` (off `iter/v2-paradigm`). Implements
