@@ -277,7 +277,20 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
             profile_data = json.loads(profile_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             profile_data = {}
-    tasks, fired = maybe_expand_for_comorbid(base_tasks, profile_data)
+    # v2.1 P0-#5: hard-fail at plan emit on profile↔trigger field mismatch.
+    # Only runs when a profile.json is actually present + has the required
+    # patient_id_hash field; missing-profile case stays a soft no-op so the
+    # planner remains usable in early-onboarding flows.
+    if profile_data and "patient_id_hash" in profile_data:
+        from opl_cancer.plan.schema_validator import (
+            ProfileTriggerMismatch,
+            validate_profile,
+        )
+        try:
+            validate_profile(profile_data, strict_triggers=True)
+        except ProfileTriggerMismatch as exc:
+            raise click.ClickException(str(exc)) from exc
+    tasks, fired = maybe_expand_for_comorbid(base_tasks, profile_data, goal=goal)
     expanded_task_ids = [t.id for t in tasks if t.id not in {b.id for b in base_tasks}]
     # Newly-added tasks all go to Wave 1 (retrieval) by default — the
     # LLM-driven planner in v1.6 will redistribute. Heddy + Frances +
