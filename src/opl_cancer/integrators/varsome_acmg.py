@@ -125,25 +125,40 @@ def classify_acmg(*, criteria: list[str]) -> dict[str, Any]:
     path_cls = _classify_pathogenic_side(bucket)
     ben_cls = _classify_benign_side(bucket)
 
-    conflict = False
+    # Conflict = any pathogenic criterion AND any benign criterion are
+    # present (even if neither side meets its full decision-rule quota).
+    # ACMG 2015 rule 5: mixed criteria force VUS + explicit conflict flag.
+    has_path_criterion = (bucket["PVS"] + bucket["PS"] + bucket["PM"] + bucket["PP"]) > 0
+    has_ben_criterion = (bucket["BA"] + bucket["BS"] + bucket["BP"]) > 0
+    conflict = bool(has_path_criterion and has_ben_criterion)
+
     if path_cls and ben_cls:
         cls = "VUS"
-        conflict = True
         rationale = (
-            f"Conflicting criteria: {path_cls} side ({path_cls!r}) AND "
-            f"{ben_cls} side ({ben_cls!r}) → ACMG rule 5 → VUS."
+            f"Conflicting criteria: pathogenic-side rule ({path_cls!r}) AND "
+            f"benign-side rule ({ben_cls!r}) both fire → ACMG rule 5 → VUS."
         )
     elif path_cls:
         cls = path_cls
         rationale = f"Pathogenic-side decision rule matched: {path_cls}."
+        if conflict:
+            rationale += " Benign criteria also present — flag for review."
     elif ben_cls:
         cls = ben_cls
         rationale = f"Benign-side decision rule matched: {ben_cls}."
+        if conflict:
+            rationale += " Pathogenic criteria also present — flag for review."
     else:
         cls = "VUS"
-        rationale = (
-            "No pathogenic or benign decision rule satisfied → VUS by default."
-        )
+        if conflict:
+            rationale = (
+                "Both pathogenic and benign criteria present but neither side "
+                "meets its full decision-rule quota → VUS + conflict_flag."
+            )
+        else:
+            rationale = (
+                "No pathogenic or benign decision rule satisfied → VUS by default."
+            )
 
     return {
         "classification": cls,
