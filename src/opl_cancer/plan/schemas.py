@@ -4,11 +4,14 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-# 18 named experts from spec §2.2.X (lowercase first names)
+# 20 named experts (v2.0 added maya + julius). Lowercase first names.
 KNOWN_EXPERTS = frozenset({
     "rosa", "bert", "vince", "rick", "heddy", "mary", "aviv", "tyler",
     "iain", "ted", "riad", "jen", "kieren", "mark", "hong", "frances",
     "dennis", "steve",
+    # v2.0.0 additions (SKILL.md v2 paradigm shift):
+    "maya",   # KG-synergy reasoner
+    "julius", # in-silico medicinal chemist
 })
 
 

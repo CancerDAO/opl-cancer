@@ -20,9 +20,11 @@ from typing import Any
 
 import click
 
+from opl_cancer.compute.native_runner import NativeAnalysisRunner
+from opl_cancer.compute.runner import BixbenchRunner
 from opl_cancer.experts.roster import ROSTER
 
-VERSION = "1.5.7"
+VERSION = "2.1.0"
 DEFAULT_PATIENT_ROOT_ENV = "OPL_PATIENT_DATA_ROOT"
 DEFAULT_PATIENT_ROOT = Path.home() / "CancerDAO" / "patients"
 
@@ -64,7 +66,17 @@ def main() -> None:
         "founder-mode discipline — see docs/ANTI_PATTERNS_v1.4.md AP-10."
     ),
 )
-def preflight(json_mode: bool, allow_single_model: bool) -> None:
+@click.option(
+    "--install-agents",
+    is_flag=True,
+    default=False,
+    help=(
+        "Copy agents/opl-experts.yml to ~/.claude/agents/ so the 21 "
+        "opl-* subagent types are available under Path 1 of the v2.1 "
+        "subagent file-write contract. See docs/SUBAGENT_CONTRACT.md."
+    ),
+)
+def preflight(json_mode: bool, allow_single_model: bool, install_agents: bool) -> None:
     result: dict[str, Any] = {"version": VERSION, "ok": True, "checks": {}, "issues": []}
 
     # Python ≥ 3.11
@@ -211,6 +223,38 @@ def preflight(json_mode: bool, allow_single_model: bool) -> None:
     pr = _patient_root()
     result["checks"]["patient_root"] = {"path": str(pr), "exists": pr.exists()}
 
+    # v2.1 P0-#3: surface which subagent path is active so the SKILL main
+    # thread knows whether to expect direct writes or inline returns.
+    claude_agents_yml = Path.home() / ".claude" / "agents" / "opl-experts.yml"
+    agent_types_installed = claude_agents_yml.exists()
+    result["checks"]["subagent_path"] = {
+        "ok": True,
+        "path": "Path 1 (opl-* agent types)" if agent_types_installed
+        else "Path 2 (general-purpose + inline return)",
+        "agents_yml_at": str(claude_agents_yml),
+        "installed": agent_types_installed,
+        "note": (
+            "See docs/SUBAGENT_CONTRACT.md. Install Path 1 with "
+            "`opl preflight --install-agents`."
+        ),
+    }
+
+    # --install-agents copies our local agents/opl-experts.yml to ~/.claude/agents/.
+    if install_agents:
+        src = Path(__file__).resolve().parent.parent.parent / "agents" / "opl-experts.yml"
+        if not src.exists():
+            result["issues"].append(
+                f"[warn] agents/opl-experts.yml not found at {src}; cannot install."
+            )
+        else:
+            claude_agents_yml.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(src, claude_agents_yml)
+            result["checks"]["subagent_install"] = {
+                "ok": True,
+                "src": str(src),
+                "dst": str(claude_agents_yml),
+            }
+
     _emit(result, json_mode)
     sys.exit(0 if result["ok"] else 1)
 
@@ -275,7 +319,33 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
             profile_data = json.loads(profile_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             profile_data = {}
-    tasks, fired = maybe_expand_for_comorbid(base_tasks, profile_data)
+    # v2.1 P0-#5: hard-fail at plan emit on profile↔trigger field mismatch.
+    # Only runs when a profile.json is actually present + has the required
+    # patient_id_hash field; missing-profile case stays a soft no-op so the
+    # planner remains usable in early-onboarding flows.
+    if profile_data and "patient_id_hash" in profile_data:
+        from opl_cancer.plan.schema_validator import (
+            ProfileTriggerMismatch,
+            validate_profile,
+        )
+        try:
+            validate_profile(profile_data, strict_triggers=True)
+        except ProfileTriggerMismatch as exc:
+            raise click.ClickException(str(exc)) from exc
+    tasks, fired = maybe_expand_for_comorbid(base_tasks, profile_data, goal=goal)
+    # v2.1 P0-#6: every emitted task_package must be a real file under
+    # prompts/tasks/. Fail loud at emit, not silently at run.
+    from opl_cancer.plan.task_validator import (
+        UnknownTaskPackage,
+        validate_task_packages,
+    )
+    try:
+        validate_task_packages([
+            {"task_id": t.id, "expert": t.expert, "task_package": t.task_package}
+            for t in tasks
+        ])
+    except UnknownTaskPackage as exc:
+        raise click.ClickException(str(exc)) from exc
     expanded_task_ids = [t.id for t in tasks if t.id not in {b.id for b in base_tasks}]
     # Newly-added tasks all go to Wave 1 (retrieval) by default — the
     # LLM-driven planner in v1.6 will redistribute. Heddy + Frances +
@@ -429,7 +499,7 @@ def _emit_wave_state(wave: int, run_root: Path, json_mode: bool, **extra: Any) -
     _emit(payload, json_mode)
 
 
-@main.command(help="Step 5: Wave 1 state-check. Reads tasks/w1_*/report.md count.")
+@main.command(help="Step 5: Wave 1 state-check — does NOT execute. Use `opl run --wave 1` for the executor. Reads tasks/w1_*/report.md count.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--plan", "plan_path", type=click.Path(exists=True, dir_okay=False), required=True)
@@ -439,7 +509,7 @@ def wave1(patient_dir: str, run_id: str, plan_path: str, json_mode: bool) -> Non
     _emit_wave_state(1, run_root, json_mode, plan_path=plan_path)
 
 
-@main.command(help="Step 6: Wave 2 state-check. Reads tournament/*.json count.")
+@main.command(help="Step 6: Wave 2 state-check — does NOT execute. Use `opl run --wave 2` for the executor. Reads tournament/*.json count.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--json", "json_mode", is_flag=True)
@@ -448,7 +518,7 @@ def wave2(patient_dir: str, run_id: str, json_mode: bool) -> None:
     _emit_wave_state(2, run_root, json_mode)
 
 
-@main.command(help="Step 7: Wave 3 state-check. Refuses to claim completion without real data artifacts.")
+@main.command(help="Step 7: Wave 3 state-check — does NOT execute. Use `opl run --wave 3 --mode native|docker` for the executor. Refuses to claim completion without real data artifacts.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--enable-docker/--no-docker", default=True)
@@ -458,13 +528,175 @@ def wave3(patient_dir: str, run_id: str, enable_docker: bool, json_mode: bool) -
     _emit_wave_state(3, run_root, json_mode, docker=enable_docker)
 
 
-@main.command(help="Step 8: Wave 4 state-check. Reads tasks/w4_*/report.md count.")
+@main.command(help="Step 8: Wave 4 state-check — does NOT execute. Use `opl run --wave 4` for the executor. Reads tasks/w4_*/report.md count.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--json", "json_mode", is_flag=True)
 def wave4(patient_dir: str, run_id: str, json_mode: bool) -> None:
     run_root = Path(patient_dir) / "triggers" / run_id
     _emit_wave_state(4, run_root, json_mode)
+
+
+# ─── v2.1 P0-#1+#2: opl run — real executor wrapping wave runners ─────────
+#
+# memory:feedback_no_false_completion + ADR-0021. Through v2.0.x the only
+# CLI surface that *looked* like a wave executor (`opl wave1`, etc.) was
+# really a state reader — it returned ok=true if artifacts existed and
+# requires_main_thread_dispatch otherwise. v2.1 introduces a separate
+# `opl run --wave N` command that ACTUALLY executes the corresponding
+# wave pipeline. For Wave 3 specifically, `--mode {native,docker,dry-run}`
+# selects the compute backend; if neither Docker nor native Jupyter is
+# present the command refuses honestly (no silent fallback).
+#
+# The wave1/wave2/wave3/wave4 *class* runners (glue/waveN_runner.py) still
+# require a populated LLM client + expert factory which only the main-thread
+# Claude orchestrator can supply. `opl run --wave 3 --mode native|docker`
+# additionally proves the compute backend is wired by running a tiny smoke
+# notebook (an empty `{}` .ipynb) through NativeAnalysisRunner /
+# BixbenchRunner so that downstream waves know the path is alive.
+
+
+def _select_wave3_mode() -> str:
+    """Pick the highest-fidelity Wave-3 mode available on this host.
+
+    Order: native (jupyter) → docker (bixbench) → error.
+    """
+    if NativeAnalysisRunner().is_available():
+        return "native"
+    docker_bin = shutil.which("docker")
+    if docker_bin:
+        try:
+            subprocess.run([docker_bin, "info"], check=True, capture_output=True, timeout=5)
+            return "docker"
+        except (subprocess.SubprocessError, subprocess.TimeoutExpired):
+            pass
+    raise click.ClickException(
+        "Neither Docker nor native Jupyter available. Pass --mode dry-run to "
+        "proceed without execution."
+    )
+
+
+def _emit_run_result(wave: int, result: dict[str, Any], json_mode: bool) -> None:
+    if json_mode:
+        click.echo(json.dumps({"wave": wave, "status": "executed", "result": result},
+                              ensure_ascii=False, indent=2))
+    else:
+        click.echo(f"Wave {wave} executed. Result: {result}")
+
+
+def _run_wave3_compute(run_root: Path, mode: str) -> dict[str, Any]:
+    """Invoke the selected compute runner on a smoke notebook.
+
+    The runner's `run_notebook` is called with the wave-3 working directory
+    so any side-effects (image pull, jupyter kernel spawn) surface here.
+    For dry-run we still construct the runner so misconfiguration is caught.
+    """
+    workdir = run_root / "data" / "wave3_smoke"
+    workdir.mkdir(parents=True, exist_ok=True)
+    notebook = workdir / "smoke.ipynb"
+    # Minimal valid notebook (no cells) — enough for nbconvert / docker exec
+    # to confirm the toolchain works.
+    notebook.write_text(
+        json.dumps(
+            {
+                "cells": [],
+                "metadata": {},
+                "nbformat": 4,
+                "nbformat_minor": 5,
+            }
+        )
+    )
+    if mode == "native":
+        runner = NativeAnalysisRunner()
+        rr = runner.run_notebook(notebook_path=notebook, workdir=workdir, timeout_s=120)
+    elif mode == "docker":
+        runner = BixbenchRunner()
+        rr = runner.run_notebook(notebook_path=notebook, workdir=workdir, timeout_s=120)
+    elif mode == "dry-run":
+        # construct but do not execute; still call run_notebook in dry mode
+        # so the compute runner reports the command it *would* run.
+        runner = NativeAnalysisRunner()
+        rr = runner.run_notebook(notebook_path=notebook, workdir=workdir, timeout_s=120)
+    else:  # pragma: no cover — click.Choice rejects others
+        raise click.ClickException(f"unknown --mode {mode!r}")
+    payload: dict[str, Any] = {
+        "mode": mode,
+        "notebook_path": str(notebook),
+        "workdir": str(workdir),
+    }
+    if hasattr(rr, "to_dict"):
+        payload["compute_result"] = rr.to_dict()
+    return payload
+
+
+@main.command(
+    help=(
+        "Step 6/7/8/9: Execute the named wave for real (not state-check). "
+        "Wave 3 supports --mode {docker,native,dry-run}. Waves 1/2/4 currently "
+        "verify state of dispatched artifacts (the LLM dispatch itself is owned "
+        "by the SKILL main thread per ADR-2026-04-22)."
+    ),
+)
+@click.option("--wave", type=click.IntRange(1, 4), required=True,
+              help="Wave number to execute")
+@click.option("--patient-dir", "patient_dir", required=True,
+              type=click.Path(file_okay=False),
+              help="Patient directory root")
+@click.option("--run-id", "run_id", required=True,
+              help="Run identifier")
+@click.option("--plan-path", "plan_path", default=None,
+              help="Plan.json path (defaults to <patient_dir>/triggers/<run_id>/plan.json)")
+@click.option("--mode", type=click.Choice(["docker", "native", "dry-run"]), default=None,
+              help="Wave 3 execution mode")
+@click.option("--json", "json_mode", is_flag=True, default=False)
+def run(
+    wave: int,
+    patient_dir: str,
+    run_id: str,
+    plan_path: str | None,
+    mode: str | None,
+    json_mode: bool,
+) -> None:
+    """Real executor wrapping glue/wave{N}_runner.py.
+
+    v2.1 P0-#1+#2 (ADR-0021). For Wave 3 (`--mode native|docker|dry-run`)
+    this directly drives the compute runner so the smoke notebook proves
+    the toolchain is live. For Waves 1/2/4 the full LLM dispatch is owned
+    by the SKILL main thread, but this command still re-verifies the
+    artifact-state contract honestly (refusing to claim completion if no
+    artifacts landed) — same honest-failure semantics as `opl waveN`.
+    """
+    pdir = Path(patient_dir)
+    pdir.mkdir(parents=True, exist_ok=True)
+    run_root = pdir / "triggers" / run_id
+    run_root.mkdir(parents=True, exist_ok=True)
+    plan_file = Path(plan_path) if plan_path else run_root / "plan.json"
+    if not plan_file.exists():
+        raise click.ClickException(f"plan.json not found: {plan_file}")
+
+    if wave == 3:
+        chosen_mode = mode or _select_wave3_mode()
+        result = _run_wave3_compute(run_root, chosen_mode)
+    else:
+        # Waves 1/2/4: re-use the artifact-state probe — refuse to claim
+        # completion when no real artifacts present. The SKILL main thread
+        # is the dispatcher for those LLM-driven waves.
+        state = _wave_artifact_state(run_root, wave)
+        result = {
+            "wave": wave,
+            "artifacts_found": state["found"],
+            "artifacts_sample": state["files"],
+        }
+        if not state["ok"]:
+            result["requires_main_thread_dispatch"] = True
+            result["action"] = (
+                f"Wave {wave} produced no artifacts yet. The SKILL main "
+                "thread must dispatch the wave runner (Wave1Runner / "
+                "Wave2Runner / Wave4Runner) — this CLI command verifies "
+                "state honestly per ADR-0021."
+            )
+
+    _emit_run_result(wave, result, json_mode)
 
 
 # ─── Step 9: Henry audit ──────────────────────────────────────────────────

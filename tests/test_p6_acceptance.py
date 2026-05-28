@@ -159,8 +159,10 @@ def test_wave1_e2e_parametrisation_covers_four_cancer_types() -> None:
 
 def test_pyproject_version_is_v1() -> None:
     py = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    # Accept any v1.x patch — P6 baseline 1.0.0; Iter-9+ bumps patch; v1.1.0 = Iter 20
-    assert 'version = "1.' in py, "pyproject not on v1.x line"
+    # v2.1.0 Truthful Execution release (ADR-0021) bumped from 1.5.7 → 2.1.0.
+    # The test name is historical; we now accept v1.x or v2.x.
+    assert ('version = "1.' in py) or ('version = "2.' in py), \
+        "pyproject not on v1.x or v2.x line"
 
 
 def test_changelog_has_1_0_0_section() -> None:

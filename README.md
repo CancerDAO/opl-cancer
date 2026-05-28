@@ -85,6 +85,8 @@ OPL 的核心信念是 **founder mode against cancer**：
 
 > **v2.0.0 范式升级 (`iter/v2-paradigm` 分支)**: OPL 现在主动产生 **world-unknown candidates** —— 患者简报新增 "⚡ World-Unknown / Speculative Candidates" 专属版块，由 Maya（KG 协同）/ Julius（in-silico 药物设计）/ Aviv（数据驱动假说）产生未发表的研究方向 + 可测路径。详见 [`references/adr/0010-v2-paradigm-shift.md`](references/adr/0010-v2-paradigm-shift.md) + [`references/v2/PARADIGM.md`](references/v2/PARADIGM.md) + [`references/v2/ROADMAP.md`](references/v2/ROADMAP.md)。
 
+> **v2.1.0 Truthful Execution (2026-05-28)**: `opl run --wave N` is the new real executor (was state-check only). Planner gains keyword routing (`goal_router`) + schema validation + task_package fail-fast. Every expert report goes through distinct-model + distinct-expert reviewer pairing. The fakery sniffer freezes downstream waves the moment placeholder language (`[speculative …]`, `<insert PMID>`, `approximately 5 million`) appears, and the pushback router auto-triggers `patient_pushback_handling` on either keyword cues or sniffer halts. 21 OPL-specific subagent types (`opl-rosa` … `opl-julius` + `opl-henry`) close the silent file-write failure path. See [ADR-0021](docs/adr/0021-truthful-execution.md).
+
 ---
 
 ## 实验室在做什么

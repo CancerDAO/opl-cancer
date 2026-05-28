@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "opl-cancer"
-version = "1.5.7"
+version = "2.1.0"
 description = "Open-source AI scientist team skill plugin for cancer patients — installed via npx skills add CancerDAO/opl-cancer-skill"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -19,6 +19,7 @@ dependencies = [
     "anyio>=4.3",
     "tenacity>=8.2",
     "pyyaml>=6.0",
+    "jsonschema>=4.21",
 ]
 
 [project.optional-dependencies]

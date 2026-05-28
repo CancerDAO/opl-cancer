@@ -28,7 +28,35 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from .goal_router import fired_patterns, route_goal
 from .schemas import Task
+
+# v2.1 P0-#5: explicit profile-key registry. Used by schema_validator to
+# detect typos like "active_irrae" → "active_irae" (Did-you-mean) without
+# accidentally rejecting future fields. Keep in sync with the profile
+# schema (schemas/profile.schema.json) + the helpers below.
+TRIGGER_KEYS: set[str] = {
+    "prior_lines",
+    "prior_therapy_lines",
+    "concurrent_meds",
+    "concurrent_medications",
+    "egfr_ml_min",
+    "lvef_pct",
+    "age_years",
+    "active_irae",
+    "toxicity_history",
+    "comorbidities",
+    "comorbidities_text",
+    "country",
+    "city",
+    "imaging_gaps",
+    "diagnosis",
+    "current_status",
+    "concise_summary",
+    "active_problems",
+    "patient_value_hierarchy",
+    "patient_id_hash",
+}
 
 # Trigger thresholds. Calibrated against the PT-EXAMPLE-A case + the
 # CancerDAO synthetic golden set; refined when v1.6 LLM-planner is wired.
@@ -290,17 +318,68 @@ def compute_expansion_triggers(
     return triggers
 
 
+def _goal_routed_triggers(
+    goal: str | None,
+    existing_ids: list[str],
+    existing_experts: set[str],
+) -> list[ExpansionTrigger]:
+    """v2.1 P0-#4: convert goal_router hits into ExpansionTrigger rows.
+
+    Each fired pattern that newly pulls an expert produces one trigger
+    whose name = ``goal_router:<pattern>`` and rationale = "goal matched
+    keyword pattern". The task_package defaults to ``hypothesis_generation``
+    — it's a request to think about this angle, not a specific clinical
+    deliverable. The LLM-driven planner (v1.6+) will refine.
+    """
+    if not goal:
+        return []
+    experts = route_goal(goal)
+    if not experts:
+        return []
+    next_id = max(
+        (int(tid[1:]) for tid in existing_ids if tid.startswith("t") and tid[1:].isdigit()),
+        default=9,
+    ) + 1
+    triggers: list[ExpansionTrigger] = []
+    matched_patterns = fired_patterns(goal)
+    pattern_label = "+".join(matched_patterns[:3]) if matched_patterns else "match"
+    for expert in experts:
+        if expert in existing_experts:
+            continue
+        triggers.append(
+            ExpansionTrigger(
+                name=f"goal_router:{pattern_label}",
+                rationale=f"goal text matched keyword pattern(s): {matched_patterns}",
+                task=Task(
+                    id=f"t{next_id}",
+                    expert=expert,
+                    task_package="hypothesis_generation",
+                    sub_goal=f"goal_router {expert}: {goal[:80]}",
+                ),
+            )
+        )
+        next_id += 1
+    return triggers
+
+
 def maybe_expand_for_comorbid(
-    base_tasks: list[Task], profile: dict[str, Any]
+    base_tasks: list[Task],
+    profile: dict[str, Any],
+    goal: str | None = None,
 ) -> tuple[list[Task], list[ExpansionTrigger]]:
     """Expand the baseline plan with triggered tasks.
 
     De-duplicates by (expert, task_package) — if a baseline task already
     covers the expansion's expert+package, we skip it so the user gets
     each task at most once.
+
+    v2.1 P0-#4: when ``goal`` is provided we additionally run
+    ``goal_router`` against the goal text and append one task per
+    routed-but-not-yet-on-team expert.
     """
     existing_ids = [t.id for t in base_tasks]
     existing_combos = {(t.expert, t.task_package) for t in base_tasks}
+    existing_experts = {t.expert for t in base_tasks}
     triggers = compute_expansion_triggers(profile, existing_ids)
     expanded = list(base_tasks)
     fired_triggers: list[ExpansionTrigger] = []
@@ -309,6 +388,19 @@ def maybe_expand_for_comorbid(
         if combo in existing_combos:
             continue
         existing_combos.add(combo)
+        existing_experts.add(trig.task.expert)
+        expanded.append(trig.task)
+        fired_triggers.append(trig)
+    # v2.1 P0-#4: goal-keyword routing runs AFTER comorbid expansion so
+    # it sees all baseline+comorbid experts as "existing" and only adds
+    # genuinely new ones (e.g. tyler / julius / maya for a vaccine goal).
+    existing_ids = [t.id for t in expanded]
+    for trig in _goal_routed_triggers(goal, existing_ids, existing_experts):
+        combo = (trig.task.expert, trig.task.task_package)
+        if combo in existing_combos:
+            continue
+        existing_combos.add(combo)
+        existing_experts.add(trig.task.expert)
         expanded.append(trig.task)
         fired_triggers.append(trig)
     return expanded, fired_triggers

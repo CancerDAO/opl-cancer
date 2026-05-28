@@ -1,0 +1,26 @@
+# OPL v2.1 P0-#8: hospital → trial-status page URL templates.
+# {nct_id} placeholder is substituted at call time.
+#
+# Add a row when a site appears as a CT.gov trial location and you want
+# the cross-verifier to actually fetch the hospital's own status page.
+# Missing rows → status="unverified" with reason="hospital_not_in_map";
+# Rick downgrades the trial card accordingly.
+sites:
+  "中山大学肿瘤防治中心":
+    base_url: "https://www.sysucc.org.cn/zlsy"
+    search: "https://www.sysucc.org.cn/zlsy/search?q={nct_id}"
+  "复旦大学附属肿瘤医院":
+    base_url: "https://www.shca.org.cn"
+    search: "https://www.shca.org.cn/research/?q={nct_id}"
+  "浙江省人民医院":
+    base_url: "https://www.zjsrmyy.com"
+    search: "https://www.zjsrmyy.com/research/trials?nct={nct_id}"
+  "北京肿瘤医院":
+    base_url: "https://www.bjcancer.org"
+    search: "https://www.bjcancer.org/research/trials?nct={nct_id}"
+  "解放军总医院":
+    base_url: "https://www.301hospital.com.cn"
+    search: "https://www.301hospital.com.cn/research?nct={nct_id}"
+  "四川大学华西医院":
+    base_url: "https://www.cd120.com"
+    search: "https://www.cd120.com/research/trial?id={nct_id}"

@@ -1,0 +1,162 @@
+# v2.1 P0-#3: OPL-specific subagent types with file-write grants.
+#
+# Format mirrors Claude Code subagent definitions. The 20 named experts +
+# Henry (IRB-substitute auditor) each get Write scoped to the patient's
+# triggers/<run_id>/tasks/** (or audit/** for Henry). MCP grants are
+# included only for the experts whose canonical workflow depends on them
+# — over-granting tool surface area dilutes the file-write contract.
+#
+# To install: `opl preflight --install-agents` copies this file into
+# ~/.claude/agents/opl-experts.yml. See docs/SUBAGENT_CONTRACT.md for the
+# fallback path when general-purpose subagents are used instead.
+
+agents:
+  - name: opl-rosa
+    description: "OPL Pathologist (Juan Rosai inspiration). Reads patient imaging + biopsy, writes pathology report."
+    tools: [Read, Grep, Glob, Bash, Write]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-bert
+    description: "OPL Molecular Geneticist (Bert Vogelstein inspiration). Variant interpretation."
+    tools: [Read, Grep, Glob, Bash, Write, mcp__oncology-db__*]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-vince
+    description: "OPL Treating Oncologist (Vince DeVita inspiration). Synthesises team into treatment-line decision."
+    tools: [Read, Grep, Glob, Bash, Write]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-rick
+    description: "OPL Clinical Trial Specialist. ChiCTR + CT.gov + EAP access."
+    tools: [Read, Grep, Glob, Bash, Write, WebSearch, WebFetch, mcp__chictr__*]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: true
+
+  - name: opl-heddy
+    description: "OPL Radiology Lead. RECIST + imaging interpretation."
+    tools: [Read, Grep, Glob, Bash, Write]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-mary
+    description: "OPL Pharmacist (Mary Relling inspiration). DDI / ADME / PGx / renal+hepatic dosing."
+    tools: [Read, Grep, Glob, Bash, Write, WebFetch]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: true
+
+  - name: opl-aviv
+    description: "OPL Bioinformatician (Aviv Regev inspiration). Public dataset re-analysis (TCGA / GEO)."
+    tools: [Read, Grep, Glob, Bash, Write]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-tyler
+    description: "OPL Wet-Lab Designer (Tyler Jacks inspiration). Bench validation feasibility."
+    tools: [Read, Grep, Glob, Bash, Write]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-iain
+    description: "OPL Meta-Analyst (Iain Chalmers). Literature synthesis. WebSearch/Fetch granted."
+    tools: [Read, Grep, Glob, Bash, Write, WebSearch, WebFetch, mcp__exa__*]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: true
+
+  - name: opl-ted
+    description: "OPL Radiation Oncologist (Ted Lawrence inspiration). SBRT / proton / RT timing."
+    tools: [Read, Grep, Glob, Bash, Write]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-riad
+    description: "OPL Interventional Oncologist (Riad Salem inspiration). TACE / Y-90 / TIPS / ablation."
+    tools: [Read, Grep, Glob, Bash, Write]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-jen
+    description: "OPL Palliative Care (Jen Temel inspiration). Symptom + goals-of-care reviewer."
+    tools: [Read, Grep, Glob, Bash, Write]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-kieren
+    description: "OPL Infection Specialist (Kieren Marr inspiration). Neutropenic fever / fungal / CMV."
+    tools: [Read, Grep, Glob, Bash, Write]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-mark
+    description: "OPL Endocrine irAE Specialist (Mark Hsu / Anderson irAE clinic). irAE rechallenge + cumulative load."
+    tools: [Read, Grep, Glob, Bash, Write, WebFetch]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: true
+
+  - name: opl-hong
+    description: "OPL TCM Oncology Lead. Integrative herbal + Western evidence audit."
+    tools: [Read, Grep, Glob, Bash, Write]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-frances
+    description: "OPL Expanded Access Navigator. WebSearch/Fetch granted for FDA EA, hospital pages."
+    tools: [Read, Grep, Glob, Bash, Write, WebSearch, WebFetch]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: true
+
+  - name: opl-dennis
+    description: "OPL Cross-Border Coordinator (Dennis Lo). WebSearch/Fetch granted."
+    tools: [Read, Grep, Glob, Bash, Write, WebSearch, WebFetch]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: true
+
+  - name: opl-steve
+    description: "OPL Oncology Nutritionist. Catabolic-state + cachexia + interaction screen."
+    tools: [Read, Grep, Glob, Bash, Write]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-maya
+    description: "OPL Knowledge-Graph Synergy Reasoner. Oncology DB + PrimeKG access."
+    tools: [Read, Grep, Glob, Bash, Write, mcp__oncology-db__*]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-julius
+    description: "OPL In-Silico Medicinal Chemist. Undrugged-target candidate design."
+    tools: [Read, Grep, Glob, Bash, Write]
+    tool_scopes:
+      Write: "patients/*/triggers/*/tasks/**"
+    web: false
+
+  - name: opl-henry
+    description: "OPL IRB-substitute Auditor. Runs G1-G27 checks. WebSearch for PMID/quote verify."
+    tools: [Read, Grep, Glob, Bash, Write, WebSearch, WebFetch]
+    tool_scopes:
+      Write: "patients/*/triggers/*/audit/**"
+    web: true
+
+# Install: `opl preflight --install-agents` copies this file to
+# ~/.claude/agents/opl-experts.yml.
