@@ -48,6 +48,13 @@ from .g34_delivery_attestation import G34DeliveryAttestationGate
 from .g35_clinical_fact_provenance import G35ClinicalFactProvenanceGate
 from .g36_pmid_topic_relevance import G36PMIDTopicRelevanceGate
 from .g37_service_completeness import G37ServiceCompletenessGate
+# v2.7.1 ADR-0026 (P1) — reasoning-quality gates (G38 reserved: citation-provenance
+# completeness is covered by G1/G2/G36 via the delivery gate runner).
+from .g39_biomarker_contingency import G39BiomarkerContingencyGate
+from .g40_drug_comorbidity_safety import G40DrugComorbiditySafetyGate
+from .g41_soc_completeness import G41SoCCompletenessGate
+from .g42_tier_discipline import G42TierDisciplineGate
+from .g43_epistemic_symmetry import G43EpistemicSymmetryGate
 
 __all__ = [
     "CrossPatientContaminationError",
@@ -88,6 +95,11 @@ __all__ = [
     "G35ClinicalFactProvenanceGate",
     "G36PMIDTopicRelevanceGate",
     "G37ServiceCompletenessGate",
+    "G39BiomarkerContingencyGate",
+    "G40DrugComorbiditySafetyGate",
+    "G41SoCCompletenessGate",
+    "G42TierDisciplineGate",
+    "G43EpistemicSymmetryGate",
     "redact_text",
     "scan_text",
 ]

@@ -198,3 +198,31 @@ gates:
     name: service_completeness
     migrated: true
     applicability_predicate: "stage == delivery"
+  # G38 reserved — citation-provenance completeness is covered by G1/G2/G36 run
+  # via the delivery gate runner; no separate gate to avoid a disconnected stub.
+  # ── v2.7.1 ADR-0026 (P1) — reasoning-quality gates (8 cross-model findings) ──
+  G39:
+    family: reasoning-quality
+    name: biomarker_contingency
+    migrated: true
+    applicability_predicate: "claim has a regimen with required_biomarkers"
+  G40:
+    family: reasoning-quality
+    name: drug_comorbidity_safety
+    migrated: true
+    applicability_predicate: "claim has drugs_mentioned and patient has comorbidities"
+  G41:
+    family: reasoning-quality
+    name: soc_completeness
+    migrated: true
+    applicability_predicate: "claim/run carries a soc_checklist"
+  G42:
+    family: reasoning-quality
+    name: tier_discipline
+    migrated: true
+    applicability_predicate: "claim has tier + evidence tiers"
+  G43:
+    family: reasoning-quality
+    name: epistemic_symmetry
+    migrated: true
+    applicability_predicate: "claim has skepticism or pooled_estimate"

@@ -58,6 +58,26 @@ pre-fetched variant evidence and produces an actionability-ranked variant list.
 }
 ```
 
+## Structured claim output (v2.7.1)
+
+For any variant claim asserting **biallelic inactivation** or **loss-of-function (LoF)** (e.g. a tumour-suppressor "two-hit" call, or "deleterious / LoF → synthetic-lethal target"), the variant entry MUST carry a `functional_evidence{}` object per `schemas/claim.v2.schema.json` (which allows these additional structured keys) so the mechanical gate has fields to check (an absent field makes the gate SKIP — i.e. dead). The load-bearing fields are `functional_evidence{claim_type, same_tumor_type, modality}`.
+
+- The gate that consumes this BLOCKS a biallelic/LoF actionability claim whose `functional_evidence.same_tumor_type` is `false` (or unknown) — i.e. the functional/biallelic call is borrowed from a different tumour context and presented as if established in this patient's tumour type — and requires `modality` to record HOW the functional consequence was established (e.g. `loh+mutation`, `homozygous_deletion`, `expression_loss`, `functional_assay`) rather than asserted. `claim_type` is `biallelic` or `lof`; set it so the gate knows the claim is in scope.
+
+```json
+{
+  "gene": "BRCA2",
+  "protein_change": "S1982fs",
+  "claim_layer": "exploratory",
+  "functional_evidence": {
+    "claim_type": "biallelic",
+    "same_tumor_type": true,
+    "modality": "loh+mutation"
+  },
+  "evidence": [{"type": "pmid", "id": "<from pre-fetched list>", "quote": "<exact>"}]
+}
+```
+
 ## Rules
 
 1. Every PMID listed MUST come from the integrator results above (do not invent).

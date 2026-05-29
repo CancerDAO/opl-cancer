@@ -35,8 +35,13 @@ from opl_cancer.validators.gates import (
     G35ClinicalFactProvenanceGate,
     G36PMIDTopicRelevanceGate,
     G37ServiceCompletenessGate,
+    G39BiomarkerContingencyGate,
+    G40DrugComorbiditySafetyGate,
+    G41SoCCompletenessGate,
+    G42TierDisciplineGate,
+    G43EpistemicSymmetryGate,
 )
-from opl_cancer.validators.mechanical_gates import GateResult, GateStatus
+from opl_cancer.validators.mechanical_gates import Gate, GateResult, GateStatus
 
 ATTESTATION_FILE = "DELIVERY_ATTESTATION.json"
 
@@ -130,6 +135,33 @@ def run_delivery_gates(
                 "PMIDs but no PubMed/PaperQA2 integrator was supplied. This is an honest "
                 "gap, not a pass; supply integrators (live path) to verify citations."
             )
+
+    # ── reasoning-quality gates (sync, per-claim) — G39/G40/G42 hard-block,
+    #    G41/G43 + G42-adjacency warn (Fork A). These check structured fields the
+    #    claim producer emits; a claim missing the field SKIPs (not a block). ──
+    reasoning_gates: list[Gate] = [
+        G39BiomarkerContingencyGate(),
+        G40DrugComorbiditySafetyGate(),
+        G41SoCCompletenessGate(),
+        G42TierDisciplineGate(),
+        G43EpistemicSymmetryGate(),
+    ]
+    warned: list[str] = []
+    for c in claims:
+        # G40 needs the patient profile to resolve comorbidities.
+        claim_in = dict(c)
+        if patient_dir is not None and "patient_dir" not in claim_in:
+            claim_in["patient_dir"] = str(patient_dir)
+        for g in reasoning_gates:
+            r = g.check(claim_in)
+            if r.status is GateStatus.SKIP:
+                continue
+            _record(results, blocked, r)
+            # FAIL with block=False is a warn — surface it without failing delivery.
+            if r.status is GateStatus.FAIL and not r.block:
+                warned.append(f"{r.gate} on {c.get('claim_id', '?')}: {r.message}")
+    if warned:
+        notes.append(f"reasoning-quality warnings (non-blocking): {warned}")
 
     verdict = {
         "ok": not blocked,

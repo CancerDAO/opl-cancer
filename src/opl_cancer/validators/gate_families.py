@@ -151,6 +151,51 @@ class ReproducibilityFamily(GateFamily):
     )
 
 
+class ReasoningQualityFamily(GateFamily):
+    """v2.7.1 ADR-0026 (P1) — clinical-reasoning quality of the synthesised output.
+
+    Distinct from the six structural families: these gates check that the
+    *recommendation reasoning* is coherent — a headline regimen is not gated on
+    an unknown biomarker (G39), a recommended drug is reconciled with the
+    patient's comorbidities (G40), standard-of-care completeness is recorded
+    (G41), evidence tiers are not conflated (G42), and skepticism is applied
+    symmetrically (G43). They operate on structured fields the claim producer
+    emits (schemas/claim.v2.schema.json), never on hardcoded clinical judgment.
+    """
+
+    family_id = "reasoning-quality"
+    description = (
+        "The synthesised recommendation's reasoning is coherent: no headline "
+        "gated on an unknown biomarker, drug×comorbidity reconciled, SoC "
+        "completeness recorded, evidence tiers not conflated, skepticism symmetric."
+    )
+
+    def bind_gates(
+        self, method: dict[str, Any], claim: dict[str, Any]
+    ) -> list[type[Gate]]:
+        if not self.applies_to(method, claim):
+            return []
+        return list(self.migrated_gate_classes())
+
+    def migrated_gate_classes(self) -> list[type[Gate]]:
+        from .gates import (  # local import to avoid cycle at module init
+            G39BiomarkerContingencyGate,
+            G40DrugComorbiditySafetyGate,
+            G41SoCCompletenessGate,
+            G42TierDisciplineGate,
+            G43EpistemicSymmetryGate,
+        )
+
+        candidates: list[type[Gate]] = [
+            G39BiomarkerContingencyGate,
+            G40DrugComorbiditySafetyGate,
+            G41SoCCompletenessGate,
+            G42TierDisciplineGate,
+            G43EpistemicSymmetryGate,
+        ]
+        return [c for c in candidates if getattr(c, "family_id", None) == self.family_id]
+
+
 # ─── registry helpers ─────────────────────────────────────────────────────
 
 
@@ -161,11 +206,12 @@ _FAMILY_SINGLETONS: dict[str, GateFamily] = {
     "scope-isolation": ScopeIsolationFamily(),
     "safety-disclosure": SafetyDisclosureFamily(),
     "reproducibility": ReproducibilityFamily(),
+    "reasoning-quality": ReasoningQualityFamily(),  # v2.7.1 ADR-0026 (P1)
 }
 
 
 def all_families() -> list[GateFamily]:
-    """Return one instance of each of the six gate families."""
+    """Return one instance of each gate family (six structural + reasoning-quality)."""
     return list(_FAMILY_SINGLETONS.values())
 
 
@@ -192,6 +238,7 @@ __all__ = [
     "ScopeIsolationFamily",
     "SafetyDisclosureFamily",
     "ReproducibilityFamily",
+    "ReasoningQualityFamily",
     "all_families",
     "families_by_id",
     "load_gates_registry",

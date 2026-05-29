@@ -1,7 +1,6 @@
 """Tests for v2.5 GateFamily framework — RFC 0001 §2.5."""
 from __future__ import annotations
 
-import pytest
 
 from opl_cancer.validators import all_families, families_by_id
 from opl_cancer.validators.gate_families import (
@@ -27,13 +26,14 @@ EXPECTED_FAMILY_IDS = {
     "scope-isolation",
     "safety-disclosure",
     "reproducibility",
+    "reasoning-quality",  # v2.7.1 ADR-0026 (P1) — clinical-reasoning quality
 }
 
 
-# ─── six families exist ────────────────────────────────────────────────────
+# ─── gate families exist ───────────────────────────────────────────────────
 
 
-def test_all_six_families_exist() -> None:
+def test_all_families_exist() -> None:
     fams = all_families()
     ids = {f.family_id for f in fams}
     assert ids == EXPECTED_FAMILY_IDS

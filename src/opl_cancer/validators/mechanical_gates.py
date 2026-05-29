@@ -118,6 +118,12 @@ def all_gate_classes() -> list[type[Gate]]:
         G35ClinicalFactProvenanceGate,
         G36PMIDTopicRelevanceGate,
         G37ServiceCompletenessGate,
+        # v2.7.1 ADR-0026 (P1) — reasoning-quality gates (G38 reserved).
+        G39BiomarkerContingencyGate,
+        G40DrugComorbiditySafetyGate,
+        G41SoCCompletenessGate,
+        G42TierDisciplineGate,
+        G43EpistemicSymmetryGate,
     )
 
     return [
@@ -158,4 +164,9 @@ def all_gate_classes() -> list[type[Gate]]:
         G35ClinicalFactProvenanceGate,
         G36PMIDTopicRelevanceGate,
         G37ServiceCompletenessGate,
+        G39BiomarkerContingencyGate,
+        G40DrugComorbiditySafetyGate,
+        G41SoCCompletenessGate,
+        G42TierDisciplineGate,
+        G43EpistemicSymmetryGate,
     ]

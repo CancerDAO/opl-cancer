@@ -1,5 +1,52 @@
 # Changelog
 
+## [2.7.1] — 2026-05-29 — Reasoning-Quality Gates + CLI Self-Sufficiency (ADR-0026 P1)
+
+Completes ADR-0026: the P0 release (2.7.0) made delivery non-bypassable; this
+adds the reasoning-quality layer that catches the 8 cross-model review findings
+from session 0d1017d4, plus Fork B (CLI can self-execute Wave 1).
+
+### Added — 5 reasoning-quality gates (G39-G43, new `reasoning-quality` family)
+
+Each is a MECHANICAL check over structured fields the claim producer emits
+(`schemas/claim.v2.schema.json`) — never hardcoded clinical judgment. Wired into
+`delivery_gate_runner` so they fire on the live path (not SKIP-only stubs).
+
+- **G39 biomarker_contingency** [BLOCK] — a headline/rank-1 regimen may not be
+  gated on a biomarker whose `patient_state` is unknown/untested (Finding 1:
+  anti-EGFR headline gated on unknown NRAS/BRAF).
+- **G40 drug_comorbidity_safety** [BLOCK] — a recommended drug must reconcile
+  its FDA-label contraindication classes against the patient's comorbidities
+  (Finding 5: bevacizumab × cardiac). Curated reference
+  `references/drug_comorbidity_contraindications.json`.
+- **G41 soc_completeness** [WARN] — the SoC-completeness check must be recorded;
+  `missing` items surface (Finding 6: re-biopsy/ctDNA, oligoprogression local therapy).
+- **G42 tier_discipline** [BLOCK tier-floor + functional-evidence; WARN adjacency]
+  — claim tier ≤ weakest evidence-link tier; biallelic/LoF claims need
+  same-tumor-type functional data, not IHC alone (Findings 3,4,7).
+- **G43 epistemic_symmetry** [WARN] — skepticism applied symmetrically; low-I²
+  pooling across non-equivalent agents must flag clinical heterogeneity (Findings 2,8).
+
+The claim-producer prompts (`claim_audit`, `treatment_line_recommendation`,
+`meta_analysis`, `molecular_ngs_interpretation`) now mandate the v2 claim schema
+so these gates have real fields to check (the connection that keeps them live).
+
+### Added — Fork B: CLI self-sufficient Wave-1 execution
+
+`opl run --wave 1` now drives the real `Wave1Runner` via the LLM router + a
+generic 20-persona expert factory (`glue/wave1_live.py`) when an executor key +
+G13-distinct reviewer key are set — so a compliant run is third-party
+reproducible without a human-LLM main thread. Fails closed honestly
+(`requires_main_thread_dispatch`) when no key (e.g. on Claude Code, where the
+agent is the executor). Verified offline with mock clients.
+
+### Gates / families / tests
+
+- 37 → 42 gates (G38 reserved — citation-provenance covered by G1/G2/G36).
+- 6 → 7 gate families (`reasoning-quality`). RFC-0001 closed-set extended.
+- New tests: 5 gate units (g39-g43) + Fork B mock (2). Full suite 1828 passed.
+  ruff + mypy(strict) clean on new code.
+
 ## [2.7.0] — 2026-05-29 — Delivery Non-Bypassable + Complete-by-Default (ADR-0026)
 
 Root-cause fix for session `0d1017d4` (KRAS-G12C / MSS mCRC), where OPL

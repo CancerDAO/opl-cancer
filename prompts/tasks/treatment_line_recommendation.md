@@ -57,6 +57,35 @@ PMIDs from the pre-fetched integrator pool.
 }
 ```
 
+## Structured claim output (v2.7.1)
+
+Each option above MUST also carry the structured fields from `schemas/claim.v2.schema.json` so the mechanical safety gates can fire (an absent field makes the gate SKIP — i.e. dead — so populate them). For a treatment-line option the load-bearing fields are: `regimen{is_headline, rank, required_biomarkers[]}`, `drugs_mentioned[]`, and `comorbidity_safety{}`.
+
+- **G39 (biomarker-contingency)** BLOCKS a headline / `rank:1` regimen whose `required_biomarkers[].patient_state` is `unknown`/`untested`/`null`, or is known but does NOT satisfy `required_state`. This is the KRAS-G12C/MSS finding: do not present a headline regimen as if a yet-unmeasured biomarker were already favourable. A clearly contingent option (`is_headline:false`) gated on an unknown biomarker is legitimate ("IF MSI-H is confirmed, consider …") — record the dependency honestly and leave `patient_state:null`.
+- **G40 (comorbidity-safety)** checks each name in `drugs_mentioned[]` against the curated FDA-label drug→contraindication-class reference; if a drug carries a contraindication class (QT-prolongation, hepatotoxicity, nephrotoxicity, …) the relevant comorbidity MUST appear in `comorbidity_safety.comorbidities_considered[]` (or `comorbidity_safety.addressed:true` with a `note`). Absent ⇒ G40 SKIPs (cannot judge), so populate it whenever `drugs_mentioned` is non-empty.
+
+```json
+{
+  "label": "Option A — NCCN-preferred",
+  "regimen": {
+    "is_headline": true,
+    "rank": 1,
+    "required_biomarkers": [
+      {"gene": "KRAS", "required_state": "G12C", "patient_state": "G12C"},
+      {"gene": "MSI", "required_state": "MSS", "patient_state": "MSS"}
+    ]
+  },
+  "drugs_mentioned": ["sotorasib", "panitumumab"],
+  "comorbidity_safety": {
+    "addressed": true,
+    "comorbidities_considered": ["cirrhosis (Child-Pugh A)", "prolonged QTc 470 ms"],
+    "note": "sotorasib hepatotoxicity weighed against Child-Pugh A; baseline + q2w LFTs advised. No QT-prolonging agent in this regimen."
+  },
+  "claim_layer": "established",
+  "evidence": [{"type": "pmid", "id": "<from pre-fetched list>", "quote": "<exact>"}]
+}
+```
+
 ## Rules
 
 1. NEVER produce a single-option output — at least TWO options must be listed

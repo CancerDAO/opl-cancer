@@ -661,6 +661,34 @@ def _emit_run_result(wave: int, result: dict[str, Any], json_mode: bool) -> None
         click.echo(f"Wave {wave} executed. Result: {result}")
 
 
+def _executor_llm_available() -> dict[str, Any]:
+    """v2.7.1 ADR-0026 Fork B — is a self-sufficient executor LLM configured?
+
+    `opl run --wave 1` can drive the full Wave1Runner WITHOUT a human-LLM main
+    thread when an executor key is present (so the run is third-party
+    reproducible). Requires BOTH an executor key AND a G13-distinct reviewer key
+    (reviewer family != executor family). On Claude Code there is no API key for
+    the host model, so this returns ok=False and the caller hands off to the
+    main-thread dispatcher — never a silent fallback (memory:feedback_no_offline_only).
+    """
+    provider = (os.environ.get("OPL_EXECUTOR_PROVIDER") or "anthropic").lower()
+    has_anthropic = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    has_minimax = bool(os.environ.get("MINIMAX_API_KEY"))
+    has_executor = {"anthropic": has_anthropic, "minimax": has_minimax}.get(provider, has_anthropic)
+    # G13: reviewer must be a DIFFERENT family than the executor.
+    has_reviewer = has_minimax if provider == "anthropic" else has_anthropic
+    ok = has_executor and has_reviewer
+    return {
+        "ok": ok, "provider": provider,
+        "has_executor": has_executor, "has_reviewer": has_reviewer,
+        "reason": "" if ok else (
+            "no self-sufficient executor — set the executor key + a G13-distinct "
+            "reviewer key (e.g. ANTHROPIC_API_KEY + MINIMAX_API_KEY). On Claude Code "
+            "the agent IS the executor; dispatch the wave on the main thread."
+        ),
+    }
+
+
 def _run_wave3_compute(run_root: Path, mode: str) -> dict[str, Any]:
     """Invoke the selected compute runner on a smoke notebook.
 
@@ -751,13 +779,38 @@ def run(
     if not plan_file.exists():
         raise click.ClickException(f"plan.json not found: {plan_file}")
 
+    avail = _executor_llm_available()
     if wave == 3:
         chosen_mode = mode or _select_wave3_mode()
         result = _run_wave3_compute(run_root, chosen_mode)
+    elif wave == 1 and avail["ok"]:
+        # v2.7.1 ADR-0026 Fork B — CLI self-sufficient Wave-1 execution.
+        from opl_cancer.glue.wave1_live import run_wave1_live
+        from opl_cancer.llm.router import ModelRouter
+        router = ModelRouter.from_models_yaml()
+        exec_id = router.executor_model_id
+        rev_id = next((m for m in router.reviewer_model_ids if m != exec_id), exec_id)
+        exec_c = router.executor_client()
+        rev_c = router.reviewer_client_for(executor_model_id=exec_id, reviewer_model_id=rev_id)
+        try:
+            live = run_wave1_live(
+                patient_root=pdir, run_root=run_root,
+                intent_client=exec_c, planner_client=exec_c,
+                executor_client=exec_c, reviewer_client=rev_c,
+                executor_model_id=exec_id, reviewer_model_id=rev_id,
+            )
+        except Exception as exc:  # noqa: BLE001 — surface as honest CLI failure
+            raise click.ClickException(f"Wave 1 self-execution failed: {exc}") from exc
+        state = _wave_artifact_state(run_root, 1)
+        result = {
+            "wave": 1, "self_sufficient": True, "executor_provider": avail["provider"],
+            "artifacts_found": state["found"], "artifacts_sample": state["files"],
+            "live_result": live,
+        }
     else:
-        # Waves 1/2/4: re-use the artifact-state probe — refuse to claim
-        # completion when no real artifacts present. The SKILL main thread
-        # is the dispatcher for those LLM-driven waves.
+        # Waves 1/2/4 with no self-sufficient executor: artifact-state probe —
+        # refuse to claim completion when no real artifacts present. The SKILL
+        # main thread (the agent, on Claude Code) is the dispatcher.
         state = _wave_artifact_state(run_root, wave)
         result = {
             "wave": wave,
@@ -766,11 +819,12 @@ def run(
         }
         if not state["ok"]:
             result["requires_main_thread_dispatch"] = True
+            result["executor_available"] = avail
             result["action"] = (
-                f"Wave {wave} produced no artifacts yet. The SKILL main "
-                "thread must dispatch the wave runner (Wave1Runner / "
-                "Wave2Runner / Wave4Runner) — this CLI command verifies "
-                "state honestly per ADR-0021."
+                f"Wave {wave} produced no artifacts yet. Either set an executor key "
+                "for CLI self-execution (Fork B, wave 1), or the SKILL main thread "
+                "(the agent) must dispatch the wave runner — this CLI verifies state "
+                "honestly per ADR-0021/0026."
             )
 
     _emit_run_result(wave, result, json_mode)
@@ -1338,7 +1392,7 @@ def status() -> None:
     click.echo("  Integrators wired: 36 (29 v2.1 + v2.2 ADR-0022 bio-skills: MSIsensor / TMB-harmonization / SigProfiler / VarSome-ACMG / lifelines-KM / CPIC / PaperQA-full-text)")
     from opl_cancer.validators.mechanical_gates import all_gate_classes
     _ngates = len(all_gate_classes())  # single source of truth — no drift
-    click.echo(f"  Mechanical gates: {_ngates} (G1-G33 + v2.7.0 ADR-0026 G34-G37 delivery-integrity: attestation / clinical-fact-provenance / PMID-relevance / service-completeness)")
+    click.echo(f"  Mechanical gates: {_ngates} (G1-G33 + v2.7.0 G34-G37 delivery-integrity + v2.7.1 G39-G43 reasoning-quality; G38 reserved — ADR-0026)")
     click.echo("  License: Apache-2.0")
     click.echo("  Read DISCLAIMER.md before use — not clinical decision support; not for emergencies.")
     click.echo(f"  Patient data root: {_patient_root()}")

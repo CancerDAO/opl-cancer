@@ -4,7 +4,7 @@ description: "OPL for Cancer — your own AI scientist team for one cancer patie
 license: Apache-2.0
 metadata:
   author: CancerDAO Contributors
-  version: "2.7.0"
+  version: "2.7.1"
   tags: oncology precision-medicine ai-scientist-team founder-mode hypothesis-generation co-scientist robin bixbench meta-analysis clinical-trials evidence-grounded world-unknown-candidates kg-synergy undrugged-target-design trace-digest-evolution equipped-experts bio-skills msi tmb hrd acmg cpic survival-analysis wave6 manuscript n1a preprint n1arxiv submission preprint-platform pr-assembly cross-repo-submission compositional method-primitive role-taxonomy n=1 automl prognosis
 ---
 
@@ -360,7 +360,7 @@ opl-cancer audit \
 ```
 
 Henry checks:
-- **L1 mechanical** — all 37 gates (G1 PMID-existence, G2 quote-match, G3 drug-normalization, G4 dose-unit-declared, G5 patient-context-isolation, G6 injection-scan, G7 imperative-detector, G8 Level-3-4 disclosure, G9 retraction-check, G10 guideline-version, G11 no-silent-fallback, G12 memory-overflow, G13 reviewer-model-distinct **[preflight hard-fail v1.5]**, G14–G18 data-analysis gates, G19 PI-imperative-detector, G20 PI-disagreement-surfacing, G22 DDR-zygosity, G23 recency-band, G24 crisis-detection, **G25 deferred-evidence-block [v1.5]**, **G26 evidence-strength-ranking [v1.5]**, **G27 privacy-scrub [v1.5]**, G28–G33 Wave-6 manuscript gates, **G34 delivery-attestation / G35 clinical-fact-provenance / G36 PMID-topic-relevance / G37 service-completeness [v2.7.0, ADR-0026]**) over every claim before rendering. Henry **self-verifies** that any G17 / G26 rendering mandate it issued is satisfied in the actual rendered artifact (closes v1.4 F10).
+- **L1 mechanical** — all 42 gates (G1 PMID-existence, G2 quote-match, G3 drug-normalization, G4 dose-unit-declared, G5 patient-context-isolation, G6 injection-scan, G7 imperative-detector, G8 Level-3-4 disclosure, G9 retraction-check, G10 guideline-version, G11 no-silent-fallback, G12 memory-overflow, G13 reviewer-model-distinct **[preflight hard-fail v1.5]**, G14–G18 data-analysis gates, G19 PI-imperative-detector, G20 PI-disagreement-surfacing, G22 DDR-zygosity, G23 recency-band, G24 crisis-detection, **G25 deferred-evidence-block [v1.5]**, **G26 evidence-strength-ranking [v1.5]**, **G27 privacy-scrub [v1.5]**, G28–G33 Wave-6 manuscript gates, **G34 delivery-attestation / G35 clinical-fact-provenance / G36 PMID-topic-relevance / G37 service-completeness [v2.7.0, ADR-0026]**, **G39 biomarker-contingency / G40 drug-comorbidity-safety / G41 SoC-completeness / G42 tier-discipline / G43 epistemic-symmetry [v2.7.1, ADR-0026 P1; G38 reserved]**) over every claim before rendering. Henry **self-verifies** that any G17 / G26 rendering mandate it issued is satisfied in the actual rendered artifact (closes v1.4 F10).
 - **L2 disagreement-summariser** — Reviewer disagreement > 0.4 confidence delta → forced two-view delivery.
 - **L3 permission gate** — every claim tagged Level 0 (info) / 1 (reasoning) / 2 (recommendation) / 3 (high-risk recommendation) / 4 (boundary). L3/L4 require a `risk_disclosure_card` written and patient-ack-gated.
 - **L4 rollback registry** — retraction / new-evidence / patient-feedback / auditor-recheck withdraw queue.
@@ -373,7 +373,7 @@ Stage-start example: *"[4/5 审核 / Double-checking] 我们的内部审查员 (
 
 Stage-end example: *"[4/5 审核 / Double-checking] ✓ 27 条结论里 24 条直接通过, 2 条需要附加一段风险说明 (在报告里会标出来), 1 条被退回重做。下一步: 写两份报告 — 简单版给您, 专业版给医生。"*
 
-Internal gate IDs (G1-G37), claim-level Level-3/Level-4 codes, RC-xxx risk-card IDs all stay in the archive (`triggers/<run_id>/tasks/henry/`) and the clinician brief — NEVER in the live user chat. See `prompts/tasks/progress_message_rendering.md` §"Hard rules".
+Internal gate IDs (G1-G43), claim-level Level-3/Level-4 codes, RC-xxx risk-card IDs all stay in the archive (`triggers/<run_id>/tasks/henry/`) and the clinician brief — NEVER in the live user chat. See `prompts/tasks/progress_message_rendering.md` §"Hard rules".
 
 ---
 

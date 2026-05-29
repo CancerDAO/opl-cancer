@@ -71,6 +71,38 @@ This task assumes `source_verification` has already run upstream (or runs in par
 }
 ```
 
+### Structured claim output (v2.7.1)
+
+In addition to the audit object above, when you re-emit (or normalise) the executor's claims for downstream gating, each claim MUST be shaped per `schemas/claim.v2.schema.json` so the mechanical reasoning-quality gates have fields to check (an absent field makes the gate SKIP — i.e. dead — so populate them). For an audit task the load-bearing fields are: `tier` (the claim's own three-tier label), `evidence[].tier` (per-link tier), `level` (OPL research level 0-4), `skepticism{}`, and `soc_checklist[]`.
+
+- **G42 (tier-floor)** blocks when a claim's `tier` exceeds the strongest tier present in its `evidence[]` — an `established` claim MUST carry ≥1 `evidence[]` link whose own `tier` is `established`; you cannot launder `exploratory`/`speculative` evidence into an `established` headline.
+- **G43 (skepticism-symmetry)** blocks when `skepticism.dismissed[]` contains a ref with no `ground`, or when `skepticism.symmetric` is `false` with no `rationale` — i.e. you down-weighted inconvenient evidence on a bar you did not apply to evidence you relied on.
+- **G41 (soc-completeness)** blocks/warns when a `soc_checklist[]` item has `status:"missing"` (or `"na"`) without a `note` explaining why — a standard-of-care option silently dropped.
+
+```json
+{
+  "claim_id": "c_003",
+  "claim_text": "Anti-EGFR therapy is supported in this RAS-wild-type left-sided mCRC.",
+  "level": 2,
+  "tier": "established",
+  "entities": ["KRAS", "NRAS", "anti-EGFR", "colorectal"],
+  "evidence": [
+    {"type": "pmid", "id": "25201520", "quote": "...", "tier": "established"},
+    {"type": "nccn", "id": "COLON-2025", "quote": "...", "tier": "established"}
+  ],
+  "skepticism": {
+    "dismissed": [{"ref": "PMID:21156285", "ground": "single-arm n=18, no comparator"}],
+    "relied": [{"ref": "PMID:25201520"}],
+    "symmetric": true,
+    "rationale": "Both dismissed and relied refs judged on comparator presence + sample size; no double standard."
+  },
+  "soc_checklist": [
+    {"item": "extended RAS testing", "status": "addressed", "note": "covered in molecular claim c_001"},
+    {"item": "germline MMR testing", "status": "na", "note": "MSS confirmed somatically; germline deferred per patient age/history"}
+  ]
+}
+```
+
 ### Procedure
 
 1. **Skip-list assembly.** Claims whose anchors failed `source_verification` (existence or quote not recovered) get `consistency_verdict: "quote_does_not_support_claim"` automatically; do not waste audit budget re-checking them.

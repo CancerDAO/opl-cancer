@@ -35,6 +35,22 @@ Return strict JSON:
 }
 
 
+## Structured claim output (v2.7.1)
+
+In addition to the legacy fields above, when this synthesis pools effect estimates across multiple sources/agents you MUST emit a `pooled_estimate{}` object per `schemas/claim.v2.schema.json` so the mechanical gate has fields to check (an absent field makes the gate SKIP — i.e. dead). The load-bearing fields are `pooled_estimate{agents[], i2, heterogeneity_flagged}`.
+
+- **G43/G17 (hidden-heterogeneity)** require `pooled_estimate.heterogeneity_flagged:true` whenever ≥2 `agents`/sources were pooled AND `i2` is high (>50/75). Reporting a single pooled point estimate across heterogeneous sources without surfacing the heterogeneity to the reader is the failure this catches. `i2` accepts either 0.0-1.0 or 0-100 (the consumer normalises).
+
+```json
+{
+  "pooled_estimate": {
+    "agents": ["PMID:25201520", "PMID:23158724", "PMID:21156285"],
+    "i2": 68,
+    "heterogeneity_flagged": true
+  }
+}
+```
+
 ## Empty-integrator rule (v1.2.0)
 
 If ALL relevant live integrator inputs (e.g. `pubmed_results`, `nccn_excerpts`, `ctgov_results`, `chictr_results`, `fda_eap_results`, `nmpa_eap_results`) for this task are empty, the only legal output is a JSON object with:

@@ -1,0 +1,197 @@
+{
+  "_meta": {
+    "schema": "v0.1.0",
+    "purpose": "G40 (drug_comorbidity_safety) reference. ESTABLISHED FDA-label contraindication / warning CLASSES keyed by INN. NOT LLM clinical judgment — these are label-documented serious-risk classes (FDA prescribing information + NCI CTCAE 5.0). G40 uses this ONLY to decide *which patient comorbidity a given drug must be reconciled against*; the actual clinical call (whether to use the drug) is made by the LLM/prompt and recorded in claim.comorbidity_safety. The gate is mechanical: it checks the loop was closed.",
+    "_note": "Style mirrors knowledge/serious_risks_per_drug.json. Each contraindication-class carries `match_comorbidities`: substrings (lower-cased, ASCII + CJK) that, if present in a patient profile comorbidity string, mean this drug's labelled risk-class is RELEVANT to that patient and must be reconciled. memory:feedback_default_prompt_over_script — this is curated reference DATA (established FDA facts), not a keyword classifier doing clinical reasoning.",
+    "extension_protocol": "To add a drug: include INN + class + contraindication_classes[] where each entry is {class, severity, match_comorbidities[], label_basis}. Brand names map to INN upstream (integrators/rxnorm.py) — do not duplicate by brand. Only add a contraindication-class that is an FDA boxed warning, contraindication, or major Warnings-&-Precautions item — not a routine low-grade AE.",
+    "match_semantics": "match_comorbidities are matched case-insensitively as substrings against each comorbidity token in <patient_dir>/profile.json `comorbidities` (and any nested comorbidity strings). A hit means: this drug's labelled risk-class collides with a real patient comorbidity → claim.comorbidity_safety MUST close the loop (addressed==true AND the comorbidity considered)."
+  },
+
+  "bevacizumab": {
+    "inn": "bevacizumab",
+    "class": "anti-VEGF monoclonal antibody",
+    "contraindication_classes": [
+      {
+        "class": "cardiac / congestive-heart-failure",
+        "severity": "warning",
+        "match_comorbidities": ["cardiac", "心脏", "心功能", "heart failure", "chf", "congestive", "心衰", "cardiomyopathy", "心肌", "coronary", "冠心", "ischemic heart", "lvef", "ejection fraction", "射血", "心血管", "cardiovascular"],
+        "label_basis": "FDA label: CHF / arterial thromboembolic events; vasculotoxic agent — cardiac history must be reconciled."
+      },
+      {
+        "class": "arterial-thromboembolism",
+        "severity": "boxed-adjacent",
+        "match_comorbidities": ["stroke", "脑卒中", "中风", "tia", "myocardial infarction", "心梗", "arterial thromb", "动脉栓塞", "动脉血栓"],
+        "label_basis": "FDA label: increased arterial thromboembolic events, esp. with prior arterial-thrombotic history."
+      },
+      {
+        "class": "hypertension",
+        "severity": "warning",
+        "match_comorbidities": ["hypertension", "高血压", "htn", "blood pressure", "血压"],
+        "label_basis": "FDA label: Grade 3-4 hypertension; pre-existing hypertension must be controlled."
+      },
+      {
+        "class": "proteinuria / nephrotic",
+        "severity": "warning",
+        "match_comorbidities": ["proteinuria", "蛋白尿", "nephrotic", "肾病综合", "ckd", "肾功能", "renal impairment", "chronic kidney"],
+        "label_basis": "FDA label: proteinuria / nephrotic syndrome; renal monitoring required."
+      },
+      {
+        "class": "GI-perforation / bleeding",
+        "severity": "boxed-adjacent",
+        "match_comorbidities": ["gi perforation", "胃肠穿孔", "diverticulitis", "憩室", "recent surgery", "近期手术", "fistula", "瘘", "gi bleed", "消化道出血", "穿孔"],
+        "label_basis": "FDA label: GI perforation, fistula, severe bleeding; recent surgery / GI history relevant."
+      }
+    ]
+  },
+
+  "sotorasib": {
+    "inn": "sotorasib",
+    "class": "KRAS G12C inhibitor",
+    "contraindication_classes": [
+      {
+        "class": "hepatotoxicity",
+        "severity": "warning",
+        "match_comorbidities": ["hepat", "肝", "cirrhosis", "肝硬化", "liver", "child-pugh", "肝功能", "transaminitis", "肝炎", "hbv", "hcv", "viral hepatitis"],
+        "label_basis": "FDA label: drug-induced hepatotoxicity (Grade 3-4 ALT/AST elevations); baseline hepatic impairment relevant."
+      },
+      {
+        "class": "interstitial-lung-disease / pneumonitis",
+        "severity": "warning",
+        "match_comorbidities": ["ild", "间质性肺", "pneumonitis", "肺炎", "interstitial lung", "pulmonary fibrosis", "肺纤维"],
+        "label_basis": "FDA label: ILD / pneumonitis; pre-existing pulmonary disease relevant."
+      }
+    ]
+  },
+
+  "adagrasib": {
+    "inn": "adagrasib",
+    "class": "KRAS G12C inhibitor",
+    "contraindication_classes": [
+      {
+        "class": "QTc-prolongation",
+        "severity": "warning",
+        "match_comorbidities": ["qt", "qtc", "long qt", "长qt", "arrhythmia", "心律失常", "torsades"],
+        "label_basis": "FDA label: QTc prolongation; baseline/concurrent QT risk must be reconciled."
+      },
+      {
+        "class": "hepatotoxicity",
+        "severity": "warning",
+        "match_comorbidities": ["hepat", "肝", "cirrhosis", "肝硬化", "liver", "child-pugh", "肝功能", "肝炎"],
+        "label_basis": "FDA label: hepatotoxicity; baseline hepatic impairment relevant."
+      },
+      {
+        "class": "interstitial-lung-disease / pneumonitis",
+        "severity": "warning",
+        "match_comorbidities": ["ild", "间质性肺", "pneumonitis", "肺炎", "interstitial lung", "肺纤维"],
+        "label_basis": "FDA label: ILD / pneumonitis."
+      }
+    ]
+  },
+
+  "regorafenib": {
+    "inn": "regorafenib",
+    "class": "multikinase / anti-angiogenic TKI",
+    "contraindication_classes": [
+      {
+        "class": "hepatotoxicity",
+        "severity": "boxed",
+        "match_comorbidities": ["hepat", "肝", "cirrhosis", "肝硬化", "liver", "child-pugh", "肝功能", "肝炎"],
+        "label_basis": "FDA BOXED WARNING: severe and fatal hepatotoxicity."
+      },
+      {
+        "class": "hypertension",
+        "severity": "warning",
+        "match_comorbidities": ["hypertension", "高血压", "htn", "血压"],
+        "label_basis": "FDA label: hypertension (incl. hypertensive crisis); pre-existing hypertension relevant."
+      },
+      {
+        "class": "cardiac-ischemia",
+        "severity": "warning",
+        "match_comorbidities": ["cardiac", "心脏", "心功能", "coronary", "冠心", "ischemic heart", "心肌缺血", "心血管", "cardiovascular"],
+        "label_basis": "FDA label: cardiac ischemia and infarction; cardiac history relevant."
+      }
+    ]
+  },
+
+  "fruquintinib": {
+    "inn": "fruquintinib",
+    "class": "VEGFR1/2/3 TKI",
+    "contraindication_classes": [
+      {
+        "class": "hypertension",
+        "severity": "warning",
+        "match_comorbidities": ["hypertension", "高血压", "htn", "血压"],
+        "label_basis": "FDA label: hypertension (incl. hypertensive crisis); pre-existing hypertension relevant."
+      },
+      {
+        "class": "cardiac / cardiovascular",
+        "severity": "warning",
+        "match_comorbidities": ["cardiac", "心脏", "心功能", "heart failure", "心衰", "ischemic heart", "心肌", "心血管", "cardiovascular", "lvef", "射血"],
+        "label_basis": "FDA label: anti-angiogenic cardiovascular risk; cardiac history relevant."
+      },
+      {
+        "class": "proteinuria",
+        "severity": "warning",
+        "match_comorbidities": ["proteinuria", "蛋白尿", "nephrotic", "肾病综合", "ckd", "肾功能", "chronic kidney"],
+        "label_basis": "FDA label: proteinuria; renal monitoring required."
+      }
+    ]
+  },
+
+  "cetuximab": {
+    "inn": "cetuximab",
+    "class": "anti-EGFR monoclonal antibody",
+    "contraindication_classes": [
+      {
+        "class": "hypomagnesemia / electrolyte",
+        "severity": "warning",
+        "match_comorbidities": ["hypomagnesemia", "低镁", "electrolyte", "电解质", "hypocalcemia", "低钙", "hypokalemia", "低钾"],
+        "label_basis": "FDA label: hypomagnesemia and accompanying electrolyte abnormalities; baseline electrolyte derangement relevant."
+      },
+      {
+        "class": "severe-skin / dermatologic",
+        "severity": "warning",
+        "match_comorbidities": ["skin", "皮肤", "dermat", "rash", "皮疹", "psoriasis", "银屑", "eczema", "湿疹"],
+        "label_basis": "FDA label: severe acneiform / dermatologic toxicity; pre-existing severe dermatologic disease relevant."
+      },
+      {
+        "class": "infusion / cardiopulmonary-arrest",
+        "severity": "boxed",
+        "match_comorbidities": ["coronary", "冠心", "cardiac", "心脏", "arrhythmia", "心律失常", "chf", "心衰"],
+        "label_basis": "FDA BOXED WARNING: infusion reactions incl. fatal cardiopulmonary arrest; CAD/CHF history relevant."
+      }
+    ]
+  },
+
+  "panitumumab": {
+    "inn": "panitumumab",
+    "class": "anti-EGFR monoclonal antibody",
+    "contraindication_classes": [
+      {
+        "class": "hypomagnesemia / electrolyte",
+        "severity": "warning",
+        "match_comorbidities": ["hypomagnesemia", "低镁", "electrolyte", "电解质", "hypocalcemia", "低钙", "hypokalemia", "低钾"],
+        "label_basis": "FDA label: electrolyte depletion (hypomagnesemia, hypocalcemia, hypokalemia)."
+      },
+      {
+        "class": "severe-skin / dermatologic",
+        "severity": "boxed",
+        "match_comorbidities": ["skin", "皮肤", "dermat", "rash", "皮疹", "psoriasis", "银屑", "eczema", "湿疹"],
+        "label_basis": "FDA BOXED WARNING: dermatologic toxicity; pre-existing severe dermatologic disease relevant."
+      }
+    ]
+  },
+
+  "trastuzumab": {
+    "inn": "trastuzumab",
+    "class": "anti-HER2 monoclonal antibody",
+    "contraindication_classes": [
+      {
+        "class": "cardiomyopathy / CHF",
+        "severity": "boxed",
+        "match_comorbidities": ["cardiac", "心脏", "心功能", "heart failure", "chf", "心衰", "cardiomyopathy", "心肌", "lvef", "ejection fraction", "射血", "coronary", "冠心", "心血管", "cardiovascular"],
+        "label_basis": "FDA BOXED WARNING: cardiomyopathy / LVEF decline / CHF; cardiac history must be reconciled."
+      }
+    ]
+  }
+}

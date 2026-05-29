@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cancerdao.org/schemas/claim.v2.schema.json",
+  "title": "OPL Structured Claim (v2)",
+  "description": "Canonical structured-claim object emitted by the claim-assembly / claim_audit prompts and consumed by the mechanical reasoning-quality gates. v2 (ADR-0026 P1/P2, session 0d1017d4 KRAS-G12C/MSS-mCRC findings). CONTRACT: the LLM (via prompt) makes the clinical judgment and records it in the structured fields below; the gates are MECHANICAL — they verify the judgment was recorded and is internally coherent, never re-make it. A gate SKIPs (non-blocking) when the field it needs is absent, so a field being optional means 'gate cannot judge', not 'safe'. Field names here are load-bearing: prompt authors MUST emit these exact keys and gate authors MUST read these exact keys. `entities` and `evidence[].{type,id,quote}` already match what G36 consumes today — do not rename. See prompts/tasks/claim_audit.md for the producer contract and src/opl_cancer/validators/gates/g3[4-7,9]_*.py / g4[0-3]_*.py for consumers.",
+  "type": "object",
+  "required": ["claim_id", "claim_text"],
+  "additionalProperties": true,
+  "properties": {
+    "claim_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "REQUIRED. Stable id for this claim within the run (e.g. 'c_001'). Used by claim_audit cross-claim self-contradiction pass and by all gate evidence payloads to point back at the offending claim."
+    },
+    "claim_text": {
+      "type": "string",
+      "minLength": 1,
+      "description": "REQUIRED. The verbatim claim sentence as it will appear (or did appear) in the brief. Gates quote excerpts from this."
+    },
+    "level": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4,
+      "description": "OPL research level 0-4 (0=patient-context fact … 3=world-unknown hypothesis, 4=speculative/redacted). Used by G8 level3/4-disclosure. NOT the evidence tier — see `tier`."
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["established", "exploratory", "speculative"],
+      "description": "The claim's OWN overall three-tier evidence label. Distinct from `evidence[].tier` (per-link). G42 enforces the tier-floor invariant: a claim's `tier` cannot exceed the strongest tier present in its `evidence[]` (an 'established' claim must have ≥1 'established' evidence link; you cannot launder exploratory evidence into an established headline)."
+    },
+    "entities": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Structured topical entities the claim is about: gene / variant / drug / cancer-type tokens (e.g. ['KRAS', 'G12C', 'sotorasib', 'colorectal']). ALREADY CONSUMED BY G36 (pmid_topic_relevance) to judge whether a cited PMID is on-topic. Do not rename. Must be the producer's extracted entities, never a hardcoded disease keyword list (memory:feedback_default_prompt_over_script)."
+    },
+    "evidence": {
+      "type": "array",
+      "description": "Per-link evidence backing the claim. Each link carries its OWN tier so G42 can compute the tier floor. The {type,id,quote} shape ALREADY matches what G36 reads — do not rename those three keys.",
+      "items": {
+        "type": "object",
+        "required": ["type", "id"],
+        "additionalProperties": true,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["pmid", "nct", "isrctn", "oncokb", "civic", "nccn", "fda_label", "doi", "url", "dataset", "other"],
+            "description": "Evidence source kind. 'pmid'/'nct' are the canonical anchors; G36 only relevance-checks type=='pmid'."
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The identifier (e.g. '32366523' for a PMID, 'NCT04185883' for a trial). Bare id, no '[PMID:]' wrapper."
+          },
+          "quote": {
+            "type": "string",
+            "description": "Verbatim supporting quote from the source (used by G2 quote-match and claim_audit consistency check). Empty/absent ⇒ those checks skip this link."
+          },
+          "tier": {
+            "type": "string",
+            "enum": ["established", "exploratory", "speculative"],
+            "description": "The evidence strength of THIS link (RCT/meta/FDA-label ⇒ established; single cohort/case ⇒ exploratory; mechanistic/preclinical ⇒ speculative). G42 takes the strongest link tier as the ceiling for the claim's `tier`."
+          }
+        }
+      }
+    },
+    "drugs_mentioned": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "INN (generic) drug names the claim invokes (e.g. ['sotorasib', 'panitumumab']). ALREADY USED BY Henry. G40 (comorbidity-safety) looks up each name against the curated FDA-label contraindication reference and checks that any triggered contraindication-class was addressed in `comorbidity_safety`."
+    },
+    "regimen": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Present when the claim proposes a treatment regimen. G39 (biomarker-contingency) fires here: a headline / top-ranked regimen must NOT be gated on a biomarker whose patient_state is unknown/untested. The LLM records the biomarker dependency; G39 mechanically checks that a headline regimen's required biomarkers all have a known patient_state (and that required_state is satisfied).",
+      "properties": {
+        "is_headline": {
+          "type": "boolean",
+          "description": "True if this is a headline / primary recommended regimen (vs. a secondary/contingent option). G39 only blocks on headline regimens — a clearly-labelled contingent option gated on an unknown biomarker is legitimate ('IF MSI-H is confirmed, consider …')."
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based recommendation rank. rank==1 is treated as headline by G39 even if is_headline is unset."
+        },
+        "required_biomarkers": {
+          "type": "array",
+          "description": "Biomarkers this regimen is contingent on. Each entry pairs the required state with the patient's KNOWN state. If patient_state is unknown/untested/null and the regimen is headline, G39 blocks (the KRAS-G12C/MSS finding: a headline regimen presented as if a yet-unmeasured biomarker were already favourable).",
+          "items": {
+            "type": "object",
+            "required": ["gene", "required_state"],
+            "additionalProperties": true,
+            "properties": {
+              "gene": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Gene / biomarker name (e.g. 'MSI', 'KRAS', 'PD-L1')."
+              },
+              "required_state": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The biomarker state the regimen REQUIRES (e.g. 'MSI-H', 'G12C', 'positive', 'wild-type')."
+              },
+              "patient_state": {
+                "type": ["string", "null"],
+                "description": "The patient's ACTUAL known state for this biomarker, or null / 'unknown' / 'untested' if not measured. G39 blocks a headline regimen when this is null/unknown/untested, or when it is known and does NOT satisfy required_state."
+              }
+            }
+          }
+        }
+      }
+    },
+    "comorbidity_safety": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "The LLM's record that it considered the patient's comorbidities against the claim's drugs. G40 (comorbidity-safety) checks this against the curated FDA-label drug→contraindication-class reference: if a drug in `drugs_mentioned` carries a contraindication class (e.g. QT-prolongation, hepatotoxicity, nephrotoxicity) the relevant comorbidity must appear in `comorbidities_considered` (or `addressed` must be explicitly true with a note). Absent ⇒ G40 SKIPs (cannot judge) — the producer prompt is what guarantees this is populated whenever drugs_mentioned is non-empty.",
+      "properties": {
+        "addressed": {
+          "type": "boolean",
+          "description": "True if the producer affirms it weighed the patient's comorbidities against this claim's drugs."
+        },
+        "comorbidities_considered": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "The specific patient comorbidities the producer evaluated (e.g. ['long QT', 'cirrhosis', 'CKD stage 3']). G40 checks the contraindication-class triggered by a drug maps to one of these."
+        },
+        "note": {
+          "type": "string",
+          "description": "Free-text rationale (non-directive). Surfaced in the G40 evidence payload."
+        }
+      }
+    },
+    "soc_checklist": {
+      "type": "array",
+      "description": "Standard-of-care checklist for the claim's clinical setting: each guideline-warranted item with whether the claim/brief addressed it. G41 (soc-completeness) checks that no item is left status=='missing' without a note explaining why (the under-delivery failure mode — a SoC option silently dropped). 'na' (not applicable to this patient) with a note is fine.",
+      "items": {
+        "type": "object",
+        "required": ["item", "status"],
+        "additionalProperties": true,
+        "properties": {
+          "item": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The SoC element (e.g. 'germline testing', 'consider anti-EGFR if RAS wild-type', 'palliative care referral')."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["addressed", "missing", "na"],
+            "description": "addressed = covered in the brief; missing = warranted but not covered; na = not applicable to this patient. G41 blocks/warns on 'missing' without a note."
+          },
+          "note": {
+            "type": "string",
+            "description": "Why missing/na, or where addressed. Required (non-empty) when status is 'missing' or 'na'."
+          }
+        }
+      }
+    },
+    "skepticism": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "The producer's record of how it applied skepticism across evidence — used by G43 (skepticism-symmetry) to catch motivated reasoning: dismissing inconvenient evidence on grounds it tolerates for relied-upon evidence. The LLM makes the call (which refs it dismissed vs. relied on, and why); G43 mechanically checks the producer SELF-DECLARED symmetry and that dismissed refs each carry a ground.",
+      "properties": {
+        "dismissed": {
+          "type": "array",
+          "description": "Evidence the producer down-weighted or set aside, each with the GROUND for dismissal (e.g. small n, retracted, off-population). A dismissed ref with no ground is a G43 violation.",
+          "items": {
+            "type": "object",
+            "required": ["ref", "ground"],
+            "additionalProperties": true,
+            "properties": {
+              "ref": {"type": "string", "minLength": 1, "description": "Evidence id dismissed (e.g. 'PMID:21156285')."},
+              "ground": {"type": "string", "minLength": 1, "description": "Why it was dismissed (the methodological ground)."}
+            }
+          }
+        },
+        "relied": {
+          "type": "array",
+          "description": "Evidence the producer relied on to support the claim.",
+          "items": {
+            "type": "object",
+            "required": ["ref"],
+            "additionalProperties": true,
+            "properties": {
+              "ref": {"type": "string", "minLength": 1, "description": "Evidence id relied upon."}
+            }
+          }
+        },
+        "symmetric": {
+          "type": "boolean",
+          "description": "The producer's self-declaration that the SAME methodological bar was applied to dismissed and relied-upon evidence (e.g. did not dismiss an RCT for small n while relying on a smaller cohort). G43 surfaces this; a false here with no rationale, or dismissed refs lacking grounds, is the violation."
+        },
+        "rationale": {
+          "type": "string",
+          "description": "One-paragraph explanation of the skepticism bar applied. Surfaced in the G43 evidence payload."
+        }
+      }
+    },
+    "pooled_estimate": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Present when the claim pools effect estimates across multiple sources/agents (a quantitative synthesis). G43/G17 check heterogeneity was not hidden: if multiple agents/sources are pooled with high I², `heterogeneity_flagged` must be true. Distinct from the legacy `meta_analysis` object that G17 reads for formal meta-analyses — `pooled_estimate` is the lighter cross-agent pooling case.",
+      "properties": {
+        "agents": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "The experts/agents/sources whose estimates were pooled (e.g. ['Aviv', 'Bert'] or source ids). ≥2 ⇒ pooling occurred."
+        },
+        "i2": {
+          "type": "number",
+          "minimum": 0,
+          "description": "I² heterogeneity statistic. Accepts 0.0-1.0 or 0-100 (consumer normalises). High I² (>50/75) without heterogeneity_flagged is the hidden-heterogeneity failure."
+        },
+        "heterogeneity_flagged": {
+          "type": "boolean",
+          "description": "True if the producer surfaced the heterogeneity to the reader. G43/G17 require this true when i2 is high and ≥2 agents were pooled."
+        }
+      }
+    },
+    "meta_analysis": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "LEGACY (v1) field still consumed by G17 for FORMAL meta-analysis claims: {i_squared|i2, model, warning_marker|note}. Retained for back-compat. New cross-agent pooling should populate `pooled_estimate` instead; both may coexist."
+    }
+  }
+}

@@ -4,9 +4,9 @@
 
 ### One Person Lab — your own AI scientist team, for one cancer patient
 
-[![Version](https://img.shields.io/badge/version-2.7.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.7.1-blue)](CHANGELOG.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1778%20passing-brightgreen)](#contributing)
+[![Tests](https://img.shields.io/badge/tests-1828%20passing-brightgreen)](#contributing)
 [![Status](https://img.shields.io/badge/status-research%20preview-orange)](#what-this-is--what-this-is-not)
 [![Not a medical device](https://img.shields.io/badge/medical%20advice-no-red)](DISCLAIMER.md)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)]()
@@ -314,7 +314,7 @@ git clone https://github.com/CancerDAO/opl-cancer
 cd opl-cancer
 python -m venv .venv && source .venv/bin/activate
 pip install -e .[dev,bio]
-pytest tests/ -q -m "not live"   # 1778 passing as of v2.7.0 (clean env)
+pytest tests/ -q -m "not live"   # 1828 passing as of v2.7.1 (clean env)
 ```
 
 The roadmap is the 6-milestone M1-M6 plan in [`docs/rfc/0001-compositional-paradigm.md`](docs/rfc/0001-compositional-paradigm.md). Highlights:
@@ -326,7 +326,7 @@ The roadmap is the 6-milestone M1-M6 plan in [`docs/rfc/0001-compositional-parad
 * **M5** — swap the keyword intake router for an LLM TaskComposer over the full MethodRegistry
 * **M6** — wire `cancer_context/` to live PrimeKG + OncoKB + NCCN + CT.gov
 
-Test suite: 1778 tests, 8 skipped (live integrators + heavy bio deps). All PRs must keep the suite green.
+Test suite: 1828 tests, 8 skipped (live integrators + heavy bio deps). All PRs must keep the suite green.
 
 ### Discipline rules (lifted from `CLAUDE.md`)
 
