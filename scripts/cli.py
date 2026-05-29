@@ -1,40 +1,84 @@
 #!/usr/bin/env python3
-"""Skill-form entry shim. Allows ``python ~/.claude/skills/opl-cancer/scripts/cli.py …``
-to invoke the same CLI as the installed ``opl-cancer`` entry-point.
+"""Skill-form entry shim — agent-agnostic first-run bootstrap (v2.6.1).
 
-Why this file exists: when OPL is installed via ``npx skills add CancerDAO/opl-cancer-skill``
-the user gets a directory at ``~/.claude/skills/opl-cancer/`` but the Python package
-under ``src/opl_cancer/`` may not yet be on ``sys.path``. This shim:
+Lets any agent (Claude Code, Codex, Cursor, OpenCode, …) invoke the same CLI as
+the installed ``opl-cancer`` entry-point via ``python <skill_dir>/scripts/cli.py …``.
 
-  1. Inserts the repo's ``src/`` onto ``sys.path`` if not already importable.
-  2. Delegates to ``opl_cancer.cli:main``.
+v2.6.1 fix (first-run BLOCKER): the previous shim put ``src/`` on ``sys.path`` so
+``import opl_cancer`` succeeded, then immediately did ``from opl_cancer.cli import
+main`` — which imports ``click``/``pydantic``/… On a fresh machine those runtime
+deps are absent, so the documented Step-0 command crashed with a raw
+``ModuleNotFoundError: No module named 'click'`` traceback (and SKILL.md's
+"auto-runs pip install" claim was false — the shim only handled a missing
+*package*, never missing *deps*).
 
-If ``opl_cancer`` is already pip-installed (editable or wheel), the shim is a
-zero-cost no-op.
+Now: a single ``_load_main()`` covers BOTH the package and its deps. On any
+ImportError the shim attempts ONE bootstrap (``pip install -e <repo>``) unless
+disabled, then retries; if it still can't import it exits cleanly (code 3) with an
+actionable, copy-pasteable message — never a raw traceback. Set
+``OPL_NO_AUTO_BOOTSTRAP=1`` to skip the auto-install and just print the hint.
 """
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC = REPO_ROOT / "src"
 
-try:
-    import opl_cancer  # noqa: F401
-except ImportError:
+
+def _load_main():
+    """Import opl_cancer.cli:main, putting src/ on the path first.
+
+    Raises ImportError if the package OR any runtime dependency is missing.
+    """
     if SRC.exists() and str(SRC) not in sys.path:
         sys.path.insert(0, str(SRC))
+    from opl_cancer.cli import main  # noqa: F401 — ImportError covers deps too
+
+    return main
+
+
+def _hint() -> str:
+    return (
+        "[opl-cancer] Not ready to run — the Python package and/or its runtime\n"
+        "dependencies are not installed in this interpreter.\n\n"
+        "Run this ONCE (works on any agent / OS), then re-run your command:\n"
+        f'    pip install -e "{REPO_ROOT}"\n\n'
+        "After that, the `opl-cancer` command is on your PATH everywhere — you no\n"
+        "longer need any file path. (Auto-bootstrap can be disabled with\n"
+        "OPL_NO_AUTO_BOOTSTRAP=1.)\n"
+    )
+
+
+def _bootstrap() -> bool:
+    """Best-effort one-time `pip install -e <repo>`. Never raises."""
     try:
-        import opl_cancer  # noqa: F401
-    except ImportError:
-        sys.stderr.write(
-            "[opl-cancer] Python package not importable. Install once:\n"
-            f"    pip install -e {REPO_ROOT}\n"
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-e", str(REPO_ROOT), "-q"],
+            check=True,
+            timeout=900,
         )
+        return True
+    except Exception:  # network/proxy/permissions/no-pip — fall back to the hint
+        return False
+
+
+def _resolve_main():
+    try:
+        return _load_main()
+    except ImportError:
+        auto = os.environ.get("OPL_NO_AUTO_BOOTSTRAP", "").lower() not in ("1", "true", "yes")
+        if auto and _bootstrap():
+            try:
+                return _load_main()
+            except ImportError:
+                pass
+        sys.stderr.write(_hint())
         sys.exit(3)
 
-from opl_cancer.cli import main
 
 if __name__ == "__main__":
-    main()
+    _resolve_main()()

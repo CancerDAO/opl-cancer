@@ -1,5 +1,55 @@
 # Changelog
 
+## [2.6.1] — 2026-05-29 — Installable + Agent-Agnostic (first-run & portability)
+
+Hotfix making the **`npx skills add CancerDAO/opl-cancer-skill`** install path
+actually work on a fresh machine AND on non-Claude-Code agents. Driven by hands-on
+multi-round E2E testing (real install across 30+ agent dirs; harness E2E passed
+3/3 cancer types: scaffold→`--finalize`→real-audit) + an agent-agnostic skill audit.
+
+### Fixed — first-run (BLOCKER)
+
+- **FR-1** — `scripts/cli.py` shim no longer crashes a fresh user with a raw
+  `ModuleNotFoundError: No module named 'click'`. The old shim put `src/` on the
+  path (so the *package* imported) then immediately imported `opl_cancer.cli`,
+  which needs `click`/`pydantic`/… that a fresh machine lacks. The shim now covers
+  package **and** deps in one `_load_main()`, attempts ONE
+  `pip install -e <skill_dir>` bootstrap (disable with `OPL_NO_AUTO_BOOTSTRAP=1`),
+  and on failure exits cleanly (code 3) with the exact copy-pasteable command —
+  never a raw traceback. (SKILL.md's old "auto-runs pip install" claim is now true.)
+
+### Fixed — agent-agnostic portability (BLOCKER)
+
+- **PORT-1** — SKILL.md hardcoded `~/.claude/skills/opl-cancer/scripts/cli.py` in
+  12 places; on Codex/Cursor/OpenCode (which install into their *own* skill dirs)
+  every step died on a nonexistent path at Step 0. All command refs now use the
+  portable **`opl-cancer` console entry point** (path-free after the one-time
+  `pip install -e <skill_dir>`).
+- **PORT-2** — executor framing was hardcoded to "Claude Code main thread =
+  Anthropic, no key". Step 0 is now **host-aware**: executor = the host agent's own
+  LLM; non-CC hosts set `OPL_EXECUTOR_PROVIDER`; **G13** distinctness is described
+  against the *actual* executor family, not a hardcoded Anthropic constant.
+- **PORT-3** — new `references/agent-portability.md`: per-agent install dirs, the
+  one-time bootstrap, the executor/reviewer (G13) contract, and a CC→host tool-name
+  map (Write/Bash/subagent dispatch). Reconciles the prior `architecture.md` ↔
+  SKILL.md contradiction about whether an API key is needed.
+
+### Fixed — skill quality + version drift
+
+- **SK-1** — SKILL.md frontmatter `description` trimmed from **3699 → ~1190 chars**
+  (a 439-word wall of triggers hurts skill matching / risks over-triggering). Lean,
+  scoped description + a deduplicated trigger set; heavy detail stays in the body.
+- **SK-2** — version drift killed: `cli.py` now derives `VERSION` from
+  `opl_cancer.__version__` (was a separate hardcoded `"2.5.1"` while `__init__` said
+  `0.0.1`). `opl-cancer --version` + `status` track the package. Version → 2.6.1
+  across pyproject / `__init__` / SKILL.md metadata.
+
+### Tests
+
+- New `tests/test_skill_portability.py` (shim clean-failure, no hardcoded
+  `~/.claude` command paths, agent-portability ref completeness, lean description).
+  Updated version-pin + `status` tests. Full suite **1740 passed, 8 skipped**.
+
 ## [2.6.0] — 2026-05-29 — Truthful Delivery + Safety Wiring
 
 Iteration following a second independent product+code audit (7 parallel

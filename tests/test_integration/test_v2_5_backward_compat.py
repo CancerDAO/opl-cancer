@@ -153,10 +153,15 @@ def test_pyproject_version_is_current() -> None:
     # v2.6.0 — Truthful Delivery + Safety Wiring iteration. The v2.5 backward-compat
     # invariants (task packages, integrators, roster, entry points) all still hold;
     # only the version line moves.
-    assert 'version = "2.6.0"' in text, "pyproject.toml version must be 2.6.0"
-    # __init__ version must match pyproject (these had drifted: 0.0.1 vs 2.5.1).
+    assert 'version = "2.6.1"' in text, "pyproject.toml version must be 2.6.1"
+    # __init__ version must match pyproject (single source of truth; these had drifted).
     init = (_REPO_ROOT / "src" / "opl_cancer" / "__init__.py").read_text(encoding="utf-8")
-    assert '__version__ = "2.6.0"' in init, "__init__ __version__ must match pyproject (2.6.0)"
+    assert '__version__ = "2.6.1"' in init, "__init__ __version__ must match pyproject (2.6.1)"
+    # cli.py must derive VERSION from __version__ (no hardcoded drift).
+    cli = (_REPO_ROOT / "src" / "opl_cancer" / "cli.py").read_text(encoding="utf-8")
+    assert "from opl_cancer import __version__ as VERSION" in cli, (
+        "cli.py must import VERSION from __version__ to avoid drift"
+    )
 
 
 def test_pyproject_declares_five_integrator_entry_points() -> None:

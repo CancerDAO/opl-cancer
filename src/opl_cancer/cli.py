@@ -24,7 +24,7 @@ from opl_cancer.compute.native_runner import NativeAnalysisRunner
 from opl_cancer.compute.runner import BixbenchRunner
 from opl_cancer.experts.roster import ROSTER
 
-VERSION = "2.5.1"
+from opl_cancer import __version__ as VERSION  # single source of truth (kills version drift)
 DEFAULT_PATIENT_ROOT_ENV = "OPL_PATIENT_DATA_ROOT"
 DEFAULT_PATIENT_ROOT = Path.home() / "CancerDAO" / "patients"
 
