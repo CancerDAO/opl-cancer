@@ -37,7 +37,12 @@ def test_delivery_runner_dry_run_creates_no_files(tmp_path: Path) -> None:
 def test_delivery_runner_succeeds_writes_three_artifacts(tmp_path: Path) -> None:
     runner = DeliveryRunner(out_dir=tmp_path, allow_missing_upstream=True)
     out = runner.run()
-    assert out["status"] == "ok"
+    # v2.6.0: the default (scaffold) path is HONEST — it has not run a real
+    # audit and the prose is unfilled, so it reports scaffold_pending_fill,
+    # NOT a bogus "ok"/henry_real_audit=true. The atomic 3-artifact write
+    # invariant is unchanged.
+    assert out["status"] == "scaffold_pending_fill"
+    assert out["henry_real_audit"] is False
     assert (tmp_path / "HENRY_AUDIT.json").exists()
     assert (tmp_path / "patient_plain_brief.md").exists()
     assert (tmp_path / "patient_pi_brief.md").exists()
@@ -62,7 +67,7 @@ def test_delivery_runner_rollback_on_pi_brief_failure(tmp_path: Path) -> None:
 def test_delivery_runner_rollback_on_henry_failure(tmp_path: Path) -> None:
     runner = DeliveryRunner(out_dir=tmp_path, allow_missing_upstream=True)
     with patch.object(
-        DeliveryRunner, "_run_henry_audit", side_effect=RuntimeError("henry failed")
+        DeliveryRunner, "_scaffold_audit", side_effect=RuntimeError("henry failed")
     ):
         with pytest.raises(DeliveryFailure):
             runner.run()
@@ -74,7 +79,8 @@ def test_delivery_runner_rollback_on_henry_failure(tmp_path: Path) -> None:
 def test_run_atomic_delivery_top_level_wrapper(tmp_path: Path) -> None:
     """Convenience wrapper for cli.py — same atomicity contract."""
     out = run_atomic_delivery(out_dir=tmp_path, allow_missing_upstream=True)
-    assert out["status"] == "ok"
+    # v2.6.0 honest default-path status (not a bogus "ok").
+    assert out["status"] == "scaffold_pending_fill"
     assert (tmp_path / "HENRY_AUDIT.json").exists()
 
 

@@ -148,11 +148,15 @@ def test_cli_v25_generate_cancer_context_command_present() -> None:
 # ─── invariant 7: pyproject version + entry points ────────────────────────
 
 
-def test_pyproject_version_is_v25() -> None:
+def test_pyproject_version_is_current() -> None:
     text = (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    # v2.5.x line — accept any 2.5.<patch>. Today (v2.5.1 hotfix) the
-    # canonical value is 2.5.1; v2.6.0 will move this assertion.
-    assert 'version = "2.5.' in text, "pyproject.toml version must be in the 2.5.x line"
+    # v2.6.0 — Truthful Delivery + Safety Wiring iteration. The v2.5 backward-compat
+    # invariants (task packages, integrators, roster, entry points) all still hold;
+    # only the version line moves.
+    assert 'version = "2.6.0"' in text, "pyproject.toml version must be 2.6.0"
+    # __init__ version must match pyproject (these had drifted: 0.0.1 vs 2.5.1).
+    init = (_REPO_ROOT / "src" / "opl_cancer" / "__init__.py").read_text(encoding="utf-8")
+    assert '__version__ = "2.6.0"' in init, "__init__ __version__ must match pyproject (2.6.0)"
 
 
 def test_pyproject_declares_five_integrator_entry_points() -> None:

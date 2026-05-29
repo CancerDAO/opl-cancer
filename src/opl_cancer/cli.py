@@ -102,7 +102,7 @@ def preflight(json_mode: bool, allow_single_model: bool, install_agents: bool) -
 
     # LLM model layer (v1.4.0+ paradigm: Claude-native).
     #
-    # The MAIN executor LLM work (Sid PI + 18 expert task packages + delivery
+    # The MAIN executor LLM work (Sid PI + 20 expert task packages + delivery
     # rewrite) runs on the Claude Code main thread — token from the user's
     # Claude Code subscription (~$1-3 per Wave run, same as cancerdao-vmtb).
     # Users do NOT need to supply an ANTHROPIC_API_KEY for OPL to work.
@@ -788,12 +788,25 @@ def render(patient_dir: str, run_id: str, json_mode: bool) -> None:
         "artifacts are missing. Default OFF; production runs should leave it OFF."
     ),
 )
+@click.option(
+    "--finalize",
+    is_flag=True,
+    default=False,
+    help=(
+        "v2.6.0 — audit the ALREADY-FILLED briefs (run the REAL Henry audit over "
+        "the LLM-produced claims manifest). Refuses if the briefs still contain "
+        "placeholder/scaffold language. Default OFF emits the honest scaffold "
+        "(status=scaffold_pending_fill, henry_real_audit=false) for the SKILL "
+        "main thread to fill, then re-run with --finalize."
+    ),
+)
 @click.option("--json", "json_mode", is_flag=True)
 def deliver(
     patient_dir: str,
     run_id: str,
     dry_run: bool,
     allow_missing_upstream: bool,
+    finalize: bool,
     json_mode: bool,
 ) -> None:
     """Run the v2.2 atomic delivery transaction.
@@ -841,6 +854,7 @@ def deliver(
             out_dir=out_dir,
             dry_run=dry_run,
             allow_missing_upstream=allow_missing_upstream,
+            finalize=finalize,
         )
     except DeliveryArtifactsMissing as exc:
         _emit(
@@ -1068,9 +1082,9 @@ def init_patient(patient_code: str, root: str | None) -> None:
     click.echo("Sid (PI) will activate when first trigger fires.")
 
 
-@main.command(name="list-experts", help="List the 18-name expert roster.")
+@main.command(name="list-experts", help="List the 20-name expert roster (v2: + Maya KG-synergy + Julius in-silico).")
 def list_experts() -> None:
-    click.echo("OPL for Cancer — Expert Roster (18 experts active)")
+    click.echo(f"OPL for Cancer — Expert Roster ({len(ROSTER)} experts active)")
     click.echo()
     click.echo("  sid       PI / Chief-of-Staff      (Sid Mukherjee archetype)")
     click.echo("  henry     Auditor / IRB substitute (Henry Beecher archetype)")

@@ -94,6 +94,10 @@ class IntakeRoute:
     method_dag: list[dict[str, Any]] = field(default_factory=list)
     l4_disclosure_card: str | None = None
     rationale: str = ""
+    # v2.6.0: G24 crisis gate result. When crisis_block is True, Sid MUST emit
+    # crisis_card.json and refuse to advance to any wave dispatch.
+    crisis_block: bool = False
+    crisis_evidence: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -102,6 +106,24 @@ class IntakeRoute:
 def route_intake(user_question: str, profile: dict[str, Any] | None = None) -> IntakeRoute:
     """Route a patient question to a task package or the unknown_task_intake."""
     text = (user_question or "").lower()
+
+    # ─── Path 0: CRISIS (v2.6.0) — MUST run before any keyword routing ──
+    # G24 is a no-LLM mechanical gate (an LLM cannot suppress a verbatim SI
+    # keyword hit). It is wired here as the first decision so a self-harm
+    # utterance can never be keyword-routed to a trial dump (verified BLOCKER:
+    # the gate existed but was never invoked at runtime).
+    crisis = _scan_crisis(user_question, profile)
+    if crisis is not None:
+        return IntakeRoute(
+            matched_task_package="crisis_card_emission",
+            acknowledgement=(
+                "我先停下所有检索。你现在的安全是唯一要紧的事。"
+                "我会立刻把危机支持资源给你，不会继续往下跑任何分析。"
+            ),
+            rationale="G24 crisis gate fired — crisis_card_emission takes priority over all routing.",
+            crisis_block=True,
+            crisis_evidence=crisis,
+        )
 
     # ─── Path 1: known task ────────────────────────────────────────────
     for keywords, pkg in _KNOWN_TASK_KEYWORDS:
@@ -145,6 +167,29 @@ def route_intake(user_question: str, profile: dict[str, Any] | None = None) -> I
 
 
 # ─── internals ────────────────────────────────────────────────────────────
+
+
+def _scan_crisis(
+    user_question: str, profile: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    """Run the mechanical G24 crisis gate over the raw patient question.
+
+    Returns the gate's evidence dict on a crisis hit, else None. Kept mechanical
+    by design (memory:feedback_no_offline_only — fires even with no network/LLM;
+    the upstream LLM crisis_detection prompt is a *front* layer, this is the
+    non-suppressible floor behind it)."""
+    from opl_cancer.validators.gates.g24_crisis_detection import (
+        G24CrisisDetectionGate,
+    )
+    from opl_cancer.validators.mechanical_gates import GateStatus
+
+    claim: dict[str, Any] = {"patient_text": user_question or ""}
+    if profile and profile.get("jurisdiction_hint"):
+        claim["profile_jurisdiction_hint"] = profile["jurisdiction_hint"]
+    result = G24CrisisDetectionGate().check(claim)
+    if result.status == GateStatus.FAIL and result.block:
+        return dict(result.evidence or {})
+    return None
 
 
 def _dag_for_known_task(task_pkg: str) -> list[dict[str, Any]]:

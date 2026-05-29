@@ -37,7 +37,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from opl_cancer.validators.fakery_sniffer import scan_text
 from opl_cancer.validators.henry import HenryAuditError, HenryAuditor
+from opl_cancer.validators.permission_levels import Level
 
 
 # ─── repo-root resolution + default catalogue path ──────────────────────────
@@ -108,7 +110,66 @@ def verify_upstream_artifacts(run_root: Path) -> list[str]:
             f"wave2/3/4 evidence: none of wave2_hypotheses.json / wave3_data_evidence.json / "
             f"wave4_validation.json present under {run_root}"
         )
+    # v2.6.0 B5-semantic: existence is not evidence. A hollow run (empty `{}`
+    # plan, empty hypothesis/analysis/validation arrays, trivial wave-1 report)
+    # must be refused — the README promise is "refuses to ship when upstream
+    # waves haven't produced REAL evidence", not "when files are absent".
+    if not missing:
+        missing.extend(_hollow_upstream(run_root))
     return missing
+
+
+# Wave file → the top-level array key whose non-emptiness signals real content.
+_WAVE_CONTENT_KEYS: dict[str, tuple[str, ...]] = {
+    "wave2_hypotheses.json": ("hypotheses", "top_k"),
+    "wave3_data_evidence.json": ("analysis_runs", "validations", "results"),
+    "wave4_validation.json": ("validations", "verdicts"),
+}
+
+
+def _hollow_upstream(run_root: Path) -> list[str]:
+    """Detect upstream artifacts that exist but carry no real evidence."""
+    hollow: list[str] = []
+    # plan.json must be a non-empty object with at least a goal or tasks/dag.
+    plan_p = run_root / "plan.json"
+    try:
+        plan = json.loads(plan_p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        plan = None
+    if not isinstance(plan, dict) or not any(
+        plan.get(k) for k in ("goal", "tasks", "method_dag", "waves")
+    ):
+        hollow.append(f"plan hollow: {plan_p} has no goal/tasks/method_dag/waves content")
+
+    # wave-1 reports must carry more than a bare header.
+    reports = list(run_root.glob("tasks/w1_*/report.md"))
+    if reports and all(
+        len(_strip_md(r.read_text(encoding="utf-8"))) < 30 for r in reports
+    ):
+        hollow.append("wave1 hollow: every w1 report.md is a trivial/empty stub")
+
+    # at least one present wave2/3/4 file must have a non-empty content array.
+    present = [(n, run_root / n) for n in _WAVE_CONTENT_KEYS if (run_root / n).exists()]
+    if present and not any(_has_content(p, _WAVE_CONTENT_KEYS[n]) for n, p in present):
+        hollow.append(
+            "wave2/3/4 hollow: present wave files carry only empty arrays "
+            "(no hypotheses / analysis_runs / validations)"
+        )
+    return hollow
+
+
+def _strip_md(text: str) -> str:
+    return "".join(
+        ln.strip() for ln in text.splitlines() if not ln.lstrip().startswith("#")
+    ).strip()
+
+
+def _has_content(path: Path, keys: tuple[str, ...]) -> bool:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return isinstance(data, dict) and any(data.get(k) for k in keys)
 
 
 # ─── exceptions ─────────────────────────────────────────────────────────────
@@ -161,6 +222,7 @@ class DeliveryRunner:
         dry_run: bool = False,
         serious_risks_path: Path | None = None,
         allow_missing_upstream: bool = False,
+        finalize: bool = False,
     ) -> None:
         self.out_dir = Path(out_dir)
         # The "run_root" is the parent of the delivery directory — that is
@@ -174,51 +236,150 @@ class DeliveryRunner:
             else _DEFAULT_SERIOUS_RISKS
         )
         self.allow_missing_upstream = bool(allow_missing_upstream)
+        # v2.6.0: finalize=False renders the honest scaffold (the patient-facing
+        # prose is owned by the SKILL main thread per ADR-2026-04-22). finalize=True
+        # audits the *already-filled* briefs: it never renders, requires a
+        # placeholder-clean brief, and runs the REAL Henry audit over the
+        # LLM-produced claims manifest.
+        self.finalize = bool(finalize)
         self._written: list[Path] = []
 
     # ── Stage hooks (override-friendly for tests) ────────────────────────
 
-    def _run_henry_audit(self) -> dict[str, Any]:
-        """Run Henry's 4-layer audit against the upstream wave corpus.
-
-        v2.5.1: replaces the v2.5.0 hardcoded stub. The HenryAuditor is
-        constructed against the serious-risks catalogue; the result
-        carries pending-ack snapshot + upstream-artifact inventory so the
-        PI brief can render them without re-scanning.
-        """
+    def _build_auditor(self) -> HenryAuditor:
         outstanding_dir = self.out_dir / "outstanding"
         outstanding_dir.mkdir(parents=True, exist_ok=True)
         try:
-            auditor = HenryAuditor(
+            return HenryAuditor(
                 serious_risks_path=self.serious_risks_path,
                 outstanding_dir=outstanding_dir,
             )
         except HenryAuditError as exc:
             raise DeliveryFailure(
-                f"Henry audit cannot start — {exc}. The v2.5.1 contract "
-                "forbids falling back to a hardcoded 'pass' (B1)."
+                f"Henry audit cannot start — {exc}. The contract forbids "
+                "falling back to a hardcoded 'pass' (B1 / ADR-0021)."
             ) from exc
 
-        pending = auditor.list_pending()
-        upstream_inventory = self._upstream_inventory()
+    def _scaffold_audit(self, placeholder_findings: list[dict[str, Any]]) -> dict[str, Any]:
+        """v2.6.0: HONEST audit record for the scaffold (pre-fill) path.
+
+        The patient-facing prose has not been written yet (the SKILL main
+        thread owns it). We construct the auditor so a missing catalogue still
+        fails loud, but we do NOT claim a real per-claim audit ran — because it
+        did not. ``henry_real_audit`` is False and ``status`` advertises the
+        brief is pending fill. The placeholder language the (CJK-aware) sniffer
+        found is surfaced so nothing downstream mistakes the scaffold for a
+        finished, audited brief (ADR-0021 Invariant 3 + discipline rule #1).
+        """
+        self._build_auditor()  # fail-loud on missing catalogue
         return {
-            "audit_version": "v2.5.1",
-            "opl_version": "2.5.1",
-            "status": "pass" if not pending else "pending_acks",
-            "henry_real_audit": True,
+            "audit_version": "v2.6.0",
+            "opl_version": "2.6.0",
+            "status": "scaffold_pending_fill",
+            "henry_real_audit": False,
+            "brief_complete": False,
+            "claims_audited": 0,
+            "gates_run": 0,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "serious_risks_catalogue": str(self.serious_risks_path),
-            "outstanding_dir": str(outstanding_dir),
-            "pending_acks": pending,
-            "gates_run": 4,  # L1-L4 actually executed against this corpus
-            "upstream_artifacts": upstream_inventory,
+            "pending_acks": [],
+            "placeholder_findings": placeholder_findings,
+            "upstream_artifacts": self._upstream_inventory(),
             "notes": [
-                "v2.5.1 B1: HenryAuditor wired; no hardcoded stub.",
-                "L1-L4 results per-claim are emitted at audit-claim time "
-                "via HenryAuditor.audit_claim(); this top-level audit "
-                "summarises catalogue + outstanding queue state.",
+                "v2.6.0: scaffold emitted; patient-facing prose is filled by the "
+                "SKILL main thread, then `opl deliver --finalize` runs the REAL "
+                "Henry audit (audit_claim) over the LLM-produced claims manifest.",
+                "henry_real_audit is intentionally False here — no claim was audited.",
             ],
         }
+
+    def _finalize_audit(self) -> dict[str, Any]:
+        """v2.6.0: REAL Henry audit over the LLM-produced claims manifest.
+
+        Runs ``HenryAuditor.audit_claim`` for every structured claim in
+        ``<run_root>/claims.json`` (or ``<out_dir>/claims.json``). The runner
+        stays *mechanical* — it never parses drugs/levels out of free text
+        (that is LLM judgment; memory:feedback_default_prompt_over_script). It
+        consumes the claims the expert/main-thread layer already produced and
+        runs the deterministic catalogue lookup + risk-card + ack loop.
+        """
+        auditor = self._build_auditor()
+        claims = self._load_claims_manifest()
+        layer3: list[str] = []
+        audited = 0
+        for c in claims:
+            try:
+                level = Level(int(c.get("level", 0)))
+            except (ValueError, TypeError):
+                level = Level.L0_INFORMATION
+            res = auditor.audit_claim(
+                claim_id=str(c.get("claim_id", f"claim-{audited}")),
+                claim_text=str(c.get("claim_text", "")),
+                level=level,
+                drugs_mentioned=list(c.get("drugs_mentioned", []) or []),
+                reviewer_challenges=list(c.get("reviewer_challenges", []) or []),
+                epistemic_gaps=list(c.get("epistemic_gaps", []) or []),
+                alternatives=list(c.get("alternatives", []) or []),
+            )
+            layer3.extend(res.layer3_serious_risks)
+            audited += 1
+        pending = auditor.list_pending()
+        return {
+            "audit_version": "v2.6.0",
+            "opl_version": "2.6.0",
+            "status": "pass" if not pending else "pending_acks",
+            "henry_real_audit": True,
+            "brief_complete": True,
+            "claims_audited": audited,
+            "gates_run": 4 if audited else 0,  # L1-L4 actually ran per claim
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "serious_risks_catalogue": str(self.serious_risks_path),
+            "pending_acks": pending,
+            "layer3_serious_risks": sorted(set(layer3)),
+            "upstream_artifacts": self._upstream_inventory(),
+            "notes": [
+                "v2.6.0: real audit — HenryAuditor.audit_claim ran over the "
+                f"{audited}-claim manifest; serious risks resolved from catalogue.",
+            ],
+        }
+
+    def _load_claims_manifest(self) -> list[dict[str, Any]]:
+        """Read the structured claims the LLM/expert layer produced.
+
+        Looks at ``<run_root>/claims.json`` then ``<out_dir>/claims.json``.
+        Absent / malformed → empty list (a real audit with zero claims is
+        honestly reported as claims_audited=0; it is NOT faked into a pass)."""
+        for candidate in (self.run_root / "claims.json", self.out_dir / "claims.json"):
+            if candidate.exists():
+                try:
+                    data = json.loads(candidate.read_text(encoding="utf-8"))
+                except json.JSONDecodeError:
+                    return []
+                claims = data.get("claims", data) if isinstance(data, dict) else data
+                return [c for c in claims if isinstance(c, dict)] if isinstance(claims, list) else []
+        return []
+
+    def _scan_briefs_for_placeholders(self) -> list[dict[str, Any]]:
+        """Run the (CJK-aware) fakery sniffer over the two rendered briefs.
+
+        Returns a list of {file, line, excerpt, pattern} dicts — empty means the
+        briefs are placeholder-clean and safe to ship as a finished deliverable.
+        """
+        findings: list[dict[str, Any]] = []
+        for name in (self.PLAIN_BRIEF_FILE, self.PI_BRIEF_FILE):
+            p = self.out_dir / name
+            if not p.exists():
+                continue
+            for f in scan_text(p.read_text(encoding="utf-8")):
+                findings.append(
+                    {
+                        "file": name,
+                        "line": f.line_number,
+                        "excerpt": f.excerpt[:200],
+                        "pattern": f.pattern,
+                    }
+                )
+        return findings
 
     def _upstream_inventory(self) -> dict[str, Any]:
         """Enumerate the upstream artifacts the brief is grounded in."""
@@ -375,6 +536,69 @@ class DeliveryRunner:
         ]
         return "\n".join(lines) + "\n"
 
+    # ── Mode runners (v2.6.0) ───────────────────────────────────────────────
+
+    def _write(self, name: str, text: str) -> Path:
+        path = self.out_dir / name
+        path.write_text(text, encoding="utf-8")
+        self._written.append(path)
+        return path
+
+    def _commit_manifest(self, audit: dict[str, Any], missing: list[str]) -> dict[str, Any]:
+        payload = {
+            "status": audit.get("status"),
+            "out_dir": str(self.out_dir),
+            "written_files": [str(p) for p in self._written],
+            "henry_audit_status": audit.get("status"),
+            "henry_real_audit": audit.get("henry_real_audit", False),
+            "brief_complete": audit.get("brief_complete", False),
+            "claims_audited": audit.get("claims_audited", 0),
+            "placeholder_findings": audit.get("placeholder_findings", []),
+            "upstream_missing": missing if self.allow_missing_upstream else [],
+        }
+        manifest = {"atomic_commit": True, "generated_at": datetime.now(timezone.utc).isoformat(), **payload}
+        (self.out_dir / self.MANIFEST_FILE).write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        return payload
+
+    def _run_scaffold(self, missing: list[str]) -> dict[str, Any]:
+        """Default path: render the honest scaffold, sniff it, report truthfully."""
+        plain_md = self._render_plain_brief({"audit_version": "v2.6.0", "pending_acks": [], "upstream_artifacts": self._upstream_inventory()})
+        self._write(self.PLAIN_BRIEF_FILE, plain_md)
+        pi_md = self._render_pi_brief({"audit_version": "v2.6.0", "status": "scaffold_pending_fill", "gates_run": 0, "serious_risks_catalogue": str(self.serious_risks_path), "pending_acks": [], "upstream_artifacts": self._upstream_inventory()})
+        self._write(self.PI_BRIEF_FILE, pi_md)
+
+        placeholder_findings = self._scan_briefs_for_placeholders()
+        audit = self._scaffold_audit(placeholder_findings)
+        self._write(self.HENRY_AUDIT_FILE, json.dumps(audit, ensure_ascii=False, indent=2))
+        return self._commit_manifest(audit, missing)
+
+    def _run_finalize(self, missing: list[str]) -> dict[str, Any]:
+        """Finalize path: audit the *already-filled* briefs. Never renders.
+
+        Refuses (DeliveryFailure) if the briefs are absent or still contain
+        placeholder language — a scaffold can never be finalized. Otherwise runs
+        the REAL Henry audit over the LLM-produced claims manifest.
+        """
+        plain = self.out_dir / self.PLAIN_BRIEF_FILE
+        pi = self.out_dir / self.PI_BRIEF_FILE
+        if not plain.exists() or not pi.exists():
+            raise DeliveryFailure(
+                "Cannot finalize — patient_plain_brief.md / patient_pi_brief.md not "
+                "found. Run `opl deliver` (scaffold) first, fill the briefs, then finalize."
+            )
+        placeholder_findings = self._scan_briefs_for_placeholders()
+        if placeholder_findings:
+            raise DeliveryFailure(
+                "Cannot finalize — briefs still contain placeholder/scaffold language "
+                f"({len(placeholder_findings)} hits, e.g. {placeholder_findings[0]['excerpt']!r}). "
+                "The SKILL main thread must fill the scaffold before finalize (ADR-0021 Inv-3)."
+            )
+        audit = self._finalize_audit()
+        self._write(self.HENRY_AUDIT_FILE, json.dumps(audit, ensure_ascii=False, indent=2))
+        return self._commit_manifest(audit, missing)
+
     # ── Public entry ──────────────────────────────────────────────────────
 
     def run(self) -> dict[str, Any]:
@@ -398,48 +622,9 @@ class DeliveryRunner:
 
         self.out_dir.mkdir(parents=True, exist_ok=True)
         try:
-            # Step 1 — Henry audit (real auditor, not stub)
-            audit = self._run_henry_audit()
-            audit_path = self.out_dir / self.HENRY_AUDIT_FILE
-            audit_path.write_text(
-                json.dumps(audit, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
-            self._written.append(audit_path)
-
-            # Step 2 — plain brief (template-anchored scaffold)
-            plain_md = self._render_plain_brief(audit)
-            plain_path = self.out_dir / self.PLAIN_BRIEF_FILE
-            plain_path.write_text(plain_md, encoding="utf-8")
-            self._written.append(plain_path)
-
-            # Step 3 — PI brief (template-anchored scaffold)
-            pi_md = self._render_pi_brief(audit)
-            pi_path = self.out_dir / self.PI_BRIEF_FILE
-            pi_path.write_text(pi_md, encoding="utf-8")
-            self._written.append(pi_path)
-
-            # Commit — write the manifest
-            manifest = {
-                "atomic_commit": True,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "out_dir": str(self.out_dir),
-                "written_files": [str(p) for p in self._written],
-                "henry_audit_status": audit.get("status"),
-                "henry_real_audit": audit.get("henry_real_audit", False),
-                "upstream_missing": missing if self.allow_missing_upstream else [],
-            }
-            (self.out_dir / self.MANIFEST_FILE).write_text(
-                json.dumps(manifest, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-            return {
-                "status": "ok",
-                "out_dir": str(self.out_dir),
-                "written_files": [str(p) for p in self._written],
-                "henry_audit_status": audit.get("status"),
-                "henry_real_audit": audit.get("henry_real_audit", False),
-                "upstream_missing": missing if self.allow_missing_upstream else [],
-            }
+            if self.finalize:
+                return self._run_finalize(missing)
+            return self._run_scaffold(missing)
         except DeliveryArtifactsMissing:
             # Should be intercepted before write — defensive re-raise.
             self._rollback()
@@ -479,12 +664,14 @@ def run_atomic_delivery(
     out_dir: Path,
     dry_run: bool = False,
     allow_missing_upstream: bool = False,
+    finalize: bool = False,
 ) -> dict[str, Any]:
     """Top-level wrapper for cli.py. Same atomicity contract as DeliveryRunner."""
     return DeliveryRunner(
         out_dir=out_dir,
         dry_run=dry_run,
         allow_missing_upstream=allow_missing_upstream,
+        finalize=finalize,
     ).run()
 
 

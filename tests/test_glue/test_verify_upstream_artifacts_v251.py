@@ -20,12 +20,28 @@ def test_verify_upstream_artifacts_reports_all_missing(tmp_path: Path) -> None:
 
 
 def test_verify_upstream_artifacts_passes_when_corpus_present(tmp_path: Path) -> None:
+    # v2.6.0 B5-semantic: the corpus must carry REAL content, not just exist.
+    (tmp_path / "plan.json").write_text('{"goal": "g", "tasks": ["t1"]}', encoding="utf-8")
+    w1 = tmp_path / "tasks" / "w1_demo"
+    w1.mkdir(parents=True)
+    (w1 / "report.md").write_text(
+        "# r\nPer Awad et al. (PMID:34750504), ORR 23.2%.\n", encoding="utf-8"
+    )
+    (tmp_path / "wave2_hypotheses.json").write_text(
+        '{"hypotheses": [{"id": "h1"}]}', encoding="utf-8"
+    )
+    assert verify_upstream_artifacts(tmp_path) == []
+
+
+def test_verify_upstream_artifacts_refuses_hollow_corpus(tmp_path: Path) -> None:
+    # v2.6.0: files present but empty {} plan + empty wave file => hollow => refused.
     (tmp_path / "plan.json").write_text("{}", encoding="utf-8")
     w1 = tmp_path / "tasks" / "w1_demo"
     w1.mkdir(parents=True)
     (w1 / "report.md").write_text("# r\n", encoding="utf-8")
     (tmp_path / "wave2_hypotheses.json").write_text("{}", encoding="utf-8")
-    assert verify_upstream_artifacts(tmp_path) == []
+    missing = verify_upstream_artifacts(tmp_path)
+    assert any("hollow" in m.lower() for m in missing), missing
 
 
 def test_cli_deliver_refuses_when_upstream_missing(tmp_path: Path) -> None:

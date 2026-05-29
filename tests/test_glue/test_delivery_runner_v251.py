@@ -31,16 +31,19 @@ def _build_complete_wave_corpus(run_root: Path) -> None:
         "Per Awad et al. (PMID:34750504), ORR was 23.2% (n=142).\n",
         encoding="utf-8",
     )
-    # Plan, profile, wave artifacts the brief refers to.
-    (run_root / "plan.json").write_text("{}", encoding="utf-8")
+    # Plan, profile, wave artifacts the brief refers to. v2.6.0 B5-semantic:
+    # these must carry REAL (non-empty) content or the hollow-gate refuses them.
+    (run_root / "plan.json").write_text(
+        '{"goal": "next-line options", "tasks": ["t1"]}', encoding="utf-8"
+    )
     (run_root / "wave2_hypotheses.json").write_text(
-        '{"hypotheses": [], "top_k": []}', encoding="utf-8"
+        '{"hypotheses": [{"id": "h1", "text": "x"}], "top_k": ["h1"]}', encoding="utf-8"
     )
     (run_root / "wave3_data_evidence.json").write_text(
-        '{"analysis_runs": [], "validations": []}', encoding="utf-8"
+        '{"analysis_runs": [{"id": "a1"}], "validations": []}', encoding="utf-8"
     )
     (run_root / "wave4_validation.json").write_text(
-        '{"validations": []}', encoding="utf-8"
+        '{"validations": [{"id": "v1", "verdict": "inconclusive"}]}', encoding="utf-8"
     )
 
 
@@ -58,27 +61,31 @@ def test_delivery_runner_without_upstream_artifacts_refuses(tmp_path: Path) -> N
 
 
 def test_delivery_runner_real_henry_audit_uses_validator(tmp_path: Path) -> None:
-    """B1: the Henry payload written must come from the real HenryAuditor —
-    presence of structured fields the hardcoded stub never had, and
-    audit_version >= v2.5.1."""
+    """v2.6.0 corrected contract: the v2.5.1 fix STILL never ran a real audit —
+    it emitted henry_real_audit=true + status=pass for a scaffold. The honest
+    contract: the default (scaffold) path declares henry_real_audit=False and a
+    non-pass status; the auditor is still constructed (fail-loud on missing
+    catalogue) and the payload carries no hardcoded magic gates number."""
     run_root = tmp_path / "patient" / "triggers" / "run-x"
     _build_complete_wave_corpus(run_root)
     out_dir = run_root / "delivery"
 
     result = DeliveryRunner(out_dir=out_dir).run()
-    assert result["status"] == "ok"
+    # The scaffold is NOT a finished, audited deliverable — say so honestly.
+    assert result["status"] == "scaffold_pending_fill"
+    assert result["henry_real_audit"] is False
 
     import json
 
     audit = json.loads((out_dir / "HENRY_AUDIT.json").read_text(encoding="utf-8"))
-    # No hardcoded "gates_run: 28" magic number; the real auditor records the
-    # number it actually ran.
-    assert audit.get("audit_version", "").startswith("v2.5"), audit
-    assert "henry_real_audit" in audit, (
-        "audit must declare it came from the real HenryAuditor, not the v2.5.0 stub"
-    )
-    # The HenryAuditor exposes catalogue + pending list — the new payload
-    # surfaces those instead of a single hardcoded `pass`.
+    assert audit.get("audit_version", "").startswith("v2."), audit
+    # No hardcoded "gates_run: 28" magic number, and no claim was audited yet.
+    assert audit.get("gates_run") == 0, audit
+    assert audit.get("claims_audited") == 0, audit
+    assert audit.get("henry_real_audit") is False
+    assert audit.get("status") != "pass"
+    # ADR-0021 Inv-3: the placeholder language in the scaffold is surfaced.
+    assert audit.get("placeholder_findings"), audit
     assert isinstance(audit.get("pending_acks"), list)
     assert isinstance(audit.get("upstream_artifacts"), dict)
 

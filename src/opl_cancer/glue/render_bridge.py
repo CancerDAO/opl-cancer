@@ -58,22 +58,55 @@ _DRUG_TO_CLASS_REDACTION: dict[str, str] = {
 }
 
 
-def _redact_drug_specifics(text: str) -> tuple[str, list[str]]:
-    """Replace specific drug names with target-class equivalents.
+import re as _re
 
-    Returns (redacted_text, list_of_redacted_drugs_for_audit).
+# v2.6.0 fail-closed backstop. The curated dict above is mCRC-biased and finite;
+# the review found it fails OPEN (a novel speculative drug renders verbatim in the
+# patient brief). These patterns catch drug-LIKE tokens the dict missed and redact
+# them to a generic class placeholder so no specific compound can leak. This is the
+# mechanical floor; the proper generalization fix is an RxNorm/OncoKB/LLM class
+# resolver (kept out of this deterministic safety gate on purpose —
+# memory:feedback_default_prompt_over_script).
+_FAIL_CLOSED_PLACEHOLDER = "[研究阶段候选药物——具体名称见 PI 临床简报，不构成用药建议]"
+# Investigational codes: 2-6 letters + optional hyphen + 3-5 digits (MRTX1133,
+# GDC-6036, JAB-21822). Trial IDs (NCT + 8 digits) and gene variants (G12C) do
+# not match (digit-count / shape differ).
+_INVESTIGATIONAL_CODE = _re.compile(r"\b[A-Za-z]{2,6}-?\d{3,5}\b")
+# INN-stem small-molecule inhibitors (…ib: -nib/-sib/-rasib/-parib/-ciclib/-lisib)
+# and monoclonal antibodies (…mab), ≥6 chars so short prose words don't trip.
+_INN_STEM = _re.compile(r"\b[A-Za-z]{4,}(?:ib|mab)\b", _re.IGNORECASE)
+# Tokens with an investigational-code shape that are NOT drugs (registry/trial ids).
+_CODE_ALLOWLIST = _re.compile(r"^(?:NCT|PMID|ISRCTN|ChiCTR|EudraCT|GRCh)\d*$", _re.IGNORECASE)
+
+
+def _redact_drug_specifics(text: str) -> tuple[str, list[str]]:
+    """Replace specific drug names with target-class equivalents — FAIL CLOSED.
+
+    Returns (redacted_text, list_of_redacted_drugs_for_audit). Backstop catches
+    are recorded as ``fail_closed:<token>`` so the audit distinguishes the
+    deterministic floor firing from a curated-dict class mapping.
     """
     if not isinstance(text, str):
         return text, []
     redacted_list: list[str] = []
     out = text
+    # Pass 1 — precise curated class mapping.
     for drug, cls in _DRUG_TO_CLASS_REDACTION.items():
-        import re as _re
-
         pattern = _re.compile(rf"\b{_re.escape(drug)}\b", _re.IGNORECASE)
         if pattern.search(out):
             redacted_list.append(drug)
             out = pattern.sub(cls, out)
+
+    # Pass 2 — fail-closed backstop for drug-like tokens the dict missed.
+    def _redact_token(m: "_re.Match[str]") -> str:
+        tok = m.group(0)
+        if _CODE_ALLOWLIST.match(tok):
+            return tok
+        redacted_list.append(f"fail_closed:{tok}")
+        return _FAIL_CLOSED_PLACEHOLDER
+
+    out = _INVESTIGATIONAL_CODE.sub(_redact_token, out)
+    out = _INN_STEM.sub(_redact_token, out)
     return out, redacted_list
 
 

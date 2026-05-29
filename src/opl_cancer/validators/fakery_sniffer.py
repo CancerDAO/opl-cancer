@@ -34,6 +34,21 @@ _PATTERNS: list[re.Pattern[str]] = [
         re.IGNORECASE,
     ),
     re.compile(r"<insert (PMID|citation|value)>", re.IGNORECASE),
+    # ── v2.6.0: CJK (Chinese-primary) placeholder language ──
+    # OPL is Chinese-primary; the English-only set above was blind to the
+    # delivery scaffold's zh placeholders ("这一节由 SKILL 主线程的 LLM 填充").
+    # Patterns are scoped to placeholder *contexts* so they don't over-fire on
+    # legitimate clinical prose (e.g. 假体填充 / 主治医生 must NOT match).
+    re.compile(r"占位符?"),  # 占位 / 占位符 (placeholder)
+    re.compile(r"待(补充|填写|填|确定|完善|定|续写|生成)"),  # 待填写 / 待补充 …
+    re.compile(r"(填充|填写|插入|补全|生成)(本节|本段|此处|这一节|这里|本题|此题)"),
+    re.compile(
+        r"(主线程|SKILL\s*主线程|main[\s-]?thread)[^\n]{0,16}(填充|填写|生成|补全|fill)",
+        re.IGNORECASE,
+    ),
+    re.compile(r"由\s*(SKILL|主线程|LLM)[^\n]{0,16}填充", re.IGNORECASE),
+    re.compile(r"\b(TODO|TBD|FIXME|XXX)\b", re.IGNORECASE),
+    re.compile(r"待办(事项)?[:：]"),
 ]
 
 

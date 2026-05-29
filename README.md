@@ -4,7 +4,7 @@
 
 ### One Person Lab — your own AI scientist team, for one cancer patient
 
-[![Version](https://img.shields.io/badge/version-2.5.1-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.6.0-blue)](CHANGELOG.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-1693%20passing-brightgreen)](#contributing)
 [![Status](https://img.shields.io/badge/status-research%20preview-orange)](#what-this-is--what-this-is-not)
@@ -35,7 +35,7 @@ The lifecycle ends with two artifacts:
 1. **`patient_plain_brief.md`** — a 2-page lay-language brief the patient and family can read together
 2. **`patient_pi_brief.md`** — a clinician-grade brief with PMID anchors, risk-disclosure cards, and reviewer disagreements surfaced verbatim
 
-Both are atomically shipped alongside `HENRY_AUDIT.json` — a real 4-layer audit (not a hardcoded pass, since v2.5.1). If the audit cannot complete, the brief refuses to ship.
+Both are atomically shipped alongside `HENRY_AUDIT.json`. Delivery has two honest modes (v2.6.0): `opl deliver` emits a **template scaffold** the Claude Code SKILL main thread fills (`status: scaffold_pending_fill`, `henry_real_audit: false`), and `opl deliver --finalize` runs the **real 4-layer `HenryAuditor.audit_claim()`** over the filled briefs — refusing if any placeholder language remains — and only then reports `henry_real_audit: true`. If upstream evidence is missing *or hollow*, delivery refuses to ship.
 
 The 20-expert roster (each is an *archetype* of a real-world clinician/scientist, not an impersonation): **Rosa** (pathology), **Bert** (molecular/NGS), **Vince** (treating oncology), **Rick** (clinical trial matching), **Heddy** (imaging), **Mary** (DDI / pharmacogenomics), **Aviv** (bioinformatics), **Tyler** (wet-lab design), **Iain** (meta-analysis), **Ted** (radiation), **Riad** (interventional), **Jen** (palliative), **Kieren** (infectious disease), **Mark** (irAE / endocrine), **Hong** (TCM), **Frances** (expanded access), **Dennis** (cross-border), **Steve** (nutrition), **Maya** (knowledge-graph synergy reasoner; v2.0+), **Julius** (in-silico medicinal chemist; v2.0+). Coordination layer: **Sid** (PI / chief-of-staff — your only conversation window) + **Henry** (IRB-substitute auditor — internal review). Full archetype credits in [`references/expert-roster.md`](references/expert-roster.md).
 
@@ -86,22 +86,31 @@ opl wave6 --patient-dir ~/CancerDAO/patients/demo-001 \
           --run-id r1 --patient-code demo-001 --draft
 ```
 
-Expected `opl deliver` output:
+Expected `opl deliver` output (scaffold mode — the SKILL main thread then fills
+the prose and re-runs with `--finalize` for the real audit):
 
 ```json
 {
   "ok": true,
-  "status": "ok",
+  "status": "scaffold_pending_fill",
   "out_dir": ".../triggers/r1/delivery",
   "written_files": [
     ".../HENRY_AUDIT.json",
     ".../patient_plain_brief.md",
     ".../patient_pi_brief.md"
   ],
-  "henry_audit_status": "pass",
-  "henry_real_audit": true
+  "henry_real_audit": false,
+  "brief_complete": false
 }
 ```
+
+> **CLI vs SKILL (read this).** The pip-installable Python package is the
+> **harness**: it plans, validates, gates, fetches from live integrators, and
+> emits honest scaffolds + state — it does **not** itself write the patient-facing
+> prose or run the expert LLMs. The reasoning (Sid + the 20 experts + Henry's
+> per-claim audit) runs on the **Claude Code SKILL main thread** (`npx skills add
+> CancerDAO/opl-cancer-skill`). `opl deliver` (no flag) is a scaffold; `opl
+> deliver --finalize` audits the SKILL-filled briefs.
 
 If upstream Waves 1-5 haven't produced real artifacts, `opl deliver` refuses with a structured error rather than shipping a fabricated brief (v2.5.1 B5):
 

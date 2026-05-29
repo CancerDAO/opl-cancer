@@ -1,5 +1,80 @@
 # Changelog
 
+## [2.6.0] — 2026-05-29 — Truthful Delivery + Safety Wiring
+
+Iteration following a second independent product+code audit (7 parallel
+reviewers + adversarial verification; 63 findings, 38 BLOCKER/HIGH verified,
+0 false positives). This release closes the highest-leverage **patient-safety**
+and **delivery-truthfulness** findings. The larger architectural items it does
+NOT yet close (CLI-vs-SKILL executor wiring, full 33-gate battery on the ship
+path, LLM plan-composer replacing the keyword routers) are documented as
+v2.7.0+ in `docs/iteration/REVIEW_v2.6.0.md` because they require a maintainer
+decision on the engine-vs-skill product boundary.
+
+### Fixed — patient safety
+
+- **CRISIS-1 (BLOCKER)** — `G24CrisisDetectionGate` was fully implemented +
+  unit-tested but **never invoked at runtime**; a patient typing self-harm
+  language into the goal box was keyword-routed like any other question (worst
+  case: a trial-dump on a suicidal patient). `plan/intake_router.route_intake`
+  now runs the mechanical G24 gate as **Path 0** — ahead of all keyword routing —
+  and returns `crisis_card_emission` with `crisis_block=True` + crisis evidence
+  and an empty `method_dag`. The gate stays mechanical by design (no LLM can
+  suppress a verbatim SI hit). New `IntakeRoute.crisis_block` / `.crisis_evidence`.
+- **REDACT-1 (HIGH)** — patient-facing drug-class redaction
+  (`glue/render_bridge._redact_drug_specifics`) was a ~25-entry, mCRC-biased
+  dictionary that **failed OPEN**: any speculative drug not in the dict (a novel
+  investigational code like `MRTX1133`, a HER2 ADC, a menin inhibitor) rendered
+  VERBATIM in the patient brief. Now **fails CLOSED** — a deterministic backstop
+  redacts drug-like tokens (INN stems `…ib`/`…mab` + investigational codes) it
+  can't class-map to a generic placeholder, recorded as `fail_closed:<token>`.
+  (The proper generalization fix — an RxNorm/OncoKB/LLM class resolver — is
+  tracked for v2.7.0; this is the mechanical floor behind it.)
+
+### Fixed — delivery truthfulness (the product's core value prop)
+
+- **AUDIT-1 (BLOCKER)** — `opl deliver` reported `status: pass` /
+  `henry_real_audit: true` / `gates_run: 4` while `HenryAuditor.audit_claim()`
+  (the real L1-L4 audit) was **never called** and the briefs were placeholder
+  scaffolds. `DeliveryRunner` now has two honest modes:
+  - **scaffold (default)** — renders the template scaffold, runs the (now
+    CJK-aware) fakery sniffer over it, and reports
+    `status: "scaffold_pending_fill"`, `henry_real_audit: false`,
+    `brief_complete: false`, with the detected `placeholder_findings`. It no
+    longer claims a real audit or a pass.
+  - **`--finalize`** — audits the *already-filled* briefs: refuses
+    (`DeliveryFailure`) if any placeholder language remains, then runs the REAL
+    `HenryAuditor.audit_claim()` over the LLM-produced `claims.json` manifest and
+    only then emits `henry_real_audit: true` + a true `gates_run`/`claims_audited`.
+    The runner stays mechanical — it consumes structured claims, it does not
+    parse drugs/levels out of free text.
+- **B5-SEMANTIC (BLOCKER)** — `verify_upstream_artifacts` checked file
+  EXISTENCE only, so an empty `{}` plan + `{"hypotheses": []}` wave file passed
+  the "refuses to ship without real evidence" gate. It now also detects **hollow**
+  upstream (empty plan / empty wave content arrays / trivial wave-1 report) and
+  refuses.
+- **FAKERY-CJK** — `validators/fakery_sniffer` was English-only
+  (`[speculative`, `approximately \d`, `<insert PMID>`) while OPL is
+  Chinese-primary; the delivery scaffold's zh placeholders slipped through every
+  ADR-0021 Invariant-3 scan. Added scoped CJK patterns (`占位`, `待补充/待填写`,
+  `主线程…填充`, `由 SKILL/LLM…填充`, `TODO/TBD`) that do not over-fire on real
+  clinical prose.
+
+### Changed — docs synced to code
+
+- `README.md` delivery section + `cli.py list-experts` corrected (20-expert
+  roster; `opl deliver` honestly described as scaffold + `--finalize`).
+- Version → 2.6.0.
+
+### Tests
+
+- +20 cases across 5 new test files (TDD, failing-first):
+  `test_fakery_sniffer_cjk`, `test_delivery_truthful_v260`,
+  `test_intake_crisis_first`, `test_redaction_fail_closed`,
+  `test_upstream_semantic_b5`. Updated the v2.5.1 delivery tests that had locked
+  in the placeholder-scaffold-as-pass behavior. Full suite: **1734 passed,
+  8 skipped** (clean env).
+
 ## [2.5.1] — 2026-05-29 — Hotfix (5 BLOCKERS + README rewrite)
 
 Hotfix release closing 5 BLOCKER-grade defects found in an independent
