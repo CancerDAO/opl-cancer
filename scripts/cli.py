@@ -42,8 +42,16 @@ def _load_main():
 
 
 def _hint() -> str:
+    ver = (
+        f"[opl-cancer] This interpreter is Python {sys.version_info.major}."
+        f"{sys.version_info.minor}, but OPL requires Python 3.11+. Re-run with a\n"
+        "Python 3.11+ interpreter (the package will not install on older Python).\n\n"
+        if sys.version_info < (3, 11)
+        else ""
+    )
     return (
-        "[opl-cancer] Not ready to run — the Python package and/or its runtime\n"
+        ver
+        + "[opl-cancer] Not ready to run — the Python package and/or its runtime\n"
         "dependencies are not installed in this interpreter.\n\n"
         "Run this ONCE (works on any agent / OS), then re-run your command:\n"
         f'    pip install -e "{REPO_ROOT}"\n\n'
@@ -53,17 +61,30 @@ def _hint() -> str:
     )
 
 
-def _bootstrap() -> bool:
-    """Best-effort one-time `pip install -e <repo>`. Never raises."""
+def _pip(*args: str) -> bool:
     try:
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-e", str(REPO_ROOT), "-q"],
-            check=True,
-            timeout=900,
+            [sys.executable, "-m", "pip", *args], check=True, timeout=900
         )
         return True
-    except Exception:  # network/proxy/permissions/no-pip — fall back to the hint
+    except Exception:  # network/proxy/permissions/no-pip
         return False
+
+
+def _bootstrap() -> bool:
+    """Best-effort one-time install of the harness. Never raises.
+
+    Robust across pip versions: old pip cannot do a PEP-660 editable install of a
+    pyproject-only (hatchling) project (``editable mode requires a setuptools-based
+    build``), so we (1) try to upgrade pip, (2) try editable, (3) fall back to a
+    regular (non-editable) install — which works on far more environments and still
+    yields a working ``opl-cancer`` entry point + importable package.
+    """
+    repo = str(REPO_ROOT)
+    _pip("install", "--upgrade", "pip", "-q")  # best-effort; ignore result
+    if _pip("install", "-e", repo, "-q"):
+        return True
+    return _pip("install", repo, "-q")  # non-editable fallback
 
 
 def _resolve_main():
