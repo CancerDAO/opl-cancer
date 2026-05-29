@@ -22,7 +22,7 @@ import re
 from opl_cancer.validators.mechanical_gates import all_gate_classes
 
 
-EXPECTED_GATE_COUNT = 33
+EXPECTED_GATE_COUNT = 37  # v2.7.0 ADR-0026 adds G34-G37 (delivery-integrity)
 
 
 def test_registry_returns_all_gates() -> None:
@@ -78,5 +78,25 @@ def test_g29_through_g33_present() -> None:
     assert names.index("G29ManuscriptAuthorshipDisclosedGate") > names.index(
         "G28AbsoluteDateGate"
     )
-    # And G33 is the new tail.
-    assert names[-1] == "G33N1DesignTransparentGate"
+    # And G33 follows G29-G32 (no longer the tail — G34-G37 added in v2.7.0).
+    assert names.index("G33N1DesignTransparentGate") > names.index(
+        "G29ManuscriptAuthorshipDisclosedGate"
+    )
+
+
+def test_g34_through_g37_present() -> None:
+    """v2.7.0 ADR-0026 — delivery-integrity gates must register as the new tail."""
+    gates = all_gate_classes()
+    names = [g.__name__ for g in gates]
+    for cls in (
+        "G34DeliveryAttestationGate",
+        "G35ClinicalFactProvenanceGate",
+        "G36PMIDTopicRelevanceGate",
+        "G37ServiceCompletenessGate",
+    ):
+        assert cls in names, f"{cls} not registered"
+    # Canonical order: G34-G37 come after G33.
+    assert names.index("G34DeliveryAttestationGate") > names.index(
+        "G33N1DesignTransparentGate"
+    )
+    assert names[-1] == "G37ServiceCompletenessGate"

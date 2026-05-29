@@ -4,9 +4,9 @@
 
 ### One Person Lab — 属于一位癌症患者的私人 AI 科研团队
 
-[![Version](https://img.shields.io/badge/version-2.6.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.7.0-blue)](CHANGELOG.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1734%20passing-brightgreen)](#贡献)
+[![Tests](https://img.shields.io/badge/tests-1778%20passing-brightgreen)](#贡献)
 [![Status](https://img.shields.io/badge/status-research%20preview-orange)](#这是什么--不是什么)
 [![Not a medical device](https://img.shields.io/badge/medical%20advice-no-red)](DISCLAIMER.md)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)]()
@@ -87,7 +87,14 @@ pip install -e .
 # 1. 在 ~/CancerDAO/patients/ 下初始化一个患者目录
 opl init-patient demo-001
 
-# 2. 规划本次运行（Sid 的 intake_router 决定专家 + 组装 method DAG）
+# v2.7.0 —— 一句话全自动：患者给一句（哪怕很简单的）话，go 就驱动整条管线，
+# 并一步步告诉你下一步该做什么（含完整专家名单），直到交付完成且通过校验。
+# 绝不少干（少跑专家/跳 Wave）、绝不把 20 个专家压缩成几个通用 agent、绝不凭空写报告。
+opl go --patient ~/CancerDAO/patients/demo-001 \
+       --goal "我爸下一步怎么办？" --run-id r1
+
+# …或手动逐步执行：
+# 2. 规划本次运行（铸造 run-token；Sid 的 intake_router 决定完整专家团 + 组装 method DAG）
 opl plan --patient ~/CancerDAO/patients/demo-001 \
          --goal "我用奥希替尼 14 个月后 CT 进展，下一线有哪些循证选项？" \
          --run-id r1
@@ -95,9 +102,12 @@ opl plan --patient ~/CancerDAO/patients/demo-001 \
 # 3. Wave 1-4 在 SKILL.md 主线程上运行（骨架负责校验状态，
 #    Claude Code 主线程负责推理）。详见 SKILL.md §Step 5-8。
 
-# 4. 交付——先出脚手架，待 SKILL 填好正文后再 --finalize
+# 4. 交付——先出脚手架，待 SKILL 填好正文后再 --finalize，最后 attest
+#    （v2.7.0 交付完整性门 G34/G35/G37 + G1/G2/G36：凡是没有真实运行支撑、
+#    含编造化验值、或引用了错配 PMID 的报告，一律拒绝交付）。
 opl deliver --patient ~/CancerDAO/patients/demo-001 --run-id r1
 opl deliver --patient ~/CancerDAO/patients/demo-001 --run-id r1 --finalize
+opl attest  --patient ~/CancerDAO/patients/demo-001 --run-id r1
 
 # 5. 可选——Wave 6 手稿 + .n1a bundle
 opl wave6 --patient-dir ~/CancerDAO/patients/demo-001 \

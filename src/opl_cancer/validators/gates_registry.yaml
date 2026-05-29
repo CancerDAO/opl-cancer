@@ -177,3 +177,24 @@ gates:
     name: n1_design_transparent
     migrated: false
     applicability_predicate: "wave == 6"
+  # ── v2.7.0 ADR-0026 — delivery-integrity + anti-fabrication + completeness ──
+  G34:
+    family: provenance
+    name: delivery_attestation
+    migrated: true
+    applicability_predicate: "stage == delivery"
+  G35:
+    family: provenance
+    name: clinical_fact_provenance
+    migrated: true
+    applicability_predicate: "any stage asserting a measured clinical value"
+  G36:
+    family: provenance
+    name: pmid_topic_relevance
+    migrated: true
+    applicability_predicate: "claim has PMID evidence"
+  G37:
+    family: provenance
+    name: service_completeness
+    migrated: true
+    applicability_predicate: "stage == delivery"

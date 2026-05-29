@@ -43,6 +43,11 @@ from .g30_claim_pmid_anchored import G30ClaimPMIDAnchoredGate
 from .g31_figure_reproducible import G31FigureReproducibleGate
 from .g32_data_availability_declared import G32DataAvailabilityDeclaredGate
 from .g33_n1_design_transparent import G33N1DesignTransparentGate
+# v2.7.0 ADR-0026 — delivery-integrity + anti-fabrication + completeness gates.
+from .g34_delivery_attestation import G34DeliveryAttestationGate
+from .g35_clinical_fact_provenance import G35ClinicalFactProvenanceGate
+from .g36_pmid_topic_relevance import G36PMIDTopicRelevanceGate
+from .g37_service_completeness import G37ServiceCompletenessGate
 
 __all__ = [
     "CrossPatientContaminationError",
@@ -79,6 +84,10 @@ __all__ = [
     "G31FigureReproducibleGate",
     "G32DataAvailabilityDeclaredGate",
     "G33N1DesignTransparentGate",
+    "G34DeliveryAttestationGate",
+    "G35ClinicalFactProvenanceGate",
+    "G36PMIDTopicRelevanceGate",
+    "G37ServiceCompletenessGate",
     "redact_text",
     "scan_text",
 ]

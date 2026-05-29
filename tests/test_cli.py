@@ -21,11 +21,12 @@ def test_cli_status_runs() -> None:
     assert "OPL for Cancer" in r.output
     # Version is now derived from the package single-source-of-truth (no drift);
     # assert the current minor so the test moves with the bump intentionally.
-    assert "v2.6.1" in r.output
+    assert "v2.7.0" in r.output
     # v2.0.0 (ADR-0010): roster expanded 18 → 20 with Maya + Julius
     assert "Experts active: 20" in r.output
     # v2.3 (ADR-0023): G29-G33 added (Wave 6 manuscript invariants). 28 → 33.
-    assert "Mechanical gates: 33" in r.output
+    # v2.7.0 (ADR-0026): G34-G37 delivery-integrity gates. 33 → 37.
+    assert "Mechanical gates: 37" in r.output
     # v2.2 (ADR-0022): +7 bio-skill integrators (MSI/TMB/SigProfiler/ACMG/KM/CPIC/PaperQA-FT)
     assert "Integrators wired: 36" in r.output
     # v2.3 (ADR-0023): Wave 6 manuscript+.n1a wave runner.

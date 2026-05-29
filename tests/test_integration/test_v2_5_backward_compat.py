@@ -150,13 +150,13 @@ def test_cli_v25_generate_cancer_context_command_present() -> None:
 
 def test_pyproject_version_is_current() -> None:
     text = (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    # v2.6.0 — Truthful Delivery + Safety Wiring iteration. The v2.5 backward-compat
+    # v2.7.0 — ADR-0026 delivery-non-bypassable iteration. The v2.5 backward-compat
     # invariants (task packages, integrators, roster, entry points) all still hold;
     # only the version line moves.
-    assert 'version = "2.6.1"' in text, "pyproject.toml version must be 2.6.1"
+    assert 'version = "2.7.0"' in text, "pyproject.toml version must be 2.7.0"
     # __init__ version must match pyproject (single source of truth; these had drifted).
     init = (_REPO_ROOT / "src" / "opl_cancer" / "__init__.py").read_text(encoding="utf-8")
-    assert '__version__ = "2.6.1"' in init, "__init__ __version__ must match pyproject (2.6.1)"
+    assert '__version__ = "2.7.0"' in init, "__init__ __version__ must match pyproject (2.7.0)"
     # cli.py must derive VERSION from __version__ (no hardcoded drift).
     cli = (_REPO_ROOT / "src" / "opl_cancer" / "cli.py").read_text(encoding="utf-8")
     assert "from opl_cancer import __version__ as VERSION" in cli, (

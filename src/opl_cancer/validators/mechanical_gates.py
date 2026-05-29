@@ -113,6 +113,11 @@ def all_gate_classes() -> list[type[Gate]]:
         G31FigureReproducibleGate,
         G32DataAvailabilityDeclaredGate,
         G33N1DesignTransparentGate,
+        # v2.7.0 ADR-0026 — delivery-integrity + anti-fabrication + completeness.
+        G34DeliveryAttestationGate,
+        G35ClinicalFactProvenanceGate,
+        G36PMIDTopicRelevanceGate,
+        G37ServiceCompletenessGate,
     )
 
     return [
@@ -149,4 +154,8 @@ def all_gate_classes() -> list[type[Gate]]:
         G31FigureReproducibleGate,
         G32DataAvailabilityDeclaredGate,
         G33N1DesignTransparentGate,
+        G34DeliveryAttestationGate,
+        G35ClinicalFactProvenanceGate,
+        G36PMIDTopicRelevanceGate,
+        G37ServiceCompletenessGate,
     ]

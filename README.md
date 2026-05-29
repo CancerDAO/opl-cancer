@@ -4,9 +4,9 @@
 
 ### One Person Lab — your own AI scientist team, for one cancer patient
 
-[![Version](https://img.shields.io/badge/version-2.6.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.7.0-blue)](CHANGELOG.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1734%20passing-brightgreen)](#contributing)
+[![Tests](https://img.shields.io/badge/tests-1778%20passing-brightgreen)](#contributing)
 [![Status](https://img.shields.io/badge/status-research%20preview-orange)](#what-this-is--what-this-is-not)
 [![Not a medical device](https://img.shields.io/badge/medical%20advice-no-red)](DISCLAIMER.md)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)]()
@@ -87,7 +87,14 @@ pip install -e .
 # 1. Initialise a patient directory under ~/CancerDAO/patients/
 opl init-patient demo-001
 
-# 2. Plan the run (Sid's intake_router decides experts + composes the method DAG)
+# v2.7.0 — one-command autonomous path: a single (even vague) prompt drives the
+# whole lifecycle and tells you the exact next action until delivery is complete
+# + attested. Never under-delivers, never collapses the team, never free-hands.
+opl go --patient ~/CancerDAO/patients/demo-001 \
+       --goal "what should my dad do next?" --run-id r1
+
+# …or drive the steps by hand:
+# 2. Plan the run (mints the run-token; Sid's intake_router decides the FULL team)
 opl plan --patient ~/CancerDAO/patients/demo-001 \
          --goal "I have been on osimertinib for 14 months; CT shows progression — what are my next-line options?" \
          --run-id r1
@@ -95,9 +102,13 @@ opl plan --patient ~/CancerDAO/patients/demo-001 \
 # 3. Waves 1-4 run on the SKILL.md main thread (the harness verifies state, the
 #    Claude Code main thread does the reasoning). See SKILL.md §Step 5-8.
 
-# 4. Delivery — scaffold first, then --finalize once the SKILL fills the prose
+# 4. Delivery — scaffold first, then --finalize once the SKILL fills the prose,
+#    then attest (v2.7.0 delivery-integrity gates G34/G35/G37 + G1/G2/G36 —
+#    refuses any brief not backed by a real run, with fabricated labs, or with
+#    wrong-paper PMIDs).
 opl deliver --patient ~/CancerDAO/patients/demo-001 --run-id r1
 opl deliver --patient ~/CancerDAO/patients/demo-001 --run-id r1 --finalize
+opl attest  --patient ~/CancerDAO/patients/demo-001 --run-id r1
 
 # 5. Optional — Wave 6 manuscript + .n1a bundle
 opl wave6 --patient-dir ~/CancerDAO/patients/demo-001 \
@@ -303,7 +314,7 @@ git clone https://github.com/CancerDAO/opl-cancer
 cd opl-cancer
 python -m venv .venv && source .venv/bin/activate
 pip install -e .[dev,bio]
-pytest tests/ -q -m "not live"   # 1734 passing as of v2.6.0 (clean env)
+pytest tests/ -q -m "not live"   # 1778 passing as of v2.7.0 (clean env)
 ```
 
 The roadmap is the 6-milestone M1-M6 plan in [`docs/rfc/0001-compositional-paradigm.md`](docs/rfc/0001-compositional-paradigm.md). Highlights:
@@ -315,7 +326,7 @@ The roadmap is the 6-milestone M1-M6 plan in [`docs/rfc/0001-compositional-parad
 * **M5** — swap the keyword intake router for an LLM TaskComposer over the full MethodRegistry
 * **M6** — wire `cancer_context/` to live PrimeKG + OncoKB + NCCN + CT.gov
 
-Test suite: 1734 tests, 8 skipped (live integrators + heavy bio deps). All PRs must keep the suite green.
+Test suite: 1778 tests, 8 skipped (live integrators + heavy bio deps). All PRs must keep the suite green.
 
 ### Discipline rules (lifted from `CLAUDE.md`)
 

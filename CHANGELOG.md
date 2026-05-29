@@ -1,5 +1,72 @@
 # Changelog
 
+## [2.7.0] — 2026-05-29 — Delivery Non-Bypassable + Complete-by-Default (ADR-0026)
+
+Root-cause fix for session `0d1017d4` (KRAS-G12C / MSS mCRC), where OPL
+**under-delivered** (ran 4 generic agents instead of the planned 20 experts,
+skipped Wave 2/3/4 + the Henry audit) **and** shipped **fabricated** content
+(invented lab values before OCR; 4 real-but-wrong-paper PMIDs — knee-OA / kefir /
+glioma / macrophage). It only became complete because a domain-expert user kept
+pushing — a normal patient cannot. Root cause: the apparatus was *computed but
+disconnected* — SKILL.md's terminal command (`render`) was a `{"ok":true}` stub
+and nothing detected the absence of a real run, the shrinking of the service, or
+fabricated content.
+
+### Added — 4 delivery-integrity gates (G34–G37), wired into the live path
+
+- **G34 delivery_attestation** — a brief must be backed by a real run:
+  `run_manifest.json` run-token (minted at `plan`) + a `provenance.jsonl` with a
+  recomputable-hash record + a real Henry audit + every brief PMID present in the
+  provenance record. **Kills free-handing (AP-14).**
+- **G35 clinical_fact_provenance** — every measured clinical value (lab / organ
+  score / staging / molecular call) must carry a `[[src:...]]` anchor to an
+  existing OCR sidecar; unknowns are written `UNKNOWN`, never invented.
+  **Kills fabricated labs (AP-16).**
+- **G36 pmid_topic_relevance** — each cited PMID's live PubMed record must mention
+  one of the claim's entities (complements G1 existence + G2 quote).
+  **Kills real-but-wrong-paper citations (AP-16).**
+- **G37 service_completeness** — every planned expert must have produced a
+  roster-authored report and every warranted wave must have run; narrowing scope
+  needs a user-confirmed `replan.json`. **Kills under-delivery (AP-17) + expert
+  collapse (AP-15).**
+
+### Added — autonomy: one simple prompt → full professional service
+
+- **`opl-cancer go`** — drives the whole lifecycle (input-guard → readiness →
+  plan-full-team → waves → `deliver --finalize` → `attest`) and returns the exact
+  next action (with the FULL expert list) until delivery is complete + attested.
+  The patient never has to know what to ask for.
+- **`opl-cancer attest`** — explicit delivery-integrity proof (exit 2 if not attestable).
+- **run-manifest + run-token** minted at `plan` and threaded to delivery.
+
+### Fixed — the stubs that allowed the incident
+
+- `render` and `audit` are no longer `mkdir + {"ok":true}` stubs — they are
+  **fail-closed** state-readers that run the integrity gates and refuse (exit 2)
+  when a delivery is not backed by a real run. SKILL.md Step 10 routes through
+  `deliver --finalize` + `attest`.
+- `deliver --finalize` now runs the integrity gates as a final non-bypassable
+  checkpoint.
+- Dangling doc citations resolved: `docs/ANTI_PATTERNS.md` (was
+  `ANTI_PATTERNS_v1.4.md`, never existed) + `references/patient-data-layout.md`
+  (`[[src:...]]` grammar) authored; `tests/test_docs_refs.py` guards against
+  future drift. Gate-count drift fixed (SKILL.md "G1-G27" → G1-G37; `status`
+  derives the count from `all_gate_classes()`).
+
+### Decisions
+
+- **ADR-0026** — delivery non-bypassable + complete-by-default. Hard-block on
+  safety gates (G34–G37 + G1/G2/G36), warn-only on quality gates. Lightweight
+  forge-resistance now (run-token + recomputable hashes). Revises the 2026-04-22
+  CLI-as-state-reader posture: the CLI **may** wire the host LLM into
+  `opl run --wave N` so a compliant run is third-party reproducible.
+
+### Tests
+
+- 33 → 37 gates; `test_gate_registry` updated. New: `test_delivery_integrity_gates_v270`
+  (15), `test_pipeline_non_bypassable` (8, two cancer types), `test_docs_refs`.
+  Full suite green (1778 passed).
+
 ## [2.6.1] — 2026-05-29 — Installable + Agent-Agnostic (first-run & portability)
 
 Hotfix making the **`npx skills add CancerDAO/opl-cancer-skill`** install path

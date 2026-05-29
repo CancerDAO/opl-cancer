@@ -4,7 +4,7 @@ description: "OPL for Cancer — your own AI scientist team for one cancer patie
 license: Apache-2.0
 metadata:
   author: CancerDAO Contributors
-  version: "2.6.1"
+  version: "2.7.0"
   tags: oncology precision-medicine ai-scientist-team founder-mode hypothesis-generation co-scientist robin bixbench meta-analysis clinical-trials evidence-grounded world-unknown-candidates kg-synergy undrugged-target-design trace-digest-evolution equipped-experts bio-skills msi tmb hrd acmg cpic survival-analysis wave6 manuscript n1a preprint n1arxiv submission preprint-platform pr-assembly cross-repo-submission compositional method-primitive role-taxonomy n=1 automl prognosis
 ---
 
@@ -21,6 +21,20 @@ version 1.4.0 — Round-2/3 deferred backlog batch fix (ADR-0008 D1-D13 priority
 OPL for Cancer is the patient's own scientist team, built by **CancerDAO**. **Not** a clinical decision-support tool, **not** a diagnostic device, **not** a doctor-replacement. It is an open-source skill plugin that gives one patient one PI (Sid) coordinating a **20-expert virtual lab** (v1.x 18 + v2.0 Maya KG-synergy reasoner + Julius in-silico medicinal chemist) + an IRB-substitute auditor (Henry) + 29 live data integrators + PrimeKG stub, running a 5-Wave research lifecycle from records-in to patient-brief-out — with every claim PMID-anchored, provenance-hashed, three-tier-labelled, and reproducible.
 
 Patient is sole decision authority. No human-in-the-loop external sign-off. Model disagreements surfaced openly. Level-3/4 high-stakes claims gated by patient-acknowledgement, never by physician sign-off.
+
+## Operating contract (v2.7.0 — read before anything else)
+
+> Root-cause fix for session 0d1017d4: OPL under-delivered (ran 4 generic agents instead of the planned team, skipped Wave 2/3/4, skipped the audit) **and** fabricated content (invented lab values before OCR; cited 4 real-but-wrong-paper PMIDs). It only became complete because a domain-expert user kept pushing. A normal patient cannot do that. See `docs/ANTI_PATTERNS.md` + `docs/adr/0026-delivery-non-bypassable.md`.
+
+These five rules are non-negotiable and **mechanically enforced** (gates G34–G37 + G1/G2/G36) — violating them makes delivery `exit ≠ 0`, not a warning:
+
+1. **One simple prompt → full professional service.** The patient may give a single vague sentence ("帮我看看我爸下一步怎么办"). You MUST NOT ask them to specify which experts, which waves, or how deep. The planner expands a simple goal into the full research agenda; you run it. Default to the comprehensive path, never a minimal one.
+2. **Never under-deliver, never wait to be pushed.** Run the FULL planned team and every warranted wave. Do not stop at a partial answer and wait for the user to ask "did you run the experts?". `G37 service_completeness` BLOCKS delivery if any planned expert produced no report or a warranted wave left no artifacts. To narrow scope you need an explicit, user-confirmed `replan.json` — you may never shrink the service silently.
+3. **Never collapse experts to save tokens.** Substituting fewer generic ("general-purpose") agents for the named personas is FORBIDDEN and `G37` HARD-BLOCKS it (non-roster authors are detected). Token cost is not a reason to do less analysis (`models.yaml` core principle #5).
+4. **Never free-hand a brief.** Every delivered conclusion must originate from a `triggers/<run_id>/` artifact produced by the pipeline and verified by `opl-cancer attest` / `deliver --finalize`. If you have not run `plan` (which mints the `run_token`) and the waves, **you have not run OPL** — say so and run it; do not write a report from memory. `G34 delivery_attestation` refuses any brief with no manifest / no provenance journal / no real Henry audit.
+5. **Never fabricate a clinical fact or a citation.** Do not write a lab value, stage, or biomarker you did not read from a source — write `UNKNOWN`. Every clinical value must carry a `[[src:...]]` anchor to an OCR sidecar (`G35`). Every PMID must come from a live PubMed search this session and actually be about the claim — never from model memory (`G1`+`G2`+`G36`; the incident's knee-OA / kefir / glioma / macrophage PMIDs are now blocked).
+
+**The one-command path:** `opl-cancer go --patient <dir> --goal "<the patient's words>"` drives the whole lifecycle and tells you the exact next action (with the full expert list) until the delivery is complete + attested. Prefer it over driving the steps by hand.
 
 ## Where patient data lives
 
@@ -247,11 +261,11 @@ Example: *"团队这次会上场: 病理 Rosa, 基因 Bert, 想方案 Aviv, 试�
 
 If `comorbid_expansion_triggers_fired` is non-empty (v1.5 P0-6 surface), name the additional experts and what each one's lens covers: *"另外因为您有 [活动期免疫副作用 / 多种合并用药 / 慢性肾病 / ... 等], 团队还会加上 [副作用专家 Mark, 用药专家 Mary, ...] 来照顾这些方面。"*
 
-> v1.5 — `cli.py plan` reads `profile.json` and **deterministically expands** the baseline t1-t9 skeleton when the patient phenotype hits multi-comorbid triggers (active irAE → Mark; ≥3 prior lines → Frances; ≥3 co-meds → Mary; CAD/PCI/LVEF≤50 → Mary cardiac; CKD or eGFR≤60 → Mary renal; mainland-CN patient → Riad + Dennis; imaging gap or age≥70 → Heddy). The CLI JSON output exposes `comorbid_expansion_triggers_fired` with per-trigger rationale. **You MUST surface the fired triggers** to the user in this Step 4 echo — silent override is forbidden (`docs/ANTI_PATTERNS_v1.4.md` AP-9, AP-11).
+> v1.5 — `cli.py plan` reads `profile.json` and **deterministically expands** the baseline t1-t9 skeleton when the patient phenotype hits multi-comorbid triggers (active irAE → Mark; ≥3 prior lines → Frances; ≥3 co-meds → Mary; CAD/PCI/LVEF≤50 → Mary cardiac; CKD or eGFR≤60 → Mary renal; mainland-CN patient → Riad + Dennis; imaging gap or age≥70 → Heddy). The CLI JSON output exposes `comorbid_expansion_triggers_fired` with per-trigger rationale. **You MUST surface the fired triggers** to the user in this Step 4 echo — silent override is forbidden (`docs/ANTI_PATTERNS.md` AP-9, AP-11).
 
 Wait for user `yes` / adjust.
 
-> v1.5 — every subagent dispatched in Steps 5..8 follows `prompts/safety/subagent_file_write_contract.md`: primary Write tool, fallback Bash heredoc with `OPL_REPORT_EOF` sentinel, JSON envelope confirmation with `report_path` + `report_bytes` + `report_sha256_short`. Orchestrator validates filesystem state matches the envelope; 1 retry on mismatch (`docs/ANTI_PATTERNS_v1.4.md` AP-12 / F12).
+> v1.5 — every subagent dispatched in Steps 5..8 follows `prompts/safety/subagent_file_write_contract.md`: primary Write tool, fallback Bash heredoc with `OPL_REPORT_EOF` sentinel, JSON envelope confirmation with `report_path` + `report_bytes` + `report_sha256_short`. Orchestrator validates filesystem state matches the envelope; 1 retry on mismatch (`docs/ANTI_PATTERNS.md` AP-12 / F12).
 
 ---
 
@@ -297,7 +311,7 @@ Stage-end example: *"[2/5 想办法 / Brainstorming] ✓ 17 种可能的方案�
 
 Top-3 path summaries MUST be in lay terms — translate every medical term on first use per `references/patient_jargon_glossary.json`. The detailed hypothesis cards (HR / ORR / mPFS / Elo / parent-chain) stay in the clinician brief, NOT the live chat.
 
-> v1.5: Wave 3 is **non-skippable critical path** (`docs/ANTI_PATTERNS_v1.4.md` AP-1). The preflight check (`opl-cancer preflight`) refuses to start a patient run when neither jupyter (native) nor docker (bixbench) is available — no silent skip, no "Wave 3 will skip bixbench analysis" message. To bypass for dev/test only, use the assistant override `--allow-single-model` in preflight (NOT for patient runs).
+> v1.5: Wave 3 is **non-skippable critical path** (`docs/ANTI_PATTERNS.md` AP-1). The preflight check (`opl-cancer preflight`) refuses to start a patient run when neither jupyter (native) nor docker (bixbench) is available — no silent skip, no "Wave 3 will skip bixbench analysis" message. To bypass for dev/test only, use the assistant override `--allow-single-model` in preflight (NOT for patient runs).
 
 ---
 
@@ -346,7 +360,7 @@ opl-cancer audit \
 ```
 
 Henry checks:
-- **L1 mechanical** — all 26 gates (G1 PMID-existence, G2 quote-match, G3 drug-normalization, G4 dose-unit-declared, G5 patient-context-isolation, G6 injection-scan, G7 imperative-detector, G8 Level-3-4 disclosure, G9 retraction-check, G10 guideline-version, G11 no-silent-fallback, G12 memory-overflow, G13 reviewer-model-distinct **[preflight hard-fail v1.5]**, G14–G18 data-analysis gates, G19 PI-imperative-detector, G20 PI-disagreement-surfacing, G22 DDR-zygosity, G23 recency-band, G24 crisis-detection, **G25 deferred-evidence-block [v1.5]**, **G26 evidence-strength-ranking [v1.5]**, **G27 privacy-scrub [v1.5]**) over every claim before rendering. Henry **self-verifies** that any G17 / G26 rendering mandate it issued is satisfied in the actual rendered artifact (closes v1.4 F10).
+- **L1 mechanical** — all 37 gates (G1 PMID-existence, G2 quote-match, G3 drug-normalization, G4 dose-unit-declared, G5 patient-context-isolation, G6 injection-scan, G7 imperative-detector, G8 Level-3-4 disclosure, G9 retraction-check, G10 guideline-version, G11 no-silent-fallback, G12 memory-overflow, G13 reviewer-model-distinct **[preflight hard-fail v1.5]**, G14–G18 data-analysis gates, G19 PI-imperative-detector, G20 PI-disagreement-surfacing, G22 DDR-zygosity, G23 recency-band, G24 crisis-detection, **G25 deferred-evidence-block [v1.5]**, **G26 evidence-strength-ranking [v1.5]**, **G27 privacy-scrub [v1.5]**, G28–G33 Wave-6 manuscript gates, **G34 delivery-attestation / G35 clinical-fact-provenance / G36 PMID-topic-relevance / G37 service-completeness [v2.7.0, ADR-0026]**) over every claim before rendering. Henry **self-verifies** that any G17 / G26 rendering mandate it issued is satisfied in the actual rendered artifact (closes v1.4 F10).
 - **L2 disagreement-summariser** — Reviewer disagreement > 0.4 confidence delta → forced two-view delivery.
 - **L3 permission gate** — every claim tagged Level 0 (info) / 1 (reasoning) / 2 (recommendation) / 3 (high-risk recommendation) / 4 (boundary). L3/L4 require a `risk_disclosure_card` written and patient-ack-gated.
 - **L4 rollback registry** — retraction / new-evidence / patient-feedback / auditor-recheck withdraw queue.
@@ -359,16 +373,22 @@ Stage-start example: *"[4/5 审核 / Double-checking] 我们的内部审查员 (
 
 Stage-end example: *"[4/5 审核 / Double-checking] ✓ 27 条结论里 24 条直接通过, 2 条需要附加一段风险说明 (在报告里会标出来), 1 条被退回重做。下一步: 写两份报告 — 简单版给您, 专业版给医生。"*
 
-Internal gate IDs (G1-G27), claim-level Level-3/Level-4 codes, RC-xxx risk-card IDs all stay in the archive (`triggers/<run_id>/tasks/henry/`) and the clinician brief — NEVER in the live user chat. See `prompts/tasks/progress_message_rendering.md` §"Hard rules".
+Internal gate IDs (G1-G37), claim-level Level-3/Level-4 codes, RC-xxx risk-card IDs all stay in the archive (`triggers/<run_id>/tasks/henry/`) and the clinician brief — NEVER in the live user chat. See `prompts/tasks/progress_message_rendering.md` §"Hard rules".
 
 ---
 
 **Step 10 — Wave 5 · render patient brief + Sid delivery rewrite.**
 
 ```bash
-opl-cancer render \
-  --patient <patient_dir> --run-id <run_id>
+# v2.7.0: produce the honest scaffold, fill the briefs from the wave claims,
+# then FINALIZE (real Henry audit + delivery-integrity gates G34/G35/G37 + G1/G2/G36).
+opl-cancer deliver --patient <patient_dir> --run-id <run_id>            # scaffold
+#   ↳ fill patient_plain_brief.md + patient_pi_brief.md from real wave claims
+opl-cancer deliver --patient <patient_dir> --run-id <run_id> --finalize # real audit + gates
+opl-cancer attest --patient <patient_dir> --run-id <run_id>             # final integrity proof
 ```
+
+> `opl-cancer render` is **deprecated** (it was the `{"ok":true}` no-op stub that let session 0d1017d4 ship a free-handed brief). It now just runs the integrity gates and refuses. Use `deliver --finalize`. `deliver --finalize` and `attest` REFUSE (exit ≠ 0) unless the brief is backed by a real run: `run_token` manifest + recomputable provenance journal + real Henry audit + full planned team (`G37`) + on-topic, existing PMIDs (`G1`/`G2`/`G36`).
 
 **v1.5 split**: every patient run produces TWO audience targets — pick by `profile.delivery_audience` (`clinical` = default, full medical content; `lay` = plain-language). When in doubt or when fatigue_flag / explicit user request fires, the planner emits both.
 
@@ -448,8 +468,9 @@ Every render contains an inline `[evidence chain]` toggle per claim showing: exe
 1. **Patient is sole decision authority.** Sid never commands. No physician sign-off is required — physicians may drill-down to verify, but they do not gate delivery. Patient ack on L3/L4 is the only human gate.
 2. **No paternalism, no hidden disagreements.** Reviewer disagreement is always surfaced. Three-tier labels never stripped. Uncertainty stated, not papered over.
 3. **Provenance-strict.** Every numeric / factual claim carries a `[PMID]` / `[NCT]` / `[NCCN-section]` / `[notebook]` anchor + SHA-256 provenance hash. G2 mechanical gate blocks unanchored claims at write time.
-4. **No silent fallback.** Integrators raise on API failure. LLM never substitutes for a missing data point.
+4. **No silent fallback.** Integrators raise on API failure. LLM never substitutes for a missing data point. Clinical values you did not read are written `UNKNOWN`, never invented (`G35`). PMIDs come from a live search and must be on-topic, never from model memory (`G1`/`G2`/`G36`).
 5. **No model downgrade for cost.** Per `models.yaml`: Opus 4.7 for code / hypothesis reasoning / chair; MiniMax-M2.7 for lit synthesis / reviewer. Don't trade depth for tokens.
+6. **No under-delivery, no expert collapse, no free-handing (v2.7.0).** Run the full planned team and warranted waves from one simple prompt; never shrink the service silently or substitute generic agents (`G37`); never deliver a brief that is not backed by a verifiable run (`G34`). The patient should not have to know what to ask for — see the Operating contract above + `docs/ANTI_PATTERNS.md`.
 6. **Real prediction, not just labelling.** Wave 3 outputs are quantitative — pooled HR/OR/RR + 95% CI, patient-projected scores, Cox / KM survival predictions, drug ranking with quantified efficacy scores. The three-tier label annotates evidence strength of the prediction, not its existence.
 7. **Apache-2.0 + open-source-reproducible.** Any rendered brief can be re-run by a third party with the same model + prompt versions (`tools/reproduce.py`).
 

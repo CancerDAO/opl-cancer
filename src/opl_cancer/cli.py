@@ -14,6 +14,7 @@ import os
 import shutil
 import subprocess
 import sys
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -44,6 +45,38 @@ def _emit(payload: dict[str, Any], json_mode: bool) -> None:
     else:
         for k, v in payload.items():
             click.echo(f"{k}: {v}")
+
+
+def _write_run_manifest(run_root: Path, run_id: str, plan_payload: dict[str, Any]) -> dict[str, Any]:
+    """v2.7.0 ADR-0026 — mint the run-token + planned-team manifest at plan time.
+
+    G34 delivery_attestation requires this manifest's ``run_token`` at delivery;
+    a free-handed brief that never ran ``plan`` has no token and is refused.
+    Lightweight forge-resistance (Fork C): uuid token + planned-set snapshot.
+    """
+    run_root.mkdir(parents=True, exist_ok=True)
+    tasks = plan_payload.get("tasks", []) or []
+    planned_experts = sorted({
+        str(t.get("expert")).lower() for t in tasks
+        if isinstance(t, dict) and t.get("expert")
+    })
+    planned_waves = sorted({
+        int(w.get("wave_number")) for w in (plan_payload.get("waves", []) or [])
+        if isinstance(w, dict) and w.get("wave_number") is not None
+    })
+    manifest = {
+        "schema": "opl.run_manifest.v1",
+        "run_id": run_id,
+        "run_token": f"oplrun-{uuid.uuid4().hex}",
+        "created_at": _now_iso(),
+        "opl_version": VERSION,
+        "planned_experts": planned_experts,
+        "planned_waves": planned_waves,
+    }
+    (run_root / "run_manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return manifest
 
 
 @click.group(help="OPL for Cancer — your AI scientist team, only for you.")
@@ -403,6 +436,9 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
         json.dumps(plan_payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    # v2.7.0 ADR-0026 — mint the run-token + planned-team manifest so G34 can bind
+    # the eventual brief to THIS run (free-handed briefs have no token → refused).
+    manifest = _write_run_manifest(out_path.parent, run_id, plan_payload)
     triggers_payload = [
         {"name": t.name, "rationale": t.rationale, "task_id": t.task.id, "expert": t.task.expert}
         for t in fired
@@ -412,6 +448,8 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
             "ok": True,
             "plan_path": str(out_path),
             "run_id": run_id,
+            "run_token": manifest["run_token"],
+            "planned_experts": manifest["planned_experts"],
             "waves": 4,
             "tasks": len(tasks),
             "comorbid_expansion_triggers_fired": triggers_payload,
@@ -738,33 +776,103 @@ def run(
     _emit_run_result(wave, result, json_mode)
 
 
+# ─── v2.7.0 ADR-0026 — delivery-integrity enforcement ─────────────────────
+#
+# Through v2.6.x `audit` and `render` were `mkdir + {"ok":true}` stubs that
+# verified nothing — the exact hole that let session 0d1017d4 free-hand a brief
+# (fabricated labs + wrong-paper PMIDs) and ship it. They are now fail-closed
+# state-readers that route through the delivery-integrity gates (G34/G35/G37 +
+# citation gates) and refuse (exit 2) when delivery is not backed by a real run.
+
+
+def _build_citation_integrators() -> tuple[Any | None, Any | None]:
+    """Best-effort live PubMed + PaperQA2 integrators for the citation gates.
+
+    Returns (pubmed, paperqa); either may be None if unavailable — the gate
+    runner records that honestly (never a silent pass) per principle #4.
+    """
+    pubmed = paperqa = None
+    try:
+        from opl_cancer.integrators.pubmed import PubMedIntegrator
+        pubmed = PubMedIntegrator()
+    except Exception:  # noqa: BLE001 — offline / missing cache is non-fatal here
+        pubmed = None
+    try:
+        from opl_cancer.integrators.paperqa import PaperQA2Integrator
+        paperqa = PaperQA2Integrator()
+    except Exception:  # noqa: BLE001
+        paperqa = None
+    return pubmed, paperqa
+
+
+def _run_delivery_integrity(patient_dir: str, run_id: str, *, with_citations: bool) -> dict[str, Any]:
+    from opl_cancer.glue.delivery_gate_runner import run_delivery_gates
+    run_root = Path(patient_dir) / "triggers" / run_id
+    pubmed = paperqa = None
+    if with_citations:
+        pubmed, paperqa = _build_citation_integrators()
+    return run_delivery_gates(run_root=run_root, pubmed=pubmed, paperqa=paperqa)
+
+
+def _emit_integrity_verdict(verdict: dict[str, Any], json_mode: bool, **extra: Any) -> None:
+    payload = {"ok": verdict["ok"], **extra,
+               "blocked_by": verdict["blocked_by"], "notes": verdict["notes"]}
+    if not verdict["ok"]:
+        payload["action"] = (
+            "Delivery REFUSED — the brief is not backed by a verifiable OPL run "
+            f"(blocked by {verdict['blocked_by']}). Run the full pipeline "
+            "(`opl-cancer go` or plan→waves→deliver --finalize); do NOT free-hand a brief."
+        )
+        payload["gate_results"] = verdict["gate_results"]
+        _emit(payload, json_mode)
+        raise click.exceptions.Exit(2)
+    _emit(payload, json_mode)
+
+
 # ─── Step 9: Henry audit ──────────────────────────────────────────────────
 
-@main.command(help="Step 9: Henry 4-layer IRB-substitute audit.")
+@main.command(help="Step 9: delivery-integrity gate sweep (G34/G35/G37 + citations). Fail-closed.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--json", "json_mode", is_flag=True)
 def audit(patient_dir: str, run_id: str, json_mode: bool) -> None:
-    # HenryAuditor wiring lives in glue/wave runners; this command is the SKILL-level
-    # entry that confirms the audit directory is prepared. Full audit runs in glue/.
-    pdir = Path(patient_dir)
-    audit_dir = pdir / "triggers" / run_id
-    audit_dir.mkdir(parents=True, exist_ok=True)
-    out = {"ok": True, "patient": str(pdir), "run_id": run_id, "audit_dir": str(audit_dir)}
-    _emit(out, json_mode)
+    """v2.7.0: real mechanical audit. Runs the delivery-integrity gates over the
+    run and REFUSES (exit 2) when the brief is not backed by a verifiable run.
+    The per-claim Henry risk-card audit runs inside `deliver --finalize`."""
+    verdict = _run_delivery_integrity(patient_dir, run_id, with_citations=True)
+    _emit_integrity_verdict(verdict, json_mode, patient=patient_dir, run_id=run_id, stage="audit")
 
 
 # ─── Step 10: render ──────────────────────────────────────────────────────
 
-@main.command(help="Step 10: render patient_brief.html + pi_delivery.md.")
+@main.command(help="Step 10 (DEPRECATED — use `deliver --finalize`): fail-closed delivery check.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--run-id", required=True)
 @click.option("--json", "json_mode", is_flag=True)
 def render(patient_dir: str, run_id: str, json_mode: bool) -> None:
-    pdir = Path(patient_dir)
-    delivery = pdir / "triggers" / run_id / "delivery"
-    delivery.mkdir(parents=True, exist_ok=True)
-    _emit({"ok": True, "delivery_dir": str(delivery)}, json_mode)
+    """v2.7.0: the old `render` stub (mkdir + ok:true) is gone — it was the hole
+    that let a free-handed brief ship. `render` now runs the delivery-integrity
+    gates and refuses unless the delivery is attested. Use `opl deliver --finalize`
+    to produce + audit the briefs."""
+    verdict = _run_delivery_integrity(patient_dir, run_id, with_citations=True)
+    _emit_integrity_verdict(
+        verdict, json_mode, patient=patient_dir, run_id=run_id, stage="render",
+        deprecation="render is deprecated; use `opl-cancer deliver --finalize`.",
+    )
+
+
+# ─── v2.7.0 — explicit delivery attestation ───────────────────────────────
+
+@main.command(help="v2.7.0: attest a run's delivery integrity (G34/G35/G37 + citations). Exit 2 if not attestable.")
+@click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
+@click.option("--run-id", required=True)
+@click.option("--json", "json_mode", is_flag=True)
+def attest(patient_dir: str, run_id: str, json_mode: bool) -> None:
+    """Mechanical proof that a delivered brief is backed by a real run: a real
+    manifest/token, a recomputable provenance journal, a real Henry audit, the
+    full planned team, and on-topic citations. Writes DELIVERY_ATTESTATION.json."""
+    verdict = _run_delivery_integrity(patient_dir, run_id, with_citations=True)
+    _emit_integrity_verdict(verdict, json_mode, patient=patient_dir, run_id=run_id, stage="attest")
 
 
 @main.command(
@@ -871,7 +979,171 @@ def deliver(
         # Emit structured failure, exit non-zero
         _emit({"ok": False, "error": str(exc), "out_dir": str(out_dir)}, json_mode)
         raise click.exceptions.Exit(2)
+
+    # v2.7.0 ADR-0026 — after a real finalize, the delivery-integrity gates are
+    # the FINAL non-bypassable checkpoint: a brief that is not backed by a real
+    # run (manifest + provenance + full team + on-topic citations) is refused.
+    if finalize and not dry_run:
+        from opl_cancer.glue.delivery_gate_runner import run_delivery_gates
+        pubmed, paperqa = _build_citation_integrators()
+        verdict = run_delivery_gates(run_root=run_root, out_dir=out_dir,
+                                     pubmed=pubmed, paperqa=paperqa)
+        if not verdict["ok"]:
+            _emit({
+                "ok": False, "error": "delivery_integrity_blocked",
+                "blocked_by": verdict["blocked_by"], "notes": verdict["notes"],
+                "out_dir": str(out_dir),
+                "action": (
+                    "Delivery REFUSED by integrity gates. The brief is not backed "
+                    "by a verifiable run. Run the full pipeline; do not free-hand."
+                ),
+            }, json_mode)
+            raise click.exceptions.Exit(2)
+        result["delivery_attestation"] = {"ok": True, "notes": verdict["notes"]}
     _emit({"ok": True, **result}, json_mode)
+
+
+# ─── v2.7.0 ADR-0026: `go` — one simple prompt → full autonomous service ──
+#
+# The founder's North Star (session 2026-05-29): "a patient gives one very
+# simple prompt and we provide extremely professional service — not every user
+# can ask expert questions." `go` is that single entry point. It drives the
+# whole lifecycle deterministically and NEVER reports done until the delivery is
+# complete + attested. For each LLM-dependent wave it either self-executes (when
+# an executor key is present) or returns the EXACT next dispatch — including the
+# FULL planned expert list — so the agent dispatches every expert and the
+# service can never silently shrink (G37 backs this mechanically).
+
+@main.command(
+    name="go",
+    help=(
+        "One-prompt autonomous pipeline: input-guard → readiness → plan(full team) "
+        "→ waves → deliver --finalize → attest. Returns the next required action "
+        "until the delivery is complete + attested. Never under-delivers."
+    ),
+)
+@click.option("--patient", "patient_dir", type=click.Path(file_okay=False), required=True)
+@click.option("--goal", default="", help="The patient's goal — may be a single simple sentence.")
+@click.option("--run-id", "run_id", default="", help="Run id (default: derived).")
+@click.option("--json", "json_mode", is_flag=True)
+def go(patient_dir: str, goal: str, run_id: str, json_mode: bool) -> None:
+    pdir = Path(patient_dir)
+    run_id = run_id or "run-go"
+    run_root = pdir / "triggers" / run_id
+
+    def _emit_state(stage: str, ok: bool, next_action: str, **extra: Any) -> None:
+        _emit({"ok": ok, "stage": stage, "next_action": next_action,
+               "patient": str(pdir), "run_id": run_id, **extra}, json_mode)
+        if not ok:
+            raise click.exceptions.Exit(0 if next_action else 2)
+
+    # 1) input guard — OPL is downstream of organize; it does NOT OCR raw uploads.
+    if not pdir.exists() or not (pdir / "profile.json").is_file() or not (pdir / "case_text.md").is_file():
+        _emit_state(
+            "input_guard", False,
+            "Organize records first (SKILL.md Step 2 / cancer-buddy-organize). OPL "
+            "does NOT OCR raw uploads or invent clinical values — it needs a canonical "
+            "patient dir with profile.json + case_text.md + readiness.json + ocr/ sidecars.",
+            missing=[f for f in ("profile.json", "case_text.md")
+                     if not (pdir / f).is_file()],
+        )
+        return
+
+    # 2) readiness
+    readiness_p = pdir / "readiness.json"
+    grade = None
+    if readiness_p.is_file():
+        try:
+            grade = json.loads(readiness_p.read_text(encoding="utf-8")).get("grade")
+        except (OSError, json.JSONDecodeError):
+            grade = None
+    if grade in (None, "D", "F"):
+        _emit_state(
+            "readiness", False,
+            "Readiness grade < C — recover missing fields (deepdive) or proceed "
+            "with --force after the patient confirms. Do NOT invent values to fill gaps.",
+            readiness_grade=grade,
+        )
+        return
+
+    # 3) plan + manifest
+    plan_p = run_root / "plan.json"
+    if not plan_p.is_file():
+        _emit_state(
+            "plan", False,
+            f"Run: opl-cancer plan --patient {pdir} --goal \"{goal or '<patient goal>'}\" "
+            f"--run-id {run_id}  (this also mints the run_token manifest).",
+        )
+        return
+    try:
+        plan = json.loads(plan_p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        _emit_state("plan", False, "plan.json unreadable — re-run `opl-cancer plan`.")
+        return
+    planned_experts = sorted({
+        str(t.get("expert")).lower() for t in plan.get("tasks", []) or []
+        if isinstance(t, dict) and t.get("expert")
+    })
+    planned_waves = sorted({
+        int(w.get("wave_number")) for w in plan.get("waves", []) or []
+        if isinstance(w, dict) and w.get("wave_number") is not None
+    })
+
+    # 4) waves — surface the FULL planned team so the agent dispatches ALL experts.
+    from opl_cancer.glue.delivery_gate_runner import run_delivery_gates
+    completeness = _G37_state(run_root)
+    if not completeness["ok"]:
+        _emit_state(
+            "waves", False,
+            "Dispatch the FULL planned team (per SKILL.md Step 5-8) — one report per "
+            "expert to tasks/w1_<task_id>/report.md, then waves 2-4. Do NOT collapse "
+            "to fewer generic agents; G37 will refuse delivery if any planned expert "
+            "or warranted wave is missing.",
+            planned_experts=planned_experts, planned_waves=planned_waves,
+            missing=completeness,
+        )
+        return
+
+    # 5) briefs → deliver scaffold/finalize
+    out_dir = run_root / "delivery"
+    plain = out_dir / "patient_plain_brief.md"
+    pi = out_dir / "patient_pi_brief.md"
+    if not plain.is_file() or not pi.is_file():
+        _emit_state(
+            "deliver_scaffold", False,
+            f"Run: opl-cancer deliver --patient {pdir} --run-id {run_id}  (emits the "
+            "honest scaffold), then fill both briefs with REAL content from the wave "
+            "claims (every clinical value [[src:...]]-anchored, every PMID from a live search).",
+            planned_experts=planned_experts,
+        )
+        return
+
+    # 6) finalize + attest (deterministic — run it now)
+    from opl_cancer.glue.delivery_runner import DeliveryFailure, run_atomic_delivery
+    pubmed, paperqa = _build_citation_integrators()
+    try:
+        run_atomic_delivery(out_dir=out_dir, finalize=True)
+    except DeliveryFailure as exc:
+        _emit_state("finalize", False,
+                    f"Finalize refused: {exc}. Fill the briefs (no placeholders) and retry.")
+        return
+    verdict = run_delivery_gates(run_root=run_root, out_dir=out_dir, pubmed=pubmed, paperqa=paperqa)
+    if not verdict["ok"]:
+        _emit_state("attest", False,
+                    f"Delivery refused by integrity gates {verdict['blocked_by']}. "
+                    "The brief is not backed by a verifiable run.",
+                    blocked_by=verdict["blocked_by"], notes=verdict["notes"])
+        return
+    _emit({"ok": True, "stage": "delivered", "next_action": "",
+           "patient": str(pdir), "run_id": run_id,
+           "attestation": "DELIVERY_ATTESTATION.json", "notes": verdict["notes"]}, json_mode)
+
+
+def _G37_state(run_root: Path) -> dict[str, Any]:
+    """Run G37 service-completeness and return its verdict for `go`."""
+    from opl_cancer.validators.gates import G37ServiceCompletenessGate
+    r = G37ServiceCompletenessGate().check({"run_root": str(run_root)})
+    return {"ok": r.status.value != "fail", "message": r.message, "evidence": r.evidence}
 
 
 # ─── v2.3 ADR-0023: Wave 6 manuscript + .n1a bundle ───────────────────────
@@ -1064,7 +1336,9 @@ def status() -> None:
     click.echo(f"  Experts active: {len(ROSTER)} (Sid PI + Henry Auditor + {len(ROSTER)} named experts)")
     click.echo("  Wave runners ready: Wave1 / Wave2 / Wave3 / Wave4 / Wave5 (render) / Wave6 (manuscript+.n1a)")
     click.echo("  Integrators wired: 36 (29 v2.1 + v2.2 ADR-0022 bio-skills: MSIsensor / TMB-harmonization / SigProfiler / VarSome-ACMG / lifelines-KM / CPIC / PaperQA-full-text)")
-    click.echo("  Mechanical gates: 33 (G1-G27 + v2.2 G28 + v2.3 G29-G33 — ADR-0023 Wave 6 manuscript invariants)")
+    from opl_cancer.validators.mechanical_gates import all_gate_classes
+    _ngates = len(all_gate_classes())  # single source of truth — no drift
+    click.echo(f"  Mechanical gates: {_ngates} (G1-G33 + v2.7.0 ADR-0026 G34-G37 delivery-integrity: attestation / clinical-fact-provenance / PMID-relevance / service-completeness)")
     click.echo("  License: Apache-2.0")
     click.echo("  Read DISCLAIMER.md before use — not clinical decision support; not for emergencies.")
     click.echo(f"  Patient data root: {_patient_root()}")
