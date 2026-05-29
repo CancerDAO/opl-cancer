@@ -87,19 +87,45 @@ def test_readme_has_install_command() -> None:
 
 
 def test_readme_lists_five_stage_lifecycle() -> None:
-    """The 5 plain-language stage labels (v1.5.1 progress reporter) remain
-    the public-facing surface of the run lifecycle."""
-    text = (REPO_ROOT / "README.md").read_text()
+    """The 5 plain-language stage labels surface in BOTH language READMEs:
+    English in README.md, Chinese (the actual patient-facing UI strings) in
+    README.zh-CN.md. v2.6.0 split the mixed-language README into English-default
+    + a parallel Chinese version."""
+    en = (REPO_ROOT / "README.md").read_text()
+    for stage in ("Prepare", "Find-options", "Check-data", "Review", "Write-up"):
+        assert stage in en, f"English README missing stage label {stage!r}"
+    zh = (REPO_ROOT / "README.zh-CN.md").read_text()
     for stage in ("准备", "想办法", "查数据", "审核", "写报告"):
-        assert stage in text, f"README missing stage label {stage!r}"
+        assert stage in zh, f"Chinese README missing stage label {stage!r}"
 
 
 def test_readme_includes_at_least_three_dialog_scenarios() -> None:
-    """v1.5.3 cancer-buddy-style scenarios are preserved as a
-    `## Run scenarios` block with at least 3 concrete `### 场景` examples."""
-    text = (REPO_ROOT / "README.md").read_text()
-    n_scenarios = text.count("### 场景")
-    assert n_scenarios >= 3, f"expected ≥3 scenario blocks, got {n_scenarios}"
+    """v1.5.3 cancer-buddy-style scenarios are preserved as a `## Run scenarios`
+    block with ≥3 concrete examples — English `### Scenario` in README.md, Chinese
+    `### 场景` in README.zh-CN.md."""
+    en = (REPO_ROOT / "README.md").read_text()
+    assert en.count("### Scenario") >= 3, (
+        f"expected ≥3 English scenario blocks, got {en.count('### Scenario')}"
+    )
+    zh = (REPO_ROOT / "README.zh-CN.md").read_text()
+    assert zh.count("### 场景") >= 3, (
+        f"expected ≥3 Chinese scenario blocks, got {zh.count('### 场景')}"
+    )
+
+
+def test_readme_is_english_default_with_chinese_companion() -> None:
+    """v2.6.0: README.md is English-default and must not mix in the old Chinese
+    prose blocks; a parallel README.zh-CN.md exists and the two cross-link."""
+    en = (REPO_ROOT / "README.md").read_text()
+    zh_path = REPO_ROOT / "README.zh-CN.md"
+    assert zh_path.exists(), "README.zh-CN.md (Chinese companion) must exist"
+    zh = zh_path.read_text()
+    # Cross-links both directions.
+    assert "README.zh-CN.md" in en, "English README must link to the Chinese version"
+    assert "README.md" in zh, "Chinese README must link back to the English version"
+    # English README must not carry the old mixed-in Chinese scenario/label prose.
+    assert "### 场景" not in en, "README.md must not contain Chinese scenario headers (use README.zh-CN.md)"
+    assert "准备 / 想办法" not in en, "README.md must not contain the Chinese stage-label line"
 
 
 def test_readme_includes_emergency_routing() -> None:

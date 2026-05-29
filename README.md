@@ -6,11 +6,13 @@
 
 [![Version](https://img.shields.io/badge/version-2.6.0-blue)](CHANGELOG.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1693%20passing-brightgreen)](#contributing)
+[![Tests](https://img.shields.io/badge/tests-1734%20passing-brightgreen)](#contributing)
 [![Status](https://img.shields.io/badge/status-research%20preview-orange)](#what-this-is--what-this-is-not)
 [![Not a medical device](https://img.shields.io/badge/medical%20advice-no-red)](DISCLAIMER.md)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)]()
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
+
+**English · [中文](README.zh-CN.md)**
 
 **[What is this](#what-is-this) · [What it does / does not do](#what-this-is--what-this-is-not) · [Quickstart](#30-second-quickstart) · [The 5-Wave pipeline](#the-5-wave-pipeline) · [Example output](#example-output) · [Why N=1 is hard](#why-n1-is-hard) · [Architecture](#architecture) · [Contributing](#contributing) · [Ethics](#ethics--safety) · [Cite](#citation)**
 
@@ -22,13 +24,13 @@ OPL for Cancer is an open-source skill plugin that gives one cancer patient a co
 
 OPL is a **research preview**. It is not a clinical decision-support tool, not a diagnostic device, and not a doctor-replacement. The patient is the sole decision authority for their own case.
 
-> 中文一句话：**OPL = One Person Lab — 一个患者 + 一支虚拟 AI 科研团队 = 一份带证据等级、带 PMID 锚点、带来源追溯的私有研究简报**。这是 OPC (One Person Company) 范式向癌症决策场域的延伸：你和你的医生本应该拿到这样一份材料才能讨论下一步。OPL 把它放进你的笔记本电脑里。**founder mode against cancer**：不需要医生 sign-off 才能启动研究，不需要 IRB 外部审批才能为你一个人产出结论，患者本人是自己案例的唯一决策人。
+> 中文版文档见 **[README.zh-CN.md](README.zh-CN.md)** — the Chinese-language version of this README is maintained in parallel.
 
 ---
 
 ## What is this
 
-You install OPL like any other open-source CLI. You point it at a folder of your medical records. It assembles a 20-expert virtual lab around your specific situation — a PI named **Sid** coordinates which 5-12 experts come onto your case — and runs a 5-Wave research lifecycle from records-in to brief-out. About 30-50 minutes per session.
+OPL is consumed in two ways: as a **Claude Code skill** (`npx skills add CancerDAO/opl-cancer-skill`), where the Claude Code main thread runs the reasoning, and as a **Python package** (`pip install`), which provides the harness — planning, validation, safety gates, live-data integrators, and honest scaffolds. You point it at a folder of your medical records. It assembles a 20-expert virtual lab around your specific situation — a PI named **Sid** coordinates which 5-12 experts come onto your case — and runs a 5-Wave research lifecycle from records-in to brief-out. About 30-50 minutes per session.
 
 The lifecycle ends with two artifacts:
 
@@ -51,8 +53,8 @@ The 20-expert roster (each is an *archetype* of a real-world clinician/scientist
 | Anchors every claim to PMIDs + integrator queries + a provenance hash | Replace your clinician, your MTB, or your pathology workup |
 | Labels evidence as **established / exploratory / speculative** so nothing speculative is mistaken for standard-of-care | Diagnose, prescribe, or dose |
 | Surfaces **reviewer disagreements verbatim** rather than picking a side | Hide uncertainty to look more confident |
-| Redacts specific drug names → **drug-class equivalents** in patient-facing speculative sections | Recommend specific off-label drugs to the patient |
-| Refuses to ship when upstream waves haven't produced real evidence (v2.5.1 B5) | Run silent fallbacks to canned outputs |
+| Redacts specific drug names → **drug-class equivalents** in patient-facing speculative sections (fail-closed since v2.6.0) | Recommend specific off-label drugs to the patient |
+| Refuses to ship when upstream waves haven't produced real (or non-hollow) evidence (v2.5.1 B5 + v2.6.0) | Run silent fallbacks to canned outputs |
 | Is **transparent**: every decision, every provenance hash, every audit gate is in the repo | Operate as a black box |
 
 **OPL is for the patient.** Final decisions belong to the patient and their treating clinician. OPL is the homework that informs that conversation. In medical emergencies, dial your local emergency line first (China: **120**; United States: **911**; EU: **112**) — OPL is for non-emergency research, not crisis response.
@@ -61,30 +63,48 @@ The 20-expert roster (each is an *archetype* of a real-world clinician/scientist
 
 ## 30-second quickstart
 
+**OPL runs as a Claude Code skill — that is how you use it.** Install it once:
+
 ```bash
-# 1. Install (Python 3.11+). Alternatively as a Claude Code skill:
-#    npx skills add CancerDAO/opl-cancer-skill
+npx skills add CancerDAO/opl-cancer-skill
+```
+
+Then, in Claude Code, point **Sid** (your PI) at your records folder and ask your question in plain language — no commands to memorise:
+
+> *"Here are my records: `~/CancerDAO/patients/mine`. I've been on osimertinib for 14 months; my latest CT shows progression. What are my evidence-based next-line options?"*
+
+Sid greets you, organizes the records, decides which 5-12 experts join your case, drives Waves 1-5, and delivers `patient_plain_brief.md` + `patient_pi_brief.md` + `HENRY_AUDIT.json` (about 30-50 minutes). As it runs you see plain-language stage labels (localized to you). Everything below — the `opl` commands — is the harness the skill drives **under the hood**; you do not type them yourself in normal use.
+
+<details>
+<summary><b>Under the hood — the harness CLI (advanced / contributors / CI)</b></summary>
+
+The skill's main thread drives a Python harness: planning, validation, safety gates, live-data integrators, and honest delivery scaffolds. You can install and call it directly for debugging, automation, or CI:
+
+```bash
+# Install the harness (Python 3.11+)
 pip install -e .
 
-# 2. Initialise a patient directory under ~/CancerDAO/patients/
+# 1. Initialise a patient directory under ~/CancerDAO/patients/
 opl init-patient demo-001
 
-# 3. Plan the run (Sid's intake_router decides experts + composes the method DAG)
+# 2. Plan the run (Sid's intake_router decides experts + composes the method DAG)
 opl plan --patient ~/CancerDAO/patients/demo-001 \
          --goal "I have been on osimertinib for 14 months; CT shows progression — what are my next-line options?" \
          --run-id r1
 
-# 4. Execute Waves 1-4 (driven by the SKILL.md main-thread dispatcher)
-#    See SKILL.md §Step 5-8 for the dispatch contract. Plain-language
-#    stage labels surface as 准备 → 想办法 → 查数据 → 审核 → 写报告.
+# 3. Waves 1-4 run on the SKILL.md main thread (the harness verifies state, the
+#    Claude Code main thread does the reasoning). See SKILL.md §Step 5-8.
 
-# 5. Generate the dual delivery (atomic Henry audit + plain brief + PI brief)
+# 4. Delivery — scaffold first, then --finalize once the SKILL fills the prose
 opl deliver --patient ~/CancerDAO/patients/demo-001 --run-id r1
+opl deliver --patient ~/CancerDAO/patients/demo-001 --run-id r1 --finalize
 
-# 6. Optional — emit a publication-ready Wave 6 manuscript + .n1a bundle
+# 5. Optional — Wave 6 manuscript + .n1a bundle
 opl wave6 --patient-dir ~/CancerDAO/patients/demo-001 \
           --run-id r1 --patient-code demo-001 --draft
 ```
+
+</details>
 
 Expected `opl deliver` output (scaffold mode — the SKILL main thread then fills
 the prose and re-runs with `--finalize` for the real audit):
@@ -127,7 +147,7 @@ If upstream Waves 1-5 haven't produced real artifacts, `opl deliver` refuses wit
 ## The 5-Wave pipeline
 
 ```
-准备 / 想办法 / 查数据 / 审核 / 写报告  (lay labels)
+Prepare / Find-options / Check-data / Review / Write-up  (plain-language stage labels; localized to the patient)
 ─────────────────────────────────────────────────────────────────────────────────────
 Wave 1  Retrieval        5-12 experts pull from 29+ live integrators
                          (PubMed / OncoKB / CIViC / ClinicalTrials.gov / ChiCTR /
@@ -158,7 +178,7 @@ Full lifecycle detail: [`references/wave-lifecycle.md`](references/wave-lifecycl
 An excerpt from the Riaz-reference patient brief (drug-class redaction + PMID anchoring + three-tier labelling are mandatory in every patient-facing section; specific compounds and untranslated jargon stay in the clinician brief):
 
 ```
-### 场景: KRAS-G12C 二线进展 — Section 3 · The paths you could take
+### Scenario: KRAS-G12C second-line progression — Section 3 · The paths you could take
 
 **Path A** — KRAS-G12C class inhibitor + EGFR-class antibody doublet
   Layer:        ⚪ exploratory (CodeBreaK 300 phase III evidence)
@@ -178,27 +198,27 @@ An excerpt from the Riaz-reference patient brief (drug-class redaction + PMID an
                 clinician-grade list. Not a recommendation.
 ```
 
-A real example end-to-end run lives at [`tmp_live_v2_e2e/`](tmp_live_v2_e2e/) (Riaz reference case; methodology-demonstration banner stamped throughout).
+Reference cases (Riaz, etc.) are methodology demonstrations — they are banner-stamped throughout and are never presented as real patient outputs.
 
 ---
 
 ## Run scenarios
 
-OPL is one CLI, but it covers very different real situations. Three concrete dialog flows (every run produces the same artifacts, but the experts on stage shift):
+OPL covers very different real situations. Three concrete dialog flows (every run produces the same artifacts, but the experts on stage shift):
 
-### 场景 1 — Standard-of-care exhausted, asking about next-line options
+### Scenario 1 — Standard-of-care exhausted, asking about next-line options
 
 > *"I have stage IV mCRC, KRAS G12C, used regorafenib + TAS-102, both progressed. What does the literature suggest is worth trying next?"*
 
 Sid puts **Rosa + Bert + Vince + Rick** on as the spine, adds **Maya** (KG-synergy for G12C combos) + **Julius** (undrugged-target backup designs) + **Frances** (expanded access) + **Iain** (Cochrane lens on CodeBreaK 300). Wave 2 produces 6-8 hypotheses ranked by an Elo tournament. Wave 3 re-analyses TCGA-COAD + matched cBioPortal cohorts. Wave 4 validates against Cochrane lens. Wave 5 ships a brief with three concrete paths, each with effect-size range + honest risk + the PMID it came from.
 
-### 场景 2 — Immune-related side effect, asking about rechallenge
+### Scenario 2 — Immune-related side effect, asking about rechallenge
 
 > *"I developed grade-3 ICI hepatitis on pembrolizumab; the tumour was responding. Can we rechallenge after taper?"*
 
 Sid puts **Mark + Mary + Vince + Iain** on as the core team. Wave 1 pulls per-organ rechallenge evidence from ASCO / ESMO consensus + irAE re-exposure literature. Wave 2 generates rechallenge / dose-adjust / class-switch hypotheses. Wave 4 surfaces explicit reviewer disagreements (Iain vs Mark on whether the G3 transaminitis threshold permits rechallenge). The Wave 5 brief surfaces both positions verbatim — patient + treating oncologist arbitrate.
 
-### 场景 3 — Cross-border / expanded access question
+### Scenario 3 — Cross-border / expanded access question
 
 > *"Standard of care here doesn't include the new BRAF-V600E combo for my pancreas NET. Where could I get it — Boao? Hong Kong? Compassionate use in Germany?"*
 
@@ -214,7 +234,7 @@ OPL was built around this constraint, not against it.
 
 * We **don't train models on your data**. We retrieve evidence, compose it, and project it onto your situation honestly.
 * We **always show effect-size ranges**, not point estimates — and we surface the cohort the range came from.
-* For unknown-task questions (the c3195b66 "auto-build me a prognostic model" case), OPL **routes to a compositional intake** that declines the naive shortcut, explains why, and proposes a safer alternative (external-cohort baseline + distribution-free uncertainty bounds via conformal prediction).
+* For unknown-task questions (the "auto-build me a prognostic model" case), OPL **routes to a compositional intake** that declines the naive shortcut, explains why, and proposes a safer alternative (external-cohort baseline + distribution-free uncertainty bounds via conformal prediction).
 * Wave 3 Monte Carlo runs carry **parameter-calibration provenance** (paper-derived / informed-estimate / literature-default) so the brief never anchors a forecast to a number whose source is "the model made it up".
 
 The trade-off: OPL surfaces fewer, more honest answers — not more, more confident ones.
@@ -264,11 +284,11 @@ The trade-off: OPL surfaces fewer, more honest answers — not more, more confid
 Compositional layers (v2.5 RFC):
 
 * **Method primitives** (`src/opl_cancer/methods/`) — 8 seed primitives across statistical / bioinformatics / clinical-research / pharmacology; M4 grows to ~50.
-* **Gate families** (`src/opl_cancer/validators/gate_families.py`) — 6 families (provenance / statistical-validity / temporal-recency / scope-isolation / safety-disclosure / reproducibility). Provenance family fully migrated; 30 others tagged for M1.
+* **Gate families** (`src/opl_cancer/validators/gate_families.py`) — 6 families (provenance / statistical-validity / temporal-recency / scope-isolation / safety-disclosure / reproducibility). Provenance family fully migrated; the rest tagged for M1.
 * **Role taxonomy** (`src/opl_cancer/experts/role_taxonomy.py`) — `ExpertRole` 4-axis dataclass + 20-persona `FAST_PATH_ROLES`. `compose_role()` LLM stub raises for novel constraints until M2.
-* **Integrator ABC** (`src/opl_cancer/integrators/_abc.py`) — entry-point discovery; 5 of 44 registered, 39 deferred to M3.
+* **Integrator ABC** (`src/opl_cancer/integrators/_abc.py`) — entry-point discovery; 5 of 44 registered, the rest deferred to M3.
 
-Full RFC: [`docs/rfc/0001-compositional-paradigm.md`](docs/rfc/0001-compositional-paradigm.md). Architecture map: [`references/architecture.md`](references/architecture.md). All ADRs: [`docs/adr/`](docs/adr/).
+Full RFC: [`docs/rfc/0001-compositional-paradigm.md`](docs/rfc/0001-compositional-paradigm.md). Architecture map: [`references/architecture.md`](references/architecture.md). All ADRs: [`docs/adr/`](docs/adr/). Latest product audit + iteration roadmap: [`docs/iteration/REVIEW_v2.6.0.md`](docs/iteration/REVIEW_v2.6.0.md).
 
 ---
 
@@ -283,26 +303,26 @@ git clone https://github.com/CancerDAO/opl-cancer
 cd opl-cancer
 python -m venv .venv && source .venv/bin/activate
 pip install -e .[dev,bio]
-pytest tests/ -q -m "not live"   # 1693 passing as of v2.5.1
+pytest tests/ -q -m "not live"   # 1734 passing as of v2.6.0 (clean env)
 ```
 
 The roadmap is the 6-milestone M1-M6 plan in [`docs/rfc/0001-compositional-paradigm.md`](docs/rfc/0001-compositional-paradigm.md). Highlights:
 
-* **M1** — migrate the remaining 30 gates into the 6 gate-family ABCs
+* **M1** — migrate the remaining gates into the 6 gate-family ABCs
 * **M2** — real LLM `compose_role()` for novel expert constraints
-* **M3** — register 39 more integrators via entry points; wire `OPL_UNIVERSAL_ADAPTER_LIVE=1`
+* **M3** — register more integrators via entry points; wire `OPL_UNIVERSAL_ADAPTER_LIVE=1`
 * **M4** — grow the method-primitive library from 8 → ~50
 * **M5** — swap the keyword intake router for an LLM TaskComposer over the full MethodRegistry
 * **M6** — wire `cancer_context/` to live PrimeKG + OncoKB + NCCN + CT.gov
 
-Test suite: 1693 tests, 27 skipped (live integrators + heavy bio deps). All PRs must keep the suite green.
+Test suite: 1734 tests, 8 skipped (live integrators + heavy bio deps). All PRs must keep the suite green.
 
 ### Discipline rules (lifted from `CLAUDE.md`)
 
 1. **No false completion.** Every "done" claim ships paths + line counts + wall-time + ≥ 3 sampling verifications.
 2. **TDD.** Failing test → confirm fail → implement → confirm pass → commit. Each BLOCKER fix gets a before/after repro pair.
 3. **No mock-only paths to production.** Medical integrators query live APIs; LLM synthesis is never a substitute for evidence retrieval.
-4. **No model downgrade.** Opus 4.7 stays the executor for any LLM work the runner spawns.
+4. **No model downgrade.** Opus stays the executor for any LLM work the runner spawns.
 
 PRs that break any of these get bounced.
 
@@ -316,12 +336,12 @@ In short:
 
 * The patient is the sole decision authority. We do not require external sign-off to start a run.
 * High-stakes (Level 3 / Level 4) claims emit a **Risk Disclosure Card** and require patient acknowledgement before the brief is closed. Henry's job is **transparency**, not gatekeeping.
-* **Drug-class redaction**: speculative recommendations name drug *classes* in the patient brief, not specific compounds. The PI brief shows specifics so the clinician can evaluate. Patients do not self-prescribe off the OPL output.
-* **Reference cases** (Riaz, etc.) and **methodology demos** are banner-stamped throughout — they are never presented as real patient outputs.
+* **Drug-class redaction**: speculative recommendations name drug *classes* in the patient brief, not specific compounds (fail-closed since v2.6.0 — unlisted drug-like tokens are redacted, not leaked). The PI brief shows specifics so the clinician can evaluate. Patients do not self-prescribe off the OPL output.
+* **Crisis safety floor**: a mechanical self-harm-language gate (G24) fires ahead of all routing (wired in v2.6.0) and routes to crisis support before anything else.
 * **N=1 reports are not clinical guidance** — every Wave-6 manuscript and every N1Arxiv submission carries this banner.
 * In a medical emergency, dial your local emergency line first (China: **120**; United States: **911**; EU: **112**). OPL is for non-emergency research only.
 
-Full ethics declaration and **免责声明**: [DISCLAIMER.md](DISCLAIMER.md). Safety reports: [SECURITY.md](SECURITY.md). Code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+Full ethics declaration and disclaimer: [DISCLAIMER.md](DISCLAIMER.md). Safety reports: [SECURITY.md](SECURITY.md). Code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ---
 
@@ -332,7 +352,7 @@ Full ethics declaration and **免责声明**: [DISCLAIMER.md](DISCLAIMER.md). Sa
   author       = {{CancerDAO Contributors}},
   title        = {{OPL for Cancer: One Person Lab — your own AI scientist team for one cancer patient}},
   year         = {2026},
-  version      = {2.5.1},
+  version      = {2.6.0},
   url          = {https://github.com/CancerDAO/opl-cancer},
   license      = {Apache-2.0}
 }
@@ -368,6 +388,6 @@ Every expert in OPL is an **archetype**, not an impersonation, of the correspond
 
 **Patient is sole decision authority. OPL surfaces evidence-anchored research directions. Final decisions belong to the patient and their treating clinician.**
 
-[GitHub](https://github.com/CancerDAO/opl-cancer) · [N1Arxiv](https://github.com/CancerDAO/n1arxiv) · [CancerDAO](https://github.com/CancerDAO) · [CHANGELOG](CHANGELOG.md) · [LICENSE](LICENSE)
+[GitHub](https://github.com/CancerDAO/opl-cancer) · [N1Arxiv](https://github.com/CancerDAO/n1arxiv) · [CancerDAO](https://github.com/CancerDAO) · [中文 README](README.zh-CN.md) · [CHANGELOG](CHANGELOG.md) · [LICENSE](LICENSE)
 
 </div>
