@@ -4,7 +4,7 @@
 
 ### One Person Lab — 属于一位癌症患者的私人 AI 科研团队
 
-[![Version](https://img.shields.io/badge/version-2.7.1-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.7.2-blue)](CHANGELOG.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-1828%20passing-brightgreen)](#贡献)
 [![Status](https://img.shields.io/badge/status-research%20preview-orange)](#这是什么--不是什么)

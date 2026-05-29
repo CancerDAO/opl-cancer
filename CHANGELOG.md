@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.7.2] — 2026-05-29 — Skill-quality audit (skill-creator + skill-creator-pro)
+
+Audit-only polish from the skill-creator-pro lint + skill-creator triggering lens.
+No behaviour change; discoverability + body-budget improvements.
+
+- **Description rewrite** — 1175 → 833 chars (under the 1024 frontmatter budget).
+  Dropped the embedded 5-Wave workflow-summary prose (skill-creator-pro Iron-Law-#2:
+  a "what it does" description makes the model shortcut past the body — exactly
+  where the v2.7.0 Operating Contract now lives). Kept the full bilingual trigger
+  list (skill-creator anti-undertrigger). `FM_DESC_TOO_LONG` lint warning resolved.
+- **SKILL.md body** — 500 → 498 lines (back under the ≤500 budget). Moved the
+  pre-v2 inline `version 1.3.2` / `version 1.4.0` changelog paragraphs to
+  `references/version-history.md` (they were changelog content in the
+  always-loaded body, not operating instructions).
+- Lint: 0 errors; remaining 5 `SCRIPT_NO_ARGPARSE` warnings are intentional
+  (the CLIs use `click`, a valid framework — style-only, not fixed).
+
 ## [2.7.1] — 2026-05-29 — Reasoning-Quality Gates + CLI Self-Sufficiency (ADR-0026 P1)
 
 Completes ADR-0026: the P0 release (2.7.0) made delivery non-bypassable; this
