@@ -15,7 +15,7 @@ executor_model:
     memory:feedback_no_model_downgrade — never silently swap to cheaper model.
 
 reviewer_pool:
-  - id: minimax-m2-7
+  - id: MiniMax-M2.7
     provider: minimax
     api_base: https://api.minimaxi.com/v1
     context_window: 192000
@@ -51,7 +51,7 @@ integrator_ttl_seconds:
 # only swap to MiniMax where its capability is demonstrably sufficient.
 per_task_routing:
   bioinformatics_data_analysis: claude-opus-4-7   # heavy code reasoning
-  literature_synthesis: minimax-m2-7              # cheaper, sufficient for paraphrase
+  literature_synthesis: MiniMax-M2.7              # cheaper, sufficient for paraphrase
   hypothesis_generation: claude-opus-4-7          # deep reasoning
   meta_analysis: claude-opus-4-7                  # cross-evidence synthesis
 

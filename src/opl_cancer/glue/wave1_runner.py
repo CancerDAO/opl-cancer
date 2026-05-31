@@ -386,6 +386,7 @@ class Wave1Runner:
         # including Maya (KG-synergy) + Julius (in-silico medicinal chemist).
         # Hardcoded 6-expert list was the reason Maya / Julius were dead
         # roster entries in v2.0.0-rc1.
+        canonical_tasks = sorted(p.stem for p in (find_prompts_root() / "tasks").glob("*.md"))
         plan_resp = await self.planner_client.complete(LLMRequest(
             model=self.executor_model_id,
             messages=[{"role": "user", "content":
@@ -407,6 +408,10 @@ class Wave1Runner:
                 "or any variant without an FDA-approved drug).\n"
                 "- Always include rosa+bert+vince+rick as the minimum spine; "
                 "expand based on patient comorbidities + molecular profile.\n"
+                "Each task's `task_package` MUST be EXACTLY one of these canonical "
+                "ids (verbatim — no free-text descriptions, no translation):\n"
+                f"{', '.join(canonical_tasks)}.\n"
+                "Each task's `id` MUST be a short string like \"t1\", \"t2\".\n"
                 "Return strict JSON: {\"experts\": [...], \"tasks\": "
                 "[{\"id\":...,\"expert\":...,\"task_package\":...,\"sub_goal\":...}]}"
             }],
@@ -418,17 +423,38 @@ class Wave1Runner:
         # so the c3195b66 AutoML case adds `unknown_task_intake` + method DAG
         # rather than silently passing through the LLM planner.
         plan_dict = self._apply_intake_router(plan_dict, patient_text)
+        # Normalize planner output for non-Claude executors (e.g. MiniMax-M2.7):
+        # coerce ids to str and keep only tasks whose task_package is a real
+        # canonical template, so a free-text / mistyped package can't crash the
+        # wave. Dropped tasks are surfaced — no silent pass-through.
+        _canon = set(canonical_tasks)
+        _norm_tasks: list[dict[str, Any]] = []
+        _dropped: list[dict[str, Any]] = []
+        for t in plan_dict.get("tasks", []):
+            tp = str(t.get("task_package", "")).strip()
+            if tp not in _canon:
+                _dropped.append({"id": str(t.get("id", "")), "task_package": tp})
+                continue
+            _norm_tasks.append({**t, "id": str(t["id"]), "task_package": tp})
+        if not _norm_tasks:
+            raise ValueError(
+                f"planner returned no tasks with a canonical task_package "
+                f"(dropped={_dropped!r})"
+            )
+        plan_dict["tasks"] = _norm_tasks
+        if _dropped:
+            plan_dict["dropped_noncanonical_tasks"] = _dropped
         run_id = f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}"
         plan = Plan(
             run_id=run_id,
             patient_code=ctx["patient_code"],
             goal=patient_text,
             waves=[WaveAssignment(
-                wave_number=1, task_ids=[t["id"] for t in plan_dict["tasks"]],
+                wave_number=1, task_ids=[str(t["id"]) for t in plan_dict["tasks"]],
             )],
             tasks=[
                 Task(
-                    id=t["id"], expert=t["expert"], task_package=t["task_package"],
+                    id=str(t["id"]), expert=t["expert"], task_package=t["task_package"],
                     sub_goal=t["sub_goal"], dependencies=[],
                 )
                 for t in plan_dict["tasks"]

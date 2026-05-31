@@ -5,6 +5,7 @@ so concrete experts never accidentally pair same model with itself.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -39,9 +40,23 @@ class ModelRouter:
     def from_models_yaml(cls, path: Path | None = None) -> ModelRouter:
         p = path or (_repo_root() / "models.yaml")
         cfg = yaml.safe_load(p.read_text())
+        executor = cfg["executor_model"]
+        reviewer_pool = cfg["reviewer_pool"]
+        # Allow a host (e.g. the feynman-opl client, bound to a single model) to
+        # bind the executor to a specific provider via OPL_EXECUTOR_PROVIDER.
+        # Picks the matching spec from the roster so no second provider is needed.
+        # Does NOT change the default; only applies when the env var is set.
+        forced = (os.environ.get("OPL_EXECUTOR_PROVIDER") or "").strip().lower()
+        if forced and str(executor.get("provider", "")).lower() != forced:
+            match = next(
+                (m for m in [executor, *reviewer_pool] if str(m.get("provider", "")).lower() == forced),
+                None,
+            )
+            if match is not None:
+                executor = match
         return cls(
-            executor=cfg["executor_model"],
-            reviewer_pool=cfg["reviewer_pool"],
+            executor=executor,
+            reviewer_pool=reviewer_pool,
             per_task_routing=cfg.get("per_task_routing") or {},
         )
 
