@@ -10,12 +10,24 @@ Per memory:reference_minimax_llm:
 from __future__ import annotations
 
 import os
+import re
 from typing import Any
 
 import httpx
 
 from .base import LLMClient, LLMRequest, LLMResponse
 from .errors import LLMError, LLMQuotaError, LLMResponseParseError
+
+# MiniMax-M2.7 is a reasoning model: its content is prefixed with a
+# `<think>…</think>` block. Strip it so downstream JSON/content parsing
+# (response_format=json_object) sees clean output.
+_THINK_BLOCK = re.compile(r"^\s*<think>.*?</think>\s*", re.DOTALL)
+
+# MiniMax-M2.7 spends output tokens on a reasoning trace before the answer.
+# A tiny max_tokens truncates mid-reasoning, so the JSON answer is never
+# emitted. Enforce a floor so callers that pass small values (e.g. 512 for a
+# short classification) still leave room for the reasoning trace + the answer.
+_MIN_REASONING_MAX_TOKENS = 8192
 
 
 class MiniMaxClient(LLMClient):
@@ -40,7 +52,7 @@ class MiniMaxClient(LLMClient):
         payload: dict[str, Any] = {
             "model": request.model,
             "messages": messages,
-            "max_tokens": min(request.max_tokens, 196608),
+            "max_tokens": min(max(request.max_tokens, _MIN_REASONING_MAX_TOKENS), 196608),
             "temperature": request.temperature,
         }
         if request.response_format is not None:
@@ -81,6 +93,13 @@ class MiniMaxClient(LLMClient):
         try:
             choice = body["choices"][0]
             content = choice["message"]["content"]
+            if isinstance(content, str):
+                content = _THINK_BLOCK.sub("", content).strip()
+                # M2.7 wraps JSON answers in a ```json … ``` fence even under
+                # response_format=json_object — unwrap so json.loads sees raw JSON.
+                if content.startswith("```"):
+                    content = re.sub(r"^```[a-zA-Z0-9]*[ \t]*\r?\n?", "", content)
+                    content = re.sub(r"\r?\n?```[ \t]*$", "", content).strip()
             usage = body.get("usage", {})
             return LLMResponse(
                 content=content,

@@ -674,17 +674,33 @@ def _executor_llm_available() -> dict[str, Any]:
     provider = (os.environ.get("OPL_EXECUTOR_PROVIDER") or "anthropic").lower()
     has_anthropic = bool(os.environ.get("ANTHROPIC_API_KEY"))
     has_minimax = bool(os.environ.get("MINIMAX_API_KEY"))
-    has_executor = {"anthropic": has_anthropic, "minimax": has_minimax}.get(provider, has_anthropic)
-    # G13: reviewer must be a DIFFERENT family than the executor.
+    has_openai = bool(os.environ.get("OPENAI_API_KEY"))
+    has_executor = {"anthropic": has_anthropic, "minimax": has_minimax, "openai": has_openai}.get(provider, has_anthropic)
+    # G13: reviewer must normally be a DIFFERENT family than the executor.
     has_reviewer = has_minimax if provider == "anthropic" else has_anthropic
+    # Single-model override (opt-in, off by default). When set, the reviewer runs
+    # on the SAME bound model as the executor — G13 cross-model peer review is
+    # DISABLED. Used by the feynman-opl client, which is bound to one model.
+    single_model = (os.environ.get("OPL_ALLOW_SINGLE_MODEL") or "").strip().lower() in ("1", "true", "yes")
+    if single_model and has_executor:
+        return {
+            "ok": True, "provider": provider, "single_model": True,
+            "has_executor": has_executor, "has_reviewer": has_reviewer,
+            "g13_cross_model_review": False,
+            "reason": (
+                "single-model mode (OPL_ALLOW_SINGLE_MODEL): reviewer runs on the "
+                "same bound model as the executor — G13 cross-model peer review is DISABLED."
+            ),
+        }
     ok = has_executor and has_reviewer
     return {
-        "ok": ok, "provider": provider,
+        "ok": ok, "provider": provider, "single_model": False,
         "has_executor": has_executor, "has_reviewer": has_reviewer,
         "reason": "" if ok else (
             "no self-sufficient executor — set the executor key + a G13-distinct "
-            "reviewer key (e.g. ANTHROPIC_API_KEY + MINIMAX_API_KEY). On Claude Code "
-            "the agent IS the executor; dispatch the wave on the main thread."
+            "reviewer key (e.g. ANTHROPIC_API_KEY + MINIMAX_API_KEY), OR set "
+            "OPL_ALLOW_SINGLE_MODEL=1 to run single-model on one bound model. On "
+            "Claude Code the agent IS the executor; dispatch the wave on the main thread."
         ),
     }
 
@@ -789,9 +805,14 @@ def run(
         from opl_cancer.llm.router import ModelRouter
         router = ModelRouter.from_models_yaml()
         exec_id = router.executor_model_id
-        rev_id = next((m for m in router.reviewer_model_ids if m != exec_id), exec_id)
         exec_c = router.executor_client()
-        rev_c = router.reviewer_client_for(executor_model_id=exec_id, reviewer_model_id=rev_id)
+        if avail.get("single_model"):
+            # Single-model mode: reviewer is the same bound model/client as the
+            # executor; G13 cross-model peer review is intentionally disabled.
+            rev_id, rev_c = exec_id, exec_c
+        else:
+            rev_id = next((m for m in router.reviewer_model_ids if m != exec_id), exec_id)
+            rev_c = router.reviewer_client_for(executor_model_id=exec_id, reviewer_model_id=rev_id)
         try:
             live = run_wave1_live(
                 patient_root=pdir, run_root=run_root,
