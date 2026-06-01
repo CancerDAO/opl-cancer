@@ -21,25 +21,6 @@ from opl_cancer.glue.wave1_runner import (
     CrossPatientContaminationError,
     Wave1Runner,
 )
-from opl_cancer.llm.base import LLMRequest, LLMResponse
-
-
-class _Stub:
-    provider = "stub"
-
-    def __init__(self, responses: list[str]) -> None:
-        self.responses = list(responses)
-
-    async def complete(self, request: LLMRequest) -> LLMResponse:
-        if not self.responses:
-            raise RuntimeError(f"_Stub out of responses for model={request.model}")
-        return LLMResponse(
-            content=self.responses.pop(0),
-            model=request.model,
-            input_tokens=1,
-            output_tokens=1,
-            finish_reason="end_turn",
-        )
 
 
 class _FakeIntegrator:
@@ -69,11 +50,9 @@ def _setup_patient(root: Path, code: str, diagnosis: str = "NSCLC") -> Path:
     return p
 
 
-def _bert_factory(name: str, exec_c: Any, rev_c: Any, ex_id: str, rv_id: str) -> Any:
+def _bert_factory(name: str, ex_id: str, rv_id: str) -> Any:
     return BertExpert(
         profile=get_expert_profile("bert"),
-        executor_client=exec_c,
-        reviewer_client=rev_c,
         executor_model_id=ex_id,
         reviewer_model_id=rv_id,
         integrators={"F4": _FakeIntegrator(), "F5": _FakeIntegrator()},
@@ -83,20 +62,20 @@ def _bert_factory(name: str, exec_c: Any, rev_c: Any, ex_id: str, rv_id: str) ->
 def _make_runner(
     patient_root: Path, out_dir: Path, exec_payload: str,
 ) -> Wave1Runner:
+    # Harness-split: the per-expert output is the host-written report artifact.
     return Wave1Runner(
         patient_root=patient_root,
         out_dir=out_dir,
-        intent_client=_Stub(['{"intent": "NEW_GOAL", "rationale": "x"}']),
-        planner_client=_Stub([
-            '{"experts": ["bert"], "tasks": [{"id":"t1","expert":"bert",'
-            '"task_package":"molecular_ngs_interpretation","sub_goal":"x"}]}'
-        ]),
-        executor_client=_Stub([exec_payload]),
-        reviewer_client=_Stub(['{"verdict": "pass", "challenges": []}']),
         executor_model_id="claude-opus-4-7",
         reviewer_model_id="minimax-m2-7",
         expert_factory=_bert_factory,
         gates=[],
+        plan_dict={
+            "experts": ["bert"],
+            "tasks": [{"id": "t1", "expert": "bert",
+                       "task_package": "molecular_ngs_interpretation", "sub_goal": "x"}],
+        },
+        host_artifacts={"molecular_ngs_interpretation": json.loads(exec_payload)},
     )
 
 

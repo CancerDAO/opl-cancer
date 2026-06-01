@@ -23,9 +23,20 @@ from typing import Any
 
 from opl_cancer.experts._common import LLMBackedExpert
 from opl_cancer.glue._post_write import SnifferHalt, post_write_safety_check
-from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
+# NOTE (harness-split): orchestrator.* is the self-improvement engine being
+# extracted to a standalone repo. Imported lazily (in-function) so this runner
+# stays importable when orchestrator/ is absent. ``run_reviewer_pairing`` stays
+# exposed as a module attribute via PEP 562 ``__getattr__`` for the B3 wiring
+# contract (test_sniffer_halt_wave4).
 from opl_cancer.provenance.hasher import hash_claim
 from opl_cancer.provenance.journal import ProvenanceJournal
+
+
+def __getattr__(name: str):  # PEP 562 — lazy orchestrator re-export
+    if name == "run_reviewer_pairing":
+        from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
+        return run_reviewer_pairing
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _classify(aviv_verdict: dict[str, Any], iain_verdict: dict[str, Any]) -> str:
@@ -180,6 +191,7 @@ class Wave4Runner:
         # the meta-validator; we pair against Aviv to keep distinct-expert
         # constraint satisfied (Iain → aviv pairing exists in the matrix).
         post_write_safety_check(out_path, run_root=run_dir)
+        from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
         run_reviewer_pairing(
             report_path=out_path,
             primary_expert="aviv",

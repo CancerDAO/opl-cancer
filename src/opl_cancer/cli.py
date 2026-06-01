@@ -779,38 +779,14 @@ def run(
     if not plan_file.exists():
         raise click.ClickException(f"plan.json not found: {plan_file}")
 
-    avail = _executor_llm_available()
     if wave == 3:
         chosen_mode = mode or _select_wave3_mode()
         result = _run_wave3_compute(run_root, chosen_mode)
-    elif wave == 1 and avail["ok"]:
-        # v2.7.1 ADR-0026 Fork B — CLI self-sufficient Wave-1 execution.
-        from opl_cancer.glue.wave1_live import run_wave1_live
-        from opl_cancer.llm.router import ModelRouter
-        router = ModelRouter.from_models_yaml()
-        exec_id = router.executor_model_id
-        rev_id = next((m for m in router.reviewer_model_ids if m != exec_id), exec_id)
-        exec_c = router.executor_client()
-        rev_c = router.reviewer_client_for(executor_model_id=exec_id, reviewer_model_id=rev_id)
-        try:
-            live = run_wave1_live(
-                patient_root=pdir, run_root=run_root,
-                intent_client=exec_c, planner_client=exec_c,
-                executor_client=exec_c, reviewer_client=rev_c,
-                executor_model_id=exec_id, reviewer_model_id=rev_id,
-            )
-        except Exception as exc:  # noqa: BLE001 — surface as honest CLI failure
-            raise click.ClickException(f"Wave 1 self-execution failed: {exc}") from exc
-        state = _wave_artifact_state(run_root, 1)
-        result = {
-            "wave": 1, "self_sufficient": True, "executor_provider": avail["provider"],
-            "artifacts_found": state["found"], "artifacts_sample": state["files"],
-            "live_result": live,
-        }
     else:
-        # Waves 1/2/4 with no self-sufficient executor: artifact-state probe —
-        # refuse to claim completion when no real artifacts present. The SKILL
-        # main thread (the agent, on Claude Code) is the dispatcher.
+        # Harness-split (HARNESS_SPLIT_PRD): the in-Python LLM dispatch is removed.
+        # Waves 1/2/4 are host-agent-driven; this CLI verifies the artifact-state
+        # contract honestly and refuses to claim completion when no real artifacts
+        # are present. The SKILL main thread (the agent) is the dispatcher.
         state = _wave_artifact_state(run_root, wave)
         result = {
             "wave": wave,
@@ -819,12 +795,11 @@ def run(
         }
         if not state["ok"]:
             result["requires_main_thread_dispatch"] = True
-            result["executor_available"] = avail
             result["action"] = (
-                f"Wave {wave} produced no artifacts yet. Either set an executor key "
-                "for CLI self-execution (Fork B, wave 1), or the SKILL main thread "
-                "(the agent) must dispatch the wave runner — this CLI verifies state "
-                "honestly per ADR-0021/0026."
+                f"Wave {wave} produced no artifacts yet. The SKILL main thread "
+                "(the agent) must dispatch the wave runner / write the per-expert "
+                "host-agent reports — this CLI verifies state honestly per "
+                "ADR-0021/0026 + HARNESS_SPLIT_PRD."
             )
 
     _emit_run_result(wave, result, json_mode)
@@ -1328,19 +1303,25 @@ def wave6(
 
 
 # ─── ADR-0020: Evolution (post-mortem proposal generator) ─────────────────
+#
+# harness-split: ``evolution.*`` is the self-improvement engine, slated for
+# extraction to a standalone ``opl-cancer-evolution`` repo. We register the
+# ``evolve`` command ONLY when that package is present, so a patient-only
+# install (orchestrator/ + evolution/ absent) shows a clean ``--help`` without
+# a broken command, instead of erroring on invocation. ``find_spec`` only
+# probes availability — it does NOT import evolution, keeping ``import cli``
+# free of any orchestrator/evolution dependency.
+import importlib.util as _importlib_util
 
-@main.command(
-    name="evolve",
-    help=(
-        "Post-mortem evolution: build a TraceDigest from a completed run, "
-        "run the red-team analyzer, write PR-style proposals under "
-        "<run_dir>/proposals/. NEVER auto-applies anything. See ADR-0020."
-    ),
-)
-@click.argument("run_dir", type=click.Path(exists=True, file_okay=False))
-@click.option("--iter-n", type=int, default=1, show_default=True, help="Iteration number recorded in proposals.")
-@click.option("--max-proposals", type=int, default=5, show_default=True, help="Cap on proposals emitted.")
-@click.option("--json", "json_mode", is_flag=True, help="Emit JSON summary to stdout.")
+try:
+    _EVOLUTION_AVAILABLE = (
+        _importlib_util.find_spec("opl_cancer.evolution") is not None
+    )
+except (ImportError, ModuleNotFoundError, ValueError):
+    # Package (or a parent finder) reports it absent — treat as not installed.
+    _EVOLUTION_AVAILABLE = False
+
+
 def evolve(run_dir: str, iter_n: int, max_proposals: int, json_mode: bool) -> None:
     """Run the evolution analyzer over a completed run dir.
 
@@ -1380,6 +1361,34 @@ def evolve(run_dir: str, iter_n: int, max_proposals: int, json_mode: bool) -> No
         "analysis_summary": candidates.analysis_summary,
     }
     _emit(summary, json_mode)
+
+
+# Conditionally register ``evolve`` — only when the evolution engine is present.
+# Decorators are applied imperatively here (equivalent to stacking them on the
+# def) so the command vanishes from a patient-only install rather than erroring.
+if _EVOLUTION_AVAILABLE:
+    evolve = click.option(
+        "--json", "json_mode", is_flag=True, help="Emit JSON summary to stdout."
+    )(evolve)
+    evolve = click.option(
+        "--max-proposals", type=int, default=5, show_default=True,
+        help="Cap on proposals emitted.",
+    )(evolve)
+    evolve = click.option(
+        "--iter-n", type=int, default=1, show_default=True,
+        help="Iteration number recorded in proposals.",
+    )(evolve)
+    evolve = click.argument(
+        "run_dir", type=click.Path(exists=True, file_okay=False)
+    )(evolve)
+    evolve = main.command(
+        name="evolve",
+        help=(
+            "Post-mortem evolution: build a TraceDigest from a completed run, "
+            "run the red-team analyzer, write PR-style proposals under "
+            "<run_dir>/proposals/. NEVER auto-applies anything. See ADR-0020."
+        ),
+    )(evolve)
 
 
 # ─── Patient observability ────────────────────────────────────────────────

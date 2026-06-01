@@ -122,7 +122,7 @@ class EvolutionAnalyzer:
         digest: TraceDigest,
         iter_n: int,
     ) -> EvolutionCandidates:
-        from opl_cancer.llm.base import LLMRequest
+        from opl_cancer._llm_contract import LLMRequest  # transitional shim
 
         prompt = (
             f"# Scrubbed TraceDigest (run {digest.run_id})\n\n"

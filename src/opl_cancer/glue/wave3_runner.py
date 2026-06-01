@@ -28,9 +28,22 @@ from opl_cancer.integrators.paperqa_full_text import (
     CalibrationProvenance,
     classify_calibration_provenance,
 )
-from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
+# NOTE (harness-split): orchestrator.* is the self-improvement engine and is
+# being extracted to a standalone repo. Import it lazily so this runner stays
+# importable when orchestrator/ is absent; the symbol is only needed when a
+# wave is actually executed. ``run_reviewer_pairing`` is still exposed as a
+# module attribute via PEP 562 ``__getattr__`` (resolved on first access) so the
+# B3 wiring contract (test_sniffer_halt_wave3) holds without a module-load
+# dependency on orchestrator/.
 from opl_cancer.provenance.hasher import hash_claim
 from opl_cancer.provenance.journal import ProvenanceJournal
+
+
+def __getattr__(name: str):  # PEP 562 — lazy orchestrator re-export
+    if name == "run_reviewer_pairing":
+        from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
+        return run_reviewer_pairing
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def record_monte_carlo_calibration(
@@ -238,6 +251,7 @@ class Wave3Runner:
         # pairing routes to (bert | maya) per the existing expert pairing
         # matrix in orchestrator.reviewer_hook.
         post_write_safety_check(out_path, run_root=run_dir)
+        from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
         run_reviewer_pairing(
             report_path=out_path,
             primary_expert="aviv",

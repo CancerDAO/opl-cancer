@@ -79,14 +79,14 @@ def test_bixbench_runner_dry_run_by_default(
 
 @pytest.mark.parametrize("task", P3_TASK_PROMPTS)
 def test_p3_task_prompts_present(task: str) -> None:
-    from opl_cancer.llm.prompts import find_prompts_root
+    from opl_cancer.prompts_loader import find_prompts_root
 
     p = find_prompts_root() / "tasks" / f"{task}.md"
     assert p.exists()
 
 
 def test_tyler_in_roster_persona_path() -> None:
-    from opl_cancer.llm.prompts import find_prompts_root
+    from opl_cancer.prompts_loader import find_prompts_root
 
     p = find_prompts_root() / "experts" / "tyler" / "persona.md"
     assert p.exists()

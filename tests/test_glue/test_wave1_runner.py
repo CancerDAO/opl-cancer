@@ -1,8 +1,10 @@
-"""Test Wave1Runner end-to-end with mocked LLM clients.
+"""Test Wave1Runner as a scaffold/validate pass (harness-split).
 
-Mocks every LLM call (intent, planner, executor, reviewer) via _Stub so the
-test never touches a real API. Verifies the full pipeline produces a
-patient_brief.html with three-tier labels + PMID links + provenance hash.
+The in-Python LLM calls (intent / planner / executor / reviewer) are removed.
+The runner now loads a deterministic plan + assembles the brief from
+host-written report artifacts. These tests inject the plan + host artifacts and
+verify the full pipeline produces a patient_brief.html with three-tier labels +
+PMID links + provenance hash — no LLM client involved.
 """
 import json
 from pathlib import Path
@@ -11,28 +13,6 @@ from typing import Any
 from opl_cancer.experts.bert import BertExpert
 from opl_cancer.experts.roster import get_expert_profile
 from opl_cancer.glue.wave1_runner import Wave1Runner
-from opl_cancer.llm.base import LLMRequest, LLMResponse
-
-
-class _Stub:
-    """Stub LLM client — returns canned responses in order."""
-
-    provider = "stub"
-
-    def __init__(self, responses: list[str]) -> None:
-        self.responses = list(responses)
-
-    async def complete(self, request: LLMRequest) -> LLMResponse:
-        if not self.responses:
-            raise RuntimeError(f"_Stub out of responses for model={request.model}")
-        body = self.responses.pop(0)
-        return LLMResponse(
-            content=body,
-            model=request.model,
-            input_tokens=1,
-            output_tokens=1,
-            finish_reason="end_turn",
-        )
 
 
 class _FakeIntegrator:
@@ -66,40 +46,55 @@ def _setup_patient(tmp_path: Path) -> Path:
     return patient_root
 
 
-def _bert_factory(name: str, exec_c: Any, rev_c: Any, ex_id: str, rv_id: str) -> Any:
+def _bert_factory(name: str, ex_id: str, rv_id: str) -> Any:
+    # Harness-split factory signature: (name, executor_model_id, reviewer_model_id).
     return BertExpert(
         profile=get_expert_profile("bert"),
-        executor_client=exec_c,
-        reviewer_client=rev_c,
         executor_model_id=ex_id,
         reviewer_model_id=rv_id,
         integrators={"F4": _FakeIntegrator(), "F5": _FakeIntegrator()},
     )
 
 
-async def test_wave1_runner_produces_brief(tmp_path: Path) -> None:
+_PLAN = {
+    "experts": ["bert"],
+    "tasks": [{
+        "id": "t1", "expert": "bert",
+        "task_package": "molecular_ngs_interpretation", "sub_goal": "interpret ngs",
+    }],
+}
+
+# Host-agent-written report keyed by task_package.
+_HOST_ARTIFACTS = {
+    "molecular_ngs_interpretation": {
+        "variants": [{
+            "gene": "EGFR", "protein_change": "L858R",
+            "claim_layer": "established",
+            "evidence": [{"type": "pmid", "id": "31157963", "quote": "Osimertinib improves OS"}],
+            "summary": "actionable EGFR L858R",
+        }],
+        "summary": "actionable",
+    }
+}
+
+
+def _runner(tmp_path: Path, *, host_artifacts=_HOST_ARTIFACTS, intent="NEW_GOAL", plan=_PLAN) -> Wave1Runner:
     patient_root = _setup_patient(tmp_path)
-    runner = Wave1Runner(
+    return Wave1Runner(
         patient_root=patient_root,
         out_dir=tmp_path / "out",
-        intent_client=_Stub(['{"intent": "NEW_GOAL", "rationale": "ngs question"}']),
-        planner_client=_Stub([
-            '{"experts": ["bert"], "tasks": [{"id":"t1","expert":"bert",'
-            '"task_package":"molecular_ngs_interpretation","sub_goal":"interpret ngs"}]}'
-        ]),
-        executor_client=_Stub([
-            '{"variants": [{"gene": "EGFR", "protein_change": "L858R", '
-            '"claim_layer": "established", "evidence": [{"type":"pmid","id":"31157963",'
-            '"quote":"Osimertinib improves OS"}], "summary": "actionable EGFR L858R"}], '
-            '"summary": "actionable"}'
-        ]),
-        reviewer_client=_Stub(['{"verdict": "pass", "challenges": []}']),
         executor_model_id="claude-opus-4-7",
         reviewer_model_id="minimax-m2-7",
         expert_factory=_bert_factory,
         gates=[],
+        plan_dict=plan,
+        host_artifacts=host_artifacts,
+        intent=intent,
     )
 
+
+async def test_wave1_runner_produces_brief(tmp_path: Path) -> None:
+    runner = _runner(tmp_path)
     result = await runner.run(patient_text="我想了解我的 NGS 结果")
     assert result["status"] == "ok"
 
@@ -111,35 +106,12 @@ async def test_wave1_runner_produces_brief(tmp_path: Path) -> None:
 
 async def test_wave1_runner_three_tier_label_pmid_provenance(tmp_path: Path) -> None:
     """E2E assertion: brief contains three-tier label, PMID link, and provenance hash."""
-    patient_root = _setup_patient(tmp_path)
-    runner = Wave1Runner(
-        patient_root=patient_root,
-        out_dir=tmp_path / "out",
-        intent_client=_Stub(['{"intent": "NEW_GOAL", "rationale": "x"}']),
-        planner_client=_Stub([
-            '{"experts": ["bert"], "tasks": [{"id":"t1","expert":"bert",'
-            '"task_package":"molecular_ngs_interpretation","sub_goal":"interpret ngs"}]}'
-        ]),
-        executor_client=_Stub([
-            '{"variants": [{"gene": "EGFR", "protein_change": "L858R", '
-            '"claim_layer": "established", "evidence": [{"type":"pmid","id":"31157963",'
-            '"quote":"Osimertinib improves OS"}], "summary": "actionable EGFR L858R"}], '
-            '"summary": "actionable"}'
-        ]),
-        reviewer_client=_Stub(['{"verdict": "pass", "challenges": []}']),
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
-        expert_factory=_bert_factory,
-        gates=[],
-    )
+    runner = _runner(tmp_path)
     await runner.run(patient_text="ngs?")
     text = (tmp_path / "out" / "delivery" / "patient_brief.html").read_text(encoding="utf-8")
 
-    # Three-tier label badge
     assert "tier established" in text
-    # PMID hyperlink
     assert "pubmed.ncbi.nlm.nih.gov/31157963" in text
-    # Provenance hash present (sha256:<64-hex>)
     assert "sha256:" in text
 
 
@@ -156,14 +128,12 @@ async def test_wave1_runner_aborts_on_non_new_goal(tmp_path: Path) -> None:
     runner = Wave1Runner(
         patient_root=patient_root,
         out_dir=tmp_path / "out",
-        intent_client=_Stub(['{"intent": "SMALL_TALK", "rationale": "hi"}']),
-        planner_client=_Stub([]),
-        executor_client=_Stub([]),
-        reviewer_client=_Stub([]),
         executor_model_id="x",
         reviewer_model_id="y",
         expert_factory=lambda *a, **k: None,
         gates=[],
+        plan_dict=_PLAN,
+        intent="SMALL_TALK",
     )
     result = await runner.run(patient_text="hello")
     assert result["status"] == "no_team_run"
@@ -171,26 +141,8 @@ async def test_wave1_runner_aborts_on_non_new_goal(tmp_path: Path) -> None:
 
 
 async def test_wave1_runner_writes_provenance_journal(tmp_path: Path) -> None:
-    patient_root = _setup_patient(tmp_path)
     out_dir = tmp_path / "out"
-    runner = Wave1Runner(
-        patient_root=patient_root,
-        out_dir=out_dir,
-        intent_client=_Stub(['{"intent": "NEW_GOAL", "rationale": "x"}']),
-        planner_client=_Stub([
-            '{"experts": ["bert"], "tasks": [{"id":"t1","expert":"bert",'
-            '"task_package":"molecular_ngs_interpretation","sub_goal":"x"}]}'
-        ]),
-        executor_client=_Stub([
-            '{"variants": [{"gene": "EGFR", "protein_change": "L858R", '
-            '"claim_layer": "established", "evidence": [], "summary": "x"}], "summary": "x"}'
-        ]),
-        reviewer_client=_Stub(['{"verdict": "pass", "challenges": []}']),
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
-        expert_factory=_bert_factory,
-        gates=[],
-    )
+    runner = _runner(tmp_path)
     await runner.run(patient_text="ngs?")
     prov_path = out_dir / "provenance.jsonl"
     assert prov_path.exists()
@@ -205,27 +157,9 @@ async def test_wave1_runner_writes_provenance_journal(tmp_path: Path) -> None:
 
 
 async def test_wave1_runner_emits_run_metadata(tmp_path: Path) -> None:
-    """Iter17 (v1.0.9): Wave1Runner.run emits triggers/<run_id>/run_metadata.json."""
-    patient_root = _setup_patient(tmp_path)
+    """Wave1Runner.run emits triggers/<run_id>/run_metadata.json."""
     out_dir = tmp_path / "out"
-    runner = Wave1Runner(
-        patient_root=patient_root,
-        out_dir=out_dir,
-        intent_client=_Stub(['{"intent": "NEW_GOAL", "rationale": "x"}']),
-        planner_client=_Stub([
-            '{"experts": ["bert"], "tasks": [{"id":"t1","expert":"bert",'
-            '"task_package":"molecular_ngs_interpretation","sub_goal":"x"}]}'
-        ]),
-        executor_client=_Stub([
-            '{"variants": [{"gene": "EGFR", "protein_change": "L858R", '
-            '"claim_layer": "established", "evidence": [], "summary": "x"}], "summary": "x"}'
-        ]),
-        reviewer_client=_Stub(['{"verdict": "pass", "challenges": []}']),
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
-        expert_factory=_bert_factory,
-        gates=[],
-    )
+    runner = _runner(tmp_path)
     result = await runner.run(patient_text="ngs?")
     run_id = result["run_id"]
     meta_path = out_dir / "triggers" / run_id / "run_metadata.json"
@@ -239,3 +173,11 @@ async def test_wave1_runner_emits_run_metadata(tmp_path: Path) -> None:
     assert meta["run_id"] == run_id
     assert meta["claims_produced"] >= 1
     assert meta["wall_time_seconds"] >= 0.0
+
+
+async def test_wave1_runner_incomplete_without_host_artifacts(tmp_path: Path) -> None:
+    """No host report → honest incomplete status (memory:feedback_no_false_completion)."""
+    runner = _runner(tmp_path, host_artifacts={})
+    result = await runner.run(patient_text="ngs?")
+    assert result["status"] == "incomplete"
+    assert "bert" in result["scaffolded_experts"]

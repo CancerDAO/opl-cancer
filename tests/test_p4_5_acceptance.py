@@ -36,7 +36,7 @@ def test_wave4_runner_importable() -> None:
 
 
 def test_three_new_task_prompts_exist() -> None:
-    from opl_cancer.llm.prompts import find_prompts_root
+    from opl_cancer.prompts_loader import find_prompts_root
 
     root = find_prompts_root() / "tasks"
     for task in (
@@ -51,7 +51,7 @@ def test_three_new_task_prompts_exist() -> None:
 
 
 def test_three_new_personas_exist() -> None:
-    from opl_cancer.llm.prompts import find_prompts_root
+    from opl_cancer.prompts_loader import find_prompts_root
 
     root = find_prompts_root() / "experts"
     for name in ("kieren", "mark", "dennis"):

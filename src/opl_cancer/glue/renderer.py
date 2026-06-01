@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from opl_cancer.llm.prompts import PromptTemplate, find_prompts_root
+from opl_cancer.prompts_loader import PromptTemplate, find_prompts_root
 
 
 class PatientBriefRenderer:

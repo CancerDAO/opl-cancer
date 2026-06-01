@@ -1,4 +1,8 @@
-"""P4.5-T4 — Wave4Runner end-to-end with stubbed Aviv + Iain."""
+"""P4.5-T4 — Wave4Runner end-to-end with host-written Aviv + Iain artifacts.
+
+Harness-split: experts no longer call an LLM. The aviv (hypothesis_validation)
+and iain (meta_analysis) reports are injected via patient_context['_host_artifacts'].
+"""
 from __future__ import annotations
 
 import json
@@ -8,45 +12,32 @@ from opl_cancer.experts.aviv import AvivExpert
 from opl_cancer.experts.iain import IainExpert
 from opl_cancer.experts.roster import get_expert_profile
 from opl_cancer.glue.wave4_runner import Wave4Runner
-from opl_cancer.llm.base import LLMRequest, LLMResponse
 
 
-class _Stub:
-    provider = "stub"
-
-    def __init__(self, responses: list[str]) -> None:
-        self.responses = list(responses)
-
-    async def complete(self, request: LLMRequest) -> LLMResponse:
-        if not self.responses:
-            raise RuntimeError("stub exhausted")
-        return LLMResponse(
-            content=self.responses.pop(0),
-            model=request.model,
-            input_tokens=1,
-            output_tokens=1,
-            finish_reason="end_turn",
-        )
-
-
-def _make_aviv(stub: _Stub) -> AvivExpert:
+def _make_aviv() -> AvivExpert:
     return AvivExpert(
         profile=get_expert_profile("aviv"),
-        executor_client=stub,
-        reviewer_client=stub,
         executor_model_id="claude-opus-4-7",
         reviewer_model_id="minimax-m2-7",
     )
 
 
-def _make_iain(stub: _Stub) -> IainExpert:
+def _make_iain() -> IainExpert:
     return IainExpert(
         profile=get_expert_profile("iain"),
-        executor_client=stub,
-        reviewer_client=stub,
         executor_model_id="claude-opus-4-7",
         reviewer_model_id="minimax-m2-7",
     )
+
+
+def _artifacts(aviv_resp: str, iain_resp: str) -> dict:
+    """Host-written reports keyed by task_package (what the host agent writes)."""
+    return {
+        "_host_artifacts": {
+            "hypothesis_validation": json.loads(aviv_resp),
+            "meta_analysis": json.loads(iain_resp),
+        }
+    }
 
 
 async def test_wave4_validated_hypothesis(tmp_path: Path) -> None:
@@ -58,8 +49,8 @@ async def test_wave4_validated_hypothesis(tmp_path: Path) -> None:
         }
     )
     iain_resp = json.dumps({"meta_verdict": "pass", "risk_of_bias": "low"})
-    aviv = _make_aviv(_Stub([aviv_resp]))
-    iain = _make_iain(_Stub([iain_resp]))
+    aviv = _make_aviv()
+    iain = _make_iain()
 
     runner = Wave4Runner(out_dir=tmp_path / "out", aviv=aviv, iain=iain)
     wave2 = {
@@ -71,7 +62,7 @@ async def test_wave4_validated_hypothesis(tmp_path: Path) -> None:
         "analysis_runs": [{"hyp_id": "h1", "analysis_plan": {}, "bixbench_result": {}}],
     }
 
-    payload = await runner.run("test", {"profile": {}}, wave2, wave3)
+    payload = await runner.run("test", {"profile": {}, **_artifacts(aviv_resp, iain_resp)}, wave2, wave3)
     assert payload["n_validated"] == 1
     assert payload["n_falsified"] == 0
     assert payload["validations"][0]["survival_status"] == "validated"
@@ -82,8 +73,8 @@ async def test_wave4_falsified_hypothesis(tmp_path: Path) -> None:
         {"verdict": "falsified", "support_score": -0.7, "claim_layer_summary": "exploratory"}
     )
     iain_resp = json.dumps({"meta_verdict": "pass"})
-    aviv = _make_aviv(_Stub([aviv_resp]))
-    iain = _make_iain(_Stub([iain_resp]))
+    aviv = _make_aviv()
+    iain = _make_iain()
 
     runner = Wave4Runner(out_dir=tmp_path / "out", aviv=aviv, iain=iain)
     wave2 = {
@@ -92,7 +83,7 @@ async def test_wave4_falsified_hypothesis(tmp_path: Path) -> None:
     }
     wave3 = {"validations": [], "analysis_runs": []}
 
-    payload = await runner.run("test", {}, wave2, wave3)
+    payload = await runner.run("test", _artifacts(aviv_resp, iain_resp), wave2, wave3)
     assert payload["n_falsified"] == 1
     assert payload["validations"][0]["survival_status"] == "falsified"
 
@@ -102,8 +93,8 @@ async def test_wave4_inconclusive_when_iain_flags(tmp_path: Path) -> None:
         {"verdict": "supported", "support_score": 0.4, "claim_layer_summary": "exploratory"}
     )
     iain_resp = json.dumps({"meta_verdict": "needs_revision", "risk_of_bias": "high"})
-    aviv = _make_aviv(_Stub([aviv_resp]))
-    iain = _make_iain(_Stub([iain_resp]))
+    aviv = _make_aviv()
+    iain = _make_iain()
 
     runner = Wave4Runner(out_dir=tmp_path / "out", aviv=aviv, iain=iain)
     wave2 = {
@@ -112,15 +103,15 @@ async def test_wave4_inconclusive_when_iain_flags(tmp_path: Path) -> None:
     }
     wave3 = {"validations": [], "analysis_runs": []}
 
-    payload = await runner.run("test", {}, wave2, wave3)
+    payload = await runner.run("test", _artifacts(aviv_resp, iain_resp), wave2, wave3)
     assert payload["n_inconclusive"] == 1
 
 
 async def test_wave4_writes_artifacts(tmp_path: Path) -> None:
     aviv_resp = json.dumps({"verdict": "supported", "support_score": 0.9, "claim_layer_summary": "established"})
     iain_resp = json.dumps({"meta_verdict": "pass"})
-    aviv = _make_aviv(_Stub([aviv_resp]))
-    iain = _make_iain(_Stub([iain_resp]))
+    aviv = _make_aviv()
+    iain = _make_iain()
 
     runner = Wave4Runner(out_dir=tmp_path / "out", aviv=aviv, iain=iain)
     wave2 = {
@@ -129,7 +120,7 @@ async def test_wave4_writes_artifacts(tmp_path: Path) -> None:
     }
     wave3 = {"validations": [], "analysis_runs": []}
 
-    payload = await runner.run("test", {}, wave2, wave3)
+    payload = await runner.run("test", _artifacts(aviv_resp, iain_resp), wave2, wave3)
     run_dir = tmp_path / "out" / payload["run_id"]
     assert (run_dir / "wave4_validation.json").exists()
     assert (run_dir / "provenance.jsonl").exists()

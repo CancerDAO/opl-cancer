@@ -17,7 +17,7 @@ import json
 import uuid
 from typing import Any
 
-from opl_cancer.llm.base import LLMClient, LLMRequest
+from opl_cancer._llm_contract import LLMClient, LLMRequest  # transitional shim — see _llm_contract.py
 from opl_cancer.memory.schemas import ClaimLayer, GenerationStrategy, Hypothesis
 
 

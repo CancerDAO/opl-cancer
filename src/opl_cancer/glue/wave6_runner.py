@@ -61,7 +61,11 @@ from opl_cancer.delivery.n1a_bundle_writer import (
 )
 from opl_cancer.glue._post_write import SnifferHalt, post_write_safety_check
 from opl_cancer.memory.cost_tracker import aggregate_cost_log
-from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
+# NOTE (harness-split): orchestrator.* is the self-improvement engine being
+# extracted to a standalone repo. Imported lazily (in-function) so this runner
+# stays importable when orchestrator/ is absent. ``run_reviewer_pairing`` stays
+# exposed as a module attribute via PEP 562 ``__getattr__`` for the B3 wiring
+# contract (test_sniffer_halt_wave6).
 from opl_cancer.validators.gates import (
     G29ManuscriptAuthorshipDisclosedGate,
     G30ClaimPMIDAnchoredGate,
@@ -75,6 +79,13 @@ from opl_cancer.validators.mechanical_gates import GateStatus
 # CONTRIBUTORS table; reviewer pairing routes to (vince | bert) per the
 # existing matrix in orchestrator.reviewer_hook.
 _WAVE6_PRIMARY_EXPERT = "iain"
+
+
+def __getattr__(name: str):  # PEP 562 — lazy orchestrator re-export
+    if name == "run_reviewer_pairing":
+        from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
+        return run_reviewer_pairing
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = [
@@ -364,6 +375,7 @@ class Wave6Runner:
             post_write_safety_check(p, run_root=self.run_dir)
         primary = self.run_dir / "manuscript.md"
         if primary.is_file():
+            from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
             run_reviewer_pairing(
                 report_path=primary,
                 primary_expert=_WAVE6_PRIMARY_EXPERT,

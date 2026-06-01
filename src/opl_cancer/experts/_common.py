@@ -1,17 +1,37 @@
-"""Shared LLM-backed Expert base. Wraps P0 Expert ABC with concrete LLM calls.
+"""Shared Expert base. Wraps P0 Expert ABC as a host-agent SCAFFOLD/VALIDATOR.
 
-Plan refs: P1-T25.
+Plan refs: P1-T25, harness-split (HARNESS_SPLIT_PRD.md).
+
+v3.x harness-split — the Python expert NO LONGER calls an LLM. The host agent
+(the SKILL main thread / a dispatched subagent) is the reasoning executor: it
+runs ``prompts/experts/expert_task_package.md`` against the persona + task
+template and writes the per-expert report artifact back to disk. This class is
+the deterministic scaffold + validator around that hand-off:
+
+- ``scaffold(...)`` composes the exact prompt + input context the host agent
+  must run, and the canonical output path it must write to.
+- ``execute(...)`` returns the host-written artifact (loaded + structurally
+  validated) when present; if it is missing it returns a scaffold-shaped
+  placeholder marked ``produced_by="scaffold"`` so the wave runner can persist
+  the scaffold and the artifact-state probe / delivery gates can refuse a run
+  that never got a real report written back.
+- ``review(...)`` no longer makes a cross-model LLM call; cross-expert review is
+  now a host-agent reviewer subagent (dispatched via
+  ``orchestrator.reviewer_hook.run_reviewer_pairing``). ``review`` here returns a
+  deterministic "deferred to host reviewer" verdict so the existing
+  execute→review adapter contract still holds without inventing a verdict.
 
 Each concrete expert subclass sets:
 - portfolio: tuple[str, ...]            — task package names it handles
 - preferred_families: tuple[str, ...]   — integrator families it consults
 - persona_version: str                  — recorded in produced_by.prompt_version
 
-Hard rules (per memory + spec):
-- Failure on LLM call MUST raise (no silent degradation to keyword stub)
-- Reviewer model MUST != Executor model (G13 enforced by ModelRouter)
-- Reviewer is fed a DIFFERENT LLMClient instance than Executor; tests inject
-  two distinct fakes to verify split.
+Hard rules (per memory + spec) preserved as scaffold semantics:
+- No silent degradation: a missing persona prefix is still a HARD FileNotFoundError
+  (the scaffold cannot be composed without the v1.5 mandatory infrastructure).
+- The Python gates in ``src/opl_cancer/validators/gates/`` keep their decision
+  authority; this scaffold only PRODUCES / VALIDATES the artifact shape, it does
+  not issue gate verdicts.
 """
 from __future__ import annotations
 
@@ -20,9 +40,7 @@ import warnings
 from pathlib import Path
 from typing import Any, ClassVar
 
-from opl_cancer.llm.base import LLMClient, LLMRequest
-from opl_cancer.llm.errors import LLMResponseParseError
-from opl_cancer.llm.prompts import PromptTemplate, find_prompts_root
+from opl_cancer.prompts_loader import PromptTemplate, find_prompts_root
 
 from .base import Expert, ExpertProfile
 
@@ -37,10 +55,25 @@ class StubMethodWarning(UserWarning):
     """
 
 
-class LLMBackedExpert(Expert):
-    """Concrete Expert that wires the 6-primitive grammar through LLMClient calls.
+class ExpertArtifactError(RuntimeError):
+    """Raised when a host-written expert artifact is malformed.
 
-    Subclasses provide:
+    Fail-loud per memory:feedback_no_false_completion — a report that does not
+    parse / does not carry its provenance _meta is a defect, not something to
+    silently paper over with an empty approving result.
+    """
+
+
+# The host-agent prompt that replaces the deleted in-Python LLM ``execute`` call.
+EXECUTE_PROMPT_REL = "experts/expert_task_package.md"
+
+
+class LLMBackedExpert(Expert):
+    """Concrete Expert that scaffolds the 6-primitive grammar for a host agent.
+
+    Name kept for back-compat with the 20 concrete subclasses (BertExpert, …)
+    and the factory wiring. It no longer calls an LLM in-process — the host
+    agent is the executor (harness-split). Subclasses provide:
     - portfolio (class attr): task packages they answer.
     - preferred_families (class attr): integrator families they consume.
     """
@@ -50,23 +83,24 @@ class LLMBackedExpert(Expert):
     persona_version: ClassVar[str] = "v0.1.0"
 
     # v1.5.2-2: process-wide cache of the canonical persona prefix so we
-    # do not re-read the file for every expert invocation. Invalidated
-    # by restart; the prefix is committed alongside this code so it is
-    # stable within a process.
+    # do not re-read the file for every expert invocation.
     _persona_prefix_cache: ClassVar[str | None] = None
 
     def __init__(
         self,
         profile: ExpertProfile,
-        executor_client: LLMClient,
-        reviewer_client: LLMClient,
-        executor_model_id: str,
-        reviewer_model_id: str,
+        executor_client: Any = None,
+        reviewer_client: Any = None,
+        executor_model_id: str = "host-agent",
+        reviewer_model_id: str = "host-agent-reviewer",
         integrators: dict[str, Any] | None = None,
         *,
         skip_persona_prefix: bool = False,
     ) -> None:
         self.profile = profile
+        # Back-compat: the factory / CLI still pass client + model-id positional
+        # args. They are no longer used to make network calls (harness-split);
+        # the model ids are retained as provenance labels only.
         self.executor_client = executor_client
         self.reviewer_client = reviewer_client
         self.executor_model_id = executor_model_id
@@ -86,11 +120,11 @@ class LLMBackedExpert(Expert):
 
     @classmethod
     def _load_persona_prefix(cls) -> str:
-        """Read + cache the canonical persona prefix (v1.5 P1-A). All 18
-        personas inherit this block so G7 voice, evidence-tier rubric,
-        patient-anchor checklist, traceability footer, and privacy
-        hygiene are enforced upstream rather than relying solely on
-        post-hoc gates (docs/ANTI_PATTERNS_v1.4.md AP-7)."""
+        """Read + cache the canonical persona prefix (v1.5 P1-A). All personas
+        inherit this block so G7 voice, evidence-tier rubric, patient-anchor
+        checklist, traceability footer, and privacy hygiene are enforced
+        upstream rather than relying solely on post-hoc gates
+        (docs/ANTI_PATTERNS_v1.4.md AP-7)."""
         if cls._persona_prefix_cache is not None:
             return cls._persona_prefix_cache
         path = find_prompts_root() / "experts" / "_shared" / "persona_prefix.md"
@@ -107,12 +141,11 @@ class LLMBackedExpert(Expert):
         return cls._persona_prefix_cache
 
     def _compose_system_prompt(self) -> str:
-        """Return the system-prompt body the LLM sees: canonical prefix
-        + the expert-specific persona.md. v1.5.2-2.
+        """Return the system-prompt body the host agent must use: canonical
+        prefix + the expert-specific persona.md. v1.5.2-2.
 
         Check the prefix first — it is the v1.5 mandatory infrastructure
-        and missing it is a louder failure than a missing persona body
-        (which usually means a typo in the expert name).
+        and missing it is a louder failure than a missing persona body.
         """
         if not self.skip_persona_prefix:
             prefix = self._load_persona_prefix()
@@ -121,9 +154,6 @@ class LLMBackedExpert(Expert):
         persona_body = self._persona_path().read_text(encoding="utf-8")
         if not prefix:
             return persona_body
-        # Separator: 2 blank lines + a visible boundary so a downstream
-        # reader can tell where the shared block ends and the persona
-        # begins. Persona body is appended verbatim.
         return f"{prefix}\n\n---\n\n{persona_body}"
 
     def _task_template(self, task_package: str) -> PromptTemplate:
@@ -153,82 +183,152 @@ class LLMBackedExpert(Expert):
             "task_packages": list(self.portfolio),
         }
 
+    # ---- scaffold + validate (replaces the in-Python LLM executor) ---------
+
+    def scaffold(
+        self,
+        task_package: str,
+        context: dict[str, Any],
+        *,
+        sub_goal: str = "",
+    ) -> dict[str, Any]:
+        """Compose the host-agent execution scaffold for one task package.
+
+        Returns the prompt body + system context + rendered task instructions +
+        the canonical output schema source the host agent must satisfy. This is
+        the deterministic replacement for building an ``LLMRequest`` — the host
+        agent reads this and writes back the report artifact.
+        """
+        if not self.can_handle(task_package):
+            raise ValueError(
+                f"{self.profile.name!r} cannot handle task_package {task_package!r}; "
+                f"portfolio={self.portfolio}"
+            )
+        persona = self._compose_system_prompt()
+        template = self._task_template(task_package)
+        task_instructions = template.render(**context)
+        return {
+            "expert": self.profile.name,
+            "task_package": task_package,
+            "sub_goal": sub_goal,
+            "execute_prompt": EXECUTE_PROMPT_REL,
+            "system_prompt": persona,
+            "task_instructions": task_instructions,
+            "prompt_version": template.version,
+            "persona_version": self.persona_version,
+            "response_format": "json_object",
+        }
+
+    def validate_artifact(
+        self, task_package: str, data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Validate a host-written expert artifact + stamp/repair its _meta.
+
+        The host agent's output JSON is validated for basic structural sanity
+        (must be a dict) and the provenance ``_meta`` block is ensured so the
+        downstream provenance journal + delivery gates have what they inspect.
+        Fail-loud on a non-dict payload.
+        """
+        if not isinstance(data, dict):
+            raise ExpertArtifactError(
+                f"{self.profile.name} artifact for {task_package!r} is not a JSON "
+                f"object: got {type(data).__name__}"
+            )
+        meta = data.get("_meta")
+        if not isinstance(meta, dict):
+            meta = {}
+        meta.setdefault("executor_task", task_package)
+        meta.setdefault("model", self.executor_model_id)
+        meta.setdefault("persona_version", self.persona_version)
+        meta.setdefault("produced_by", "host-agent")
+        data["_meta"] = meta
+        return data
+
     async def execute(
         self,
         task_package: str,
         plan: dict[str, Any],
         context: dict[str, Any],
     ) -> dict[str, Any]:
+        """Return the host-written report artifact, or a scaffold placeholder.
+
+        Harness-split: this NO LONGER calls an LLM. Resolution order:
+
+        1. If the caller already routed a host-written artifact into
+           ``context["_host_artifacts"][task_package]`` (or a per-expert path
+           under ``context["_artifact_dir"]``), load + validate + return it.
+        2. Otherwise return a scaffold-shaped placeholder
+           (``produced_by="scaffold"``) carrying the execution scaffold so the
+           wave runner can persist the prompt for the host agent and the
+           artifact-state probe refuses to claim completion.
+        """
         if not self.can_handle(task_package):
             raise ValueError(
                 f"{self.profile.name!r} cannot handle task_package {task_package!r}; "
                 f"portfolio={self.portfolio}"
             )
-        # v1.5.2-2: system prompt = canonical persona prefix (v1.5 P1-A,
-        # G7 voice + evidence rubric + patient-anchor + traceability +
-        # privacy) + this expert's persona.md.
-        persona = self._compose_system_prompt()
-        template = self._task_template(task_package)
-        prompt_text = template.render(**context)
-        req = LLMRequest(
-            model=self.executor_model_id,
-            messages=[{"role": "user", "content": prompt_text}],
-            max_tokens=8192,
-            temperature=0.2,
-            system=persona,
-            response_format={"type": "json_object"},
-        )
-        resp = await self.executor_client.complete(req)
-        try:
-            data: dict[str, Any] = json.loads(resp.content)
-        except json.JSONDecodeError as exc:
-            raise LLMResponseParseError(
-                f"{self.profile.name} executor non-JSON for {task_package!r}: "
-                f"{resp.content[:200]!r}"
-            ) from exc
-        data["_meta"] = {
-            "executor_task": task_package,
-            "model": self.executor_model_id,
-            "prompt_version": template.version,
-            "input_tokens": resp.input_tokens,
-            "output_tokens": resp.output_tokens,
-            "persona_version": self.persona_version,
+        # 1. host-written artifact injected directly into the context.
+        host_artifacts = context.get("_host_artifacts")
+        if isinstance(host_artifacts, dict) and task_package in host_artifacts:
+            return self.validate_artifact(task_package, host_artifacts[task_package])
+
+        # 1b. host-written artifact on disk under a per-task report dir.
+        artifact_dir = context.get("_artifact_dir")
+        if artifact_dir:
+            candidate = Path(artifact_dir) / f"{self.profile.name}_{task_package}.json"
+            if candidate.is_file():
+                try:
+                    loaded = json.loads(candidate.read_text(encoding="utf-8"))
+                except json.JSONDecodeError as exc:
+                    raise ExpertArtifactError(
+                        f"{self.profile.name} artifact {candidate} is not valid JSON: "
+                        f"{exc}"
+                    ) from exc
+                return self.validate_artifact(task_package, loaded)
+
+        # 2. no artifact yet — return the scaffold so the host agent can run it.
+        scaffold = self.scaffold(task_package, context, sub_goal=str(plan.get("sub_goal", "")) if isinstance(plan, dict) else "")
+        return {
+            "produced_by": "scaffold",
+            "_scaffold": scaffold,
+            "_meta": {
+                "executor_task": task_package,
+                "model": self.executor_model_id,
+                "prompt_version": scaffold["prompt_version"],
+                "persona_version": self.persona_version,
+                "produced_by": "scaffold",
+                "note": (
+                    "No host-agent report written back yet. Run "
+                    f"{EXECUTE_PROMPT_REL} with the scaffold and write the JSON "
+                    "artifact for this task."
+                ),
+            },
         }
-        return data
 
     async def review(
         self,
         other_output: dict[str, Any],
         context: dict[str, Any],
     ) -> dict[str, Any]:
-        """Cross-expert peer review using reviewer model (G13: != executor)."""
-        prompt = (
-            "You are a cross-expert reviewer. Inspect the JSON output below for: "
-            "(1) PMID fabrication, (2) quote/claim mismatch, (3) brand vs INN, "
-            "(4) self-contradiction, (5) over-confident exploratory→established drift. "
-            "Return JSON: {verdict: pass|needs_revision|fail, challenges: [string]}.\n\n"
-            f"OUTPUT TO REVIEW:\n{json.dumps(other_output, ensure_ascii=False)}"
-        )
-        req = LLMRequest(
-            model=self.reviewer_model_id,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=4096,
-            response_format={"type": "json_object"},
-        )
-        resp = await self.reviewer_client.complete(req)
-        verdict: dict[str, Any]
-        try:
-            parsed = json.loads(resp.content)
-            verdict = parsed if isinstance(parsed, dict) else {}
-        except json.JSONDecodeError:
-            verdict = {
-                "verdict": "needs_revision",
-                "challenges": ["reviewer returned non-JSON response"],
-            }
-        verdict.setdefault("verdict", "needs_revision")
-        verdict.setdefault("challenges", [])
-        verdict["reviewer_model"] = self.reviewer_model_id
-        return verdict
+        """Cross-expert peer review — deferred to a host-agent reviewer.
+
+        Harness-split: the in-Python cross-model reviewer LLM call is removed.
+        The real cross-expert review is dispatched by the wave runner via
+        ``orchestrator.reviewer_hook.run_reviewer_pairing`` (a distinct-model +
+        distinct-expert host subagent, G13). This method returns a deterministic
+        "deferred" verdict so the execute→review adapter contract still holds —
+        it does NOT approve or block (no fabricated verdict).
+        """
+        return {
+            "verdict": "deferred_to_host_reviewer",
+            "challenges": [],
+            "reviewer_model": self.reviewer_model_id,
+            "note": (
+                "Cross-expert review is dispatched as a host-agent reviewer "
+                "subagent (distinct model + distinct expert) by the wave runner; "
+                "no in-Python LLM verdict is produced here."
+            ),
+        }
 
     async def audit(self, claim: dict[str, Any]) -> dict[str, Any]:
         """Intra-expert pre-audit. STUB — see spec §2.2; P2 will run domain checks.

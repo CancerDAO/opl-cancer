@@ -1,7 +1,7 @@
 """P3-T8: verify Wave-3 task prompt files load + render placeholders."""
 from __future__ import annotations
 
-from opl_cancer.llm.prompts import PromptTemplate, find_prompts_root
+from opl_cancer.prompts_loader import PromptTemplate, find_prompts_root
 
 
 P3_TASKS = (

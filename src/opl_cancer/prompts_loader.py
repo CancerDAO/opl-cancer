@@ -1,4 +1,10 @@
-"""Jinja2-backed prompt template loader.
+"""Jinja2-backed prompt template loader (pure file I/O — NO LLM calls).
+
+Moved out of the deleted ``opl_cancer.llm`` package during the harness split
+(docs/iteration/HARNESS_SPLIT_PRD.md). The patient-delivery path (experts/,
+glue/) only needs to *load* prompt files from the ``prompts/`` tree and render
+them with Jinja2 — it never calls an LLM internally. This module therefore
+carries the deterministic file-loading helper with zero provider/network deps.
 
 Prompt files live in prompts/<scope>/<name>.md (scope = pi/experts/tasks/reviewer/auditor).
 Each template tagged with a semver-ish version string (recorded in produced_by.prompt_version).

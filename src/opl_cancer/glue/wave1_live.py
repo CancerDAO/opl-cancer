@@ -1,19 +1,15 @@
-"""v2.7.1 ADR-0026 (Fork B) — CLI-self-sufficient Wave-1 execution.
+"""Wave-1 scaffold runner wiring (harness-split).
 
-The founder chose to make the CLI able to PRODUCE a compliant run (not merely
-verify one) so a run is third-party reproducible without a human-LLM main thread
-— when an executor key is present. This revises the 2026-04-22 "CLI holds no LLM
-client" posture (see docs/adr/0026-delivery-non-bypassable.md §Fork B).
+Harness-split (HARNESS_SPLIT_PRD): the CLI/runner no longer holds an LLM client
+and does not self-execute the reasoning. The host agent (the SKILL main thread
+or a dispatched subagent) IS the executor — it runs
+``prompts/experts/expert_task_package.md`` against each persona + task template
+and writes the per-expert report artifact back. This module is pure wiring around
+``Wave1Runner``: it builds the production expert factory (generic scaffold/validate
+expert for ANY of the 20 roster personas) and runs the runner as a scaffold pass.
 
-On Claude Code (no API key for the host model) the agent remains the executor and
-`opl-cancer go` orchestrates the dispatch; on a host with an executor key
-(MiniMax/Anthropic) `opl run --wave 1` self-executes via this module.
-
-This module is pure wiring around the existing, well-tested ``Wave1Runner`` — it
-adds (1) a production expert factory that builds the generic ``LLMBackedExpert``
-for ANY of the 20 roster personas (each has prompts/experts/<name>/persona.md),
-and (2) ``run_wave1_live`` which constructs + runs the runner. It is injectable
-so it can be verified offline with mock LLM clients (no live API needed).
+This revises the 2026-04-22/Fork-B "CLI self-sufficient executor" posture — there
+is no in-Python LLM dispatch anymore (see docs/adr and HARNESS_SPLIT_PRD).
 """
 from __future__ import annotations
 
@@ -25,26 +21,24 @@ from opl_cancer.experts._common import LLMBackedExpert
 from opl_cancer.experts.base import Expert, ExpertProfile
 from opl_cancer.experts.roster import get_expert_profile
 from opl_cancer.glue.wave1_runner import Wave1Runner
-from opl_cancer.llm.base import LLMClient
 
-ExpertFactory = Callable[[str, LLMClient, LLMClient, str, str], Expert]
+# Harness-split factory signature: (name, executor_model_id, reviewer_model_id).
+# No LLMClient — the host agent is the executor.
+ExpertFactory = Callable[[str, str, str], Expert]
 
 
 class _RosterExpert(LLMBackedExpert):
-    """Generic LLM-backed expert for ANY roster persona (Fork B self-exec).
+    """Generic scaffold/validate expert for ANY roster persona.
 
     The concrete subclasses (BertExpert, …) only add a static ``portfolio``
     ClassVar; we instead derive the portfolio from the persona's profile so one
-    class serves all 20. Where a persona declares no portfolio (half the roster
-    in v2.2), we trust the planner's routing — the global Planner already decided
-    which expert owns the task, so ``can_handle`` accepts it rather than blocking
-    a legitimately-assigned task.
+    class serves all 20. Where a persona declares no portfolio we trust the
+    planner's routing — ``can_handle`` accepts the assigned task rather than
+    blocking a legitimately-assigned task.
     """
 
     def __init__(self, *, profile: ExpertProfile, **kwargs: Any) -> None:
         super().__init__(profile=profile, **kwargs)
-        # derive the handled packages from the persona's profile (the concrete
-        # subclasses use a static ClassVar; we read the roster instead).
         self._roster_portfolio: tuple[str, ...] = tuple(profile.task_package_portfolio or ())
 
     def can_handle(self, task_package: str) -> bool:
@@ -56,27 +50,23 @@ class _RosterExpert(LLMBackedExpert):
 def build_default_expert_factory(
     integrators: dict[str, Any] | None = None,
 ) -> ExpertFactory:
-    """Return a factory that builds the generic LLMBackedExpert for ANY roster name.
+    """Return a factory that builds the generic scaffold/validate expert for ANY
+    roster name.
 
     Every one of the 20 personas has a prompts/experts/<name>/persona.md, so the
-    generic LLM-backed expert serves all of them (the concrete subclasses like
-    BertExpert add no behaviour beyond identity). A partial/empty integrator map
-    is safe: Wave1Runner._prefetch_integrators degrades a missing family to an
-    empty result rather than raising.
+    generic expert serves all of them. A partial/empty integrator map is safe:
+    Wave1Runner._prefetch_integrators degrades a missing family to an empty
+    result rather than raising.
     """
     shared = integrators or {}
 
     def factory(
         name: str,
-        executor_client: LLMClient,
-        reviewer_client: LLMClient,
         executor_model_id: str,
         reviewer_model_id: str,
     ) -> Expert:
         return _RosterExpert(
             profile=get_expert_profile(name),
-            executor_client=executor_client,
-            reviewer_client=reviewer_client,
             executor_model_id=executor_model_id,
             reviewer_model_id=reviewer_model_id,
             integrators=dict(shared),
@@ -85,25 +75,26 @@ def build_default_expert_factory(
     return factory
 
 
-def run_wave1_live(
+def run_wave1_scaffold(
     *,
     patient_root: Path,
     run_root: Path,
-    intent_client: LLMClient,
-    planner_client: LLMClient,
-    executor_client: LLMClient,
-    reviewer_client: LLMClient,
-    executor_model_id: str,
-    reviewer_model_id: str,
+    executor_model_id: str = "host-agent",
+    reviewer_model_id: str = "host-agent-reviewer",
+    plan_dict: dict[str, Any] | None = None,
+    host_artifacts: dict[str, dict[str, Any]] | None = None,
+    intent: str = "NEW_GOAL",
     expert_factory: ExpertFactory | None = None,
     gates: list[Any] | None = None,
 ) -> dict[str, Any]:
-    """Construct + run Wave1Runner against the patient case. Returns its result.
+    """Construct + run Wave1Runner as a scaffold/validate pass. Returns its result.
 
-    ``run_root`` (``triggers/<run_id>``) IS the runner's out_dir, so the
-    provenance journal + per-expert reports land where audit/deliver/attest look.
-    ``patient_text`` is read from ``<patient_root>/case_text.md``. Injectable
-    clients/factory make this verifiable offline with mocks.
+    ``run_root`` (``triggers/<run_id>``) IS the runner's out_dir, so scaffolds +
+    per-expert reports + the provenance journal land where audit/deliver/attest
+    look. ``patient_text`` is read from ``<patient_root>/case_text.md``. When
+    ``host_artifacts`` are provided (host-agent reports keyed by task_package) the
+    brief assembles fully; otherwise the runner persists scaffolds and returns
+    status="incomplete".
     """
     run_root = Path(run_root)
     run_root.mkdir(parents=True, exist_ok=True)
@@ -118,16 +109,15 @@ def run_wave1_live(
     runner = Wave1Runner(
         patient_root=Path(patient_root),
         out_dir=run_root,
-        intent_client=intent_client,
-        planner_client=planner_client,
-        executor_client=executor_client,
-        reviewer_client=reviewer_client,
         executor_model_id=executor_model_id,
         reviewer_model_id=reviewer_model_id,
         expert_factory=expert_factory or build_default_expert_factory(),
         gates=gates or [],
+        plan_dict=plan_dict,
+        host_artifacts=host_artifacts,
+        intent=intent,
     )
     return asyncio.run(runner.run(patient_text))
 
 
-__all__ = ["build_default_expert_factory", "run_wave1_live", "ExpertFactory"]
+__all__ = ["build_default_expert_factory", "run_wave1_scaffold", "ExpertFactory"]

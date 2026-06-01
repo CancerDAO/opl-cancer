@@ -1,6 +1,7 @@
 """P1 Wave 1 E2E — parametrised over both synthetic patients (T33).
 
-All LLM + integrator calls mocked. Deterministic (no network, fixed responses).
+Harness-split: no LLM calls. The plan + per-expert report are injected as the
+deterministic plan_dict + host_artifacts (what the host agent writes back).
 Asserts:
 - brief HTML generated under delivery/
 - every claim has provenance sha256 hash
@@ -24,32 +25,10 @@ import pytest
 from opl_cancer.experts.bert import BertExpert
 from opl_cancer.experts.roster import get_expert_profile
 from opl_cancer.glue.wave1_runner import Wave1Runner
-from opl_cancer.llm.base import LLMRequest, LLMResponse
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GS_PATIENTS = REPO_ROOT / "validators" / "golden_set" / "synthetic_patients"
-
-
-class _Stub:
-    """Deterministic stub LLM client."""
-
-    provider = "stub"
-
-    def __init__(self, responses: list[str]) -> None:
-        self.responses = list(responses)
-
-    async def complete(self, request: LLMRequest) -> LLMResponse:
-        if not self.responses:
-            raise RuntimeError(f"_Stub exhausted for model={request.model}")
-        body = self.responses.pop(0)
-        return LLMResponse(
-            content=body,
-            model=request.model,
-            input_tokens=1,
-            output_tokens=1,
-            finish_reason="end_turn",
-        )
 
 
 class _FakeIntegrator:
@@ -61,11 +40,9 @@ class _FakeIntegrator:
         return {"verified": True, "key": key, "source": "mock"}
 
 
-def _bert_factory(name: str, exec_c: Any, rev_c: Any, ex_id: str, rv_id: str) -> Any:
+def _bert_factory(name: str, ex_id: str, rv_id: str) -> Any:
     return BertExpert(
         profile=get_expert_profile("bert"),
-        executor_client=exec_c,
-        reviewer_client=rev_c,
         executor_model_id=ex_id,
         reviewer_model_id=rv_id,
         integrators={"F4": _FakeIntegrator(), "F5": _FakeIntegrator()},
@@ -223,14 +200,12 @@ async def test_wave1_e2e_two_patients(
     runner = Wave1Runner(
         patient_root=dst,
         out_dir=tmp_path / "out" / patient_code,
-        intent_client=_Stub([canned["intent"]]),
-        planner_client=_Stub([canned["planner"]]),
-        executor_client=_Stub([canned["executor"]]),
-        reviewer_client=_Stub([canned["reviewer"]]),
         executor_model_id="claude-opus-4-7",
         reviewer_model_id="minimax-m2-7",
         expert_factory=_bert_factory,
         gates=[],
+        plan_dict=json.loads(canned["planner"]),
+        host_artifacts={"molecular_ngs_interpretation": json.loads(canned["executor"])},
     )
 
     result = await runner.run(patient_text=query)
@@ -274,14 +249,12 @@ async def test_wave1_e2e_no_real_phi_leakage(tmp_path: Path) -> None:
     runner = Wave1Runner(
         patient_root=dst,
         out_dir=tmp_path / "out",
-        intent_client=_Stub([canned["intent"]]),
-        planner_client=_Stub([canned["planner"]]),
-        executor_client=_Stub([canned["executor"]]),
-        reviewer_client=_Stub([canned["reviewer"]]),
         executor_model_id="claude-opus-4-7",
         reviewer_model_id="minimax-m2-7",
         expert_factory=_bert_factory,
         gates=[],
+        plan_dict=json.loads(canned["planner"]),
+        host_artifacts={"molecular_ngs_interpretation": json.loads(canned["executor"])},
     )
     await runner.run(patient_text="test")
     text = (tmp_path / "out" / "delivery" / "patient_brief.html").read_text(

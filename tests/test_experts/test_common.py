@@ -1,7 +1,10 @@
-"""Test LLMBackedExpert — shared 6-primitive grammar wrapper.
+"""Test LLMBackedExpert — shared 6-primitive grammar scaffold/validator.
 
-Plan refs: P1-T25.
-LLM calls mocked via injected fake client so tests stay offline + deterministic.
+Plan refs: P1-T25, harness-split (HARNESS_SPLIT_PRD).
+Harness-split: the expert no longer calls an LLM. ``execute`` returns the
+host-written report artifact (loaded + validated) when present, else a scaffold
+placeholder; ``review`` defers to a host-agent reviewer subagent. These tests
+assert that deterministic scaffold/validate behavior — no LLM client involved.
 """
 from __future__ import annotations
 
@@ -10,32 +13,8 @@ from typing import Any
 
 import pytest
 
-from opl_cancer.experts._common import LLMBackedExpert
+from opl_cancer.experts._common import ExpertArtifactError, LLMBackedExpert
 from opl_cancer.experts.base import ExpertProfile
-from opl_cancer.llm.base import LLMRequest, LLMResponse
-from opl_cancer.llm.errors import LLMResponseParseError
-
-
-class _FakeClient:
-    """Minimal LLMClient stand-in — records last request + returns canned content."""
-
-    provider = "fake"
-
-    def __init__(self, content: str) -> None:
-        self.content = content
-        self.last_request: LLMRequest | None = None
-        self.call_count = 0
-
-    async def complete(self, request: LLMRequest) -> LLMResponse:
-        self.last_request = request
-        self.call_count += 1
-        return LLMResponse(
-            content=self.content,
-            model=request.model,
-            input_tokens=10,
-            output_tokens=5,
-            finish_reason="end_turn",
-        )
 
 
 class _StubIntegrator:
@@ -101,143 +80,121 @@ def _profile(name: str = "dummy") -> ExpertProfile:
     )
 
 
-def test_can_handle_filters_portfolio() -> None:
-    exp = _DummyExpert(
-        profile=_profile(),
-        executor_client=_FakeClient(content="{}"),
-        reviewer_client=_FakeClient(content="{}"),
+def _expert(name: str = "dummy", **kwargs: Any) -> "_DummyExpert":
+    """Build a _DummyExpert with the harness-split signature (no LLM clients)."""
+    return _DummyExpert(
+        profile=_profile(name),
         executor_model_id="claude-opus-4-7",
         reviewer_model_id="minimax-m2-7",
+        **kwargs,
     )
+
+
+def test_can_handle_filters_portfolio() -> None:
+    exp = _expert()
     assert exp.can_handle("dummy_task")
     assert not exp.can_handle("some_other_task")
 
 
 async def test_plan_returns_portfolio_decomposition() -> None:
-    exp = _DummyExpert(
-        profile=_profile(),
-        executor_client=_FakeClient(content="{}"),
-        reviewer_client=_FakeClient(content="{}"),
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
-    )
+    exp = _expert()
     plan = await exp.plan("sub-goal X", context={})
     assert plan["expert"] == "dummy"
     assert plan["sub_goal"] == "sub-goal X"
     assert plan["task_packages"] == ["dummy_task"]
 
 
-async def test_execute_parses_json_response(dummy_task_prompt: Path) -> None:
-    fake = _FakeClient(content='{"variants": [], "summary": "ok"}')
-    exp = _DummyExpert(
-        profile=_profile(),
-        executor_client=fake,
-        reviewer_client=_FakeClient(content="{}"),
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
+async def test_scaffold_composes_persona_and_task(dummy_task_prompt: Path) -> None:
+    exp = _expert()
+    scaffold = exp.scaffold("dummy_task", context={"key": "val"}, sub_goal="sg")
+    # system prompt = canonical prefix + persona body
+    assert "You are dummy." in scaffold["system_prompt"]
+    assert "G7 voice" in scaffold["system_prompt"]
+    # task instructions rendered with context vars
+    assert "Task body with val" in scaffold["task_instructions"]
+    # points at the host-agent execute prompt + carries provenance labels
+    assert scaffold["execute_prompt"].endswith("expert_task_package.md")
+    assert "dummy_task" in scaffold["prompt_version"]
+    assert scaffold["response_format"] == "json_object"
+
+
+async def test_execute_returns_host_artifact_when_present(dummy_task_prompt: Path) -> None:
+    """When the host agent has written the report, execute loads + validates it."""
+    exp = _expert()
+    host = {"variants": [], "summary": "ok"}
+    result = await exp.execute(
+        "dummy_task", plan={},
+        context={"key": "val", "_host_artifacts": {"dummy_task": host}},
     )
-    result = await exp.execute("dummy_task", plan={}, context={"key": "val"})
     assert result["variants"] == []
     assert result["summary"] == "ok"
-    # meta annotates with executor model + prompt version
+    # _meta provenance stamped by validate_artifact
     meta = result["_meta"]
     assert meta["model"] == "claude-opus-4-7"
     assert meta["executor_task"] == "dummy_task"
-    assert "dummy_task" in meta["prompt_version"]
-    assert meta["input_tokens"] == 10
-    assert meta["output_tokens"] == 5
+    assert meta["produced_by"] == "host-agent"
 
 
-async def test_execute_uses_persona_as_system_prompt(dummy_task_prompt: Path) -> None:
-    fake = _FakeClient(content="{}")
-    exp = _DummyExpert(
-        profile=_profile(),
-        executor_client=fake,
-        reviewer_client=_FakeClient(content="{}"),
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
+async def test_execute_loads_host_artifact_from_disk(dummy_task_prompt: Path, tmp_path: Path) -> None:
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+    (artifact_dir / "dummy_dummy_task.json").write_text(
+        '{"matches": [], "summary": "from-disk"}', encoding="utf-8"
     )
-    await exp.execute("dummy_task", plan={}, context={"key": "val"})
-    assert fake.last_request is not None
-    # v1.5.2-2: system prompt now = canonical prefix + persona body.
-    # The persona body must be present as a substring; the prefix
-    # (stubbed in the fixture) precedes it.
-    assert fake.last_request.system is not None
-    assert "You are dummy." in fake.last_request.system
-    assert "G7 voice" in fake.last_request.system  # prefix stub marker
-    # prompt was rendered with context vars
-    assert "Task body with val" in fake.last_request.messages[0]["content"]
-
-
-async def test_execute_raises_on_bad_json(dummy_task_prompt: Path) -> None:
-    fake = _FakeClient(content="not json at all")
-    exp = _DummyExpert(
-        profile=_profile(),
-        executor_client=fake,
-        reviewer_client=_FakeClient(content="{}"),
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
+    exp = _expert()
+    result = await exp.execute(
+        "dummy_task", plan={}, context={"_artifact_dir": str(artifact_dir)}
     )
-    with pytest.raises(LLMResponseParseError):
-        await exp.execute("dummy_task", plan={}, context={"key": "val"})
+    assert result["summary"] == "from-disk"
+    assert result["_meta"]["produced_by"] == "host-agent"
+
+
+async def test_execute_returns_scaffold_placeholder_when_no_artifact(dummy_task_prompt: Path) -> None:
+    """No host artifact yet → scaffold placeholder (produced_by='scaffold'),
+    never a fabricated/approving result."""
+    exp = _expert()
+    result = await exp.execute("dummy_task", plan={"sub_goal": "sg"}, context={"key": "val"})
+    assert result["produced_by"] == "scaffold"
+    assert result["_meta"]["produced_by"] == "scaffold"
+    # carries the scaffold the host agent must run
+    assert "You are dummy." in result["_scaffold"]["system_prompt"]
+    # no claim lists → contributes zero claims downstream (honest emptiness)
+    assert "variants" not in result
+
+
+async def test_validate_artifact_raises_on_non_dict() -> None:
+    exp = _expert()
+    with pytest.raises(ExpertArtifactError):
+        exp.validate_artifact("dummy_task", ["not", "a", "dict"])  # type: ignore[arg-type]
+
+
+async def test_execute_raises_on_bad_disk_json(dummy_task_prompt: Path, tmp_path: Path) -> None:
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+    (artifact_dir / "dummy_dummy_task.json").write_text("not json at all", encoding="utf-8")
+    exp = _expert()
+    with pytest.raises(ExpertArtifactError):
+        await exp.execute("dummy_task", plan={}, context={"_artifact_dir": str(artifact_dir)})
 
 
 async def test_execute_raises_on_unknown_task(dummy_task_prompt: Path) -> None:
-    fake = _FakeClient(content="{}")
-    exp = _DummyExpert(
-        profile=_profile(),
-        executor_client=fake,
-        reviewer_client=_FakeClient(content="{}"),
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
-    )
+    exp = _expert()
     with pytest.raises(ValueError):
         await exp.execute("not_in_portfolio", plan={}, context={})
 
 
-async def test_review_returns_verdict() -> None:
-    reviewer = _FakeClient(
-        content='{"verdict": "pass", "challenges": []}'
-    )
-    exp = _DummyExpert(
-        profile=_profile(),
-        executor_client=_FakeClient(content="{}"),
-        reviewer_client=reviewer,
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
-    )
+async def test_review_defers_to_host_reviewer() -> None:
+    """Harness-split: review no longer makes a cross-model LLM call. It returns a
+    deterministic 'deferred' verdict (the real reviewer is a host subagent)."""
+    exp = _expert()
     verdict = await exp.review({"variants": []}, context={})
-    assert verdict["verdict"] == "pass"
+    assert verdict["verdict"] == "deferred_to_host_reviewer"
     assert verdict["reviewer_model"] == "minimax-m2-7"
-    # reviewer was called with reviewer's model id, not executor's
-    assert reviewer.last_request is not None
-    assert reviewer.last_request.model == "minimax-m2-7"
-
-
-async def test_review_handles_non_json_response() -> None:
-    reviewer = _FakeClient(content="this is not JSON")
-    exp = _DummyExpert(
-        profile=_profile(),
-        executor_client=_FakeClient(content="{}"),
-        reviewer_client=reviewer,
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
-    )
-    verdict = await exp.review({"variants": []}, context={})
-    # graceful: marked needs_revision rather than crashing
-    assert verdict["verdict"] == "needs_revision"
-    assert verdict["challenges"]
-    assert verdict["reviewer_model"] == "minimax-m2-7"
+    assert verdict["challenges"] == []
 
 
 async def test_audit_returns_intra_expert_marker() -> None:
-    exp = _DummyExpert(
-        profile=_profile(),
-        executor_client=_FakeClient(content="{}"),
-        reviewer_client=_FakeClient(content="{}"),
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
-    )
+    exp = _expert()
     result = await exp.audit({"claim": "x"})
     assert result["intra_expert_audit"] == "ok"
     assert result["expert"] == "dummy"
@@ -245,43 +202,21 @@ async def test_audit_returns_intra_expert_marker() -> None:
 
 async def test_integrate_uses_injected_integrator() -> None:
     integ = _StubIntegrator(payload={"pmid": "12345", "title": "Test"})
-    exp = _DummyExpert(
-        profile=_profile(),
-        executor_client=_FakeClient(content="{}"),
-        reviewer_client=_FakeClient(content="{}"),
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
-        integrators={"F1": integ},
-    )
+    exp = _expert(integrators={"F1": integ})
     result = await exp.integrate("F1", "PMID:12345")
     assert result["pmid"] == "12345"
     assert integ.calls == ["PMID:12345"]
 
 
 async def test_integrate_raises_for_missing_family() -> None:
-    exp = _DummyExpert(
-        profile=_profile(),
-        executor_client=_FakeClient(content="{}"),
-        reviewer_client=_FakeClient(content="{}"),
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
-    )
+    exp = _expert()
     with pytest.raises(KeyError):
         await exp.integrate("F1", "PMID:1")
 
 
 def test_feedback_is_a_noop_in_p1() -> None:
-    exp = _DummyExpert(
-        profile=_profile(),
-        executor_client=_FakeClient(content="{}"),
-        reviewer_client=_FakeClient(content="{}"),
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
-    )
-    # MUST NOT raise. Working memory update lives in P2.
+    exp = _expert()
     import warnings as _w
-
-    from opl_cancer.experts._common import StubMethodWarning
 
     with _w.catch_warnings():
         _w.simplefilter("always")
@@ -294,13 +229,7 @@ async def test_stub_methods_emit_warnings() -> None:
 
     from opl_cancer.experts._common import StubMethodWarning
 
-    exp = _DummyExpert(
-        profile=_profile(),
-        executor_client=_FakeClient(content="{}"),
-        reviewer_client=_FakeClient(content="{}"),
-        executor_model_id="claude-opus-4-7",
-        reviewer_model_id="minimax-m2-7",
-    )
+    exp = _expert()
 
     with _w.catch_warnings(record=True) as caught:
         _w.simplefilter("always")

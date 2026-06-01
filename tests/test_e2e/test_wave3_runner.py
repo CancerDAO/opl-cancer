@@ -1,6 +1,8 @@
 """Wave 3 E2E — Aviv + Tyler over mocked Wave-2 output. P3-T12.
 
-All LLM + integrators mocked. Bixbench in dry-run (no OPL_BIXBENCH_LIVE set).
+Harness-split: experts no longer call an LLM. Per-task host-written report
+artifacts are injected via patient_context['_host_artifacts'] (keyed by
+task_package). Bixbench in dry-run (no OPL_BIXBENCH_LIVE set).
 """
 from __future__ import annotations
 
@@ -14,20 +16,6 @@ from opl_cancer.experts.aviv import AvivExpert
 from opl_cancer.experts.roster import get_expert_profile
 from opl_cancer.experts.tyler import TylerExpert
 from opl_cancer.glue.wave3_runner import Wave3Runner
-from opl_cancer.llm.base import LLMRequest, LLMResponse
-
-
-class _SeqClient:
-    provider = "fake"
-
-    def __init__(self, responses: list[str]) -> None:
-        self.responses = responses
-        self.idx = 0
-
-    async def complete(self, request: LLMRequest) -> LLMResponse:
-        body = self.responses[self.idx % len(self.responses)]
-        self.idx += 1
-        return LLMResponse(content=body, model=request.model)
 
 
 _DATASET_JSON = json.dumps(
@@ -84,8 +72,6 @@ _VALIDATION_JSON = json.dumps(
 def _make_aviv() -> AvivExpert:
     return AvivExpert(
         profile=get_expert_profile("aviv"),
-        executor_client=_SeqClient([_DATASET_JSON, _ANALYSIS_JSON, _ANALYSIS_JSON]),
-        reviewer_client=_SeqClient(["{}"]),
         executor_model_id="claude-opus-4-7",
         reviewer_model_id="minimax-m2-7",
     )
@@ -94,11 +80,22 @@ def _make_aviv() -> AvivExpert:
 def _make_tyler() -> TylerExpert:
     return TylerExpert(
         profile=get_expert_profile("tyler"),
-        executor_client=_SeqClient([_VALIDATION_JSON] * 5),
-        reviewer_client=_SeqClient(["{}"]),
         executor_model_id="claude-opus-4-7",
         reviewer_model_id="minimax-m2-7",
     )
+
+
+# Host-written per-task report artifacts (what the host agent writes back),
+# keyed by task_package — injected into patient_context so the scaffold/validate
+# expert.execute() returns the real report.
+def _host_artifacts() -> dict:
+    return {
+        "_host_artifacts": {
+            "dataset_acquisition": json.loads(_DATASET_JSON),
+            "bioinformatics_data_analysis": json.loads(_ANALYSIS_JSON),
+            "hypothesis_validation": json.loads(_VALIDATION_JSON),
+        }
+    }
 
 
 def _wave2_canned() -> dict:
@@ -121,7 +118,7 @@ async def test_wave3_e2e_produces_validations(tmp_path: Path, monkeypatch: pytes
     )
     out = await runner.run(
         patient_text="Wave-3 data evidence?",
-        patient_context={"cancer": "HCC", "stage": "III"},
+        patient_context={"cancer": "HCC", "stage": "III", **_host_artifacts()},
         wave2_outputs=_wave2_canned(),
     )
     assert out["datasets"]["datasets"][0]["accession"] == "GSE12345"
@@ -140,7 +137,7 @@ async def test_wave3_writes_json_and_provenance(tmp_path: Path, monkeypatch: pyt
         tyler=_make_tyler(),
         bixbench=BixbenchRunner(),
     )
-    out = await runner.run("?", {}, _wave2_canned())
+    out = await runner.run("?", _host_artifacts(), _wave2_canned())
     rd = tmp_path / "out" / out["run_id"]
     assert (rd / "wave3_data_evidence.json").exists()
     assert (rd / "provenance.jsonl").exists()
@@ -157,7 +154,7 @@ async def test_wave3_bixbench_dry_run(tmp_path: Path, monkeypatch: pytest.Monkey
         tyler=_make_tyler(),
         bixbench=BixbenchRunner(),
     )
-    out = await runner.run("?", {}, _wave2_canned())
+    out = await runner.run("?", _host_artifacts(), _wave2_canned())
     for run in out["analysis_runs"]:
         assert run["bixbench_result"]["mode"] == "dry-run"
 
@@ -168,10 +165,6 @@ async def test_wave3_falls_back_to_aviv_when_no_tyler(
     monkeypatch.delenv("OPL_BIXBENCH_LIVE", raising=False)
     aviv = AvivExpert(
         profile=get_expert_profile("aviv"),
-        executor_client=_SeqClient(
-            [_DATASET_JSON, _ANALYSIS_JSON, _ANALYSIS_JSON, _VALIDATION_JSON, _VALIDATION_JSON]
-        ),
-        reviewer_client=_SeqClient(["{}"]),
         executor_model_id="claude-opus-4-7",
         reviewer_model_id="minimax-m2-7",
     )
@@ -181,6 +174,6 @@ async def test_wave3_falls_back_to_aviv_when_no_tyler(
         tyler=None,
         bixbench=BixbenchRunner(),
     )
-    out = await runner.run("?", {}, _wave2_canned())
+    out = await runner.run("?", _host_artifacts(), _wave2_canned())
     for v in out["validations"]:
         assert v["validator"] == "aviv"

@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 from typing import Any, Literal
 
-from opl_cancer.llm.base import LLMClient, LLMRequest
+from opl_cancer._llm_contract import LLMClient, LLMRequest  # transitional shim — see _llm_contract.py
 from opl_cancer.memory.schemas import Hypothesis
 
 

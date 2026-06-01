@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Iterator, Literal
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from opl_cancer.llm.base import LLMClient
+    from opl_cancer._llm_contract import LLMClient  # transitional shim
 
 
 class IntentClass(str, Enum):
@@ -98,9 +98,8 @@ class PISession:
         Raises on bad JSON / unknown intent (no silent degradation —
         memory:feedback_no_offline_only + feedback_default_prompt_over_script).
         """
-        from opl_cancer.llm.base import LLMRequest
-        from opl_cancer.llm.errors import LLMResponseParseError
-        from opl_cancer.llm.prompts import PromptTemplate, find_prompts_root
+        from opl_cancer._llm_contract import LLMRequest, LLMResponseParseError  # transitional shim
+        from opl_cancer.prompts_loader import PromptTemplate, find_prompts_root
 
         template = PromptTemplate.load(
             find_prompts_root() / "pi" / "intent_parser.md",

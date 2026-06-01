@@ -1,6 +1,13 @@
 # OPL for Cancer — production model + reviewer pool roster
 # Spec §7 G13: Reviewer model MUST != Executor model.
 # Spec §12: Versions locked (no silent updates).
+#
+# NOTE (harness split — docs/iteration/HARNESS_SPLIT_PRD.md):
+# The patient-delivery path NO LONGER calls LLMs internally (the host agent is
+# the executor) and does NOT read executor_model / reviewer_pool / provider keys
+# from this file. As of the harness split this roster ONLY serves the evolution
+# engine / G13 reviewer-distinct redefinition (orchestrator/* + evolution/*).
+# The patient CLI does not load this file.
 
 executor_model:
   id: claude-opus-4-7

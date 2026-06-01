@@ -1,18 +1,24 @@
-"""Wave 1 end-to-end orchestrator — intent → plan → fanout → audit → render.
+"""Wave 1 end-to-end orchestrator — plan-load → scaffold → fanout → audit → render.
 
-Spec §4 lifecycle (Wave 1 = team discovery). Driven entirely by LLM JSON
-returns (no hardcoded keyword routing — memory:feedback_default_prompt_over_script).
+Spec §4 lifecycle (Wave 1 = team discovery). Harness-split (HARNESS_SPLIT_PRD):
+this runner NO LONGER calls an LLM. The host agent (SKILL main thread / dispatched
+subagents) is the reasoning executor. The runner is a pure scaffold + validator,
+mirroring wave2-4 runners:
 
-Pipeline:
-1. PI Sid runs ``intent_parser`` LLM call — only ``NEW_GOAL`` proceeds.
-2. PI Sid runs planner LLM call → ``Plan(JSON)`` selecting subset of 6 experts.
-3. Pre-fetch integrator results per task (per task package's known dependencies +
-   expert's ``preferred_families``).
-4. ``dispatch_wave`` runs all chosen Experts concurrently via asyncio.gather.
-5. Each Expert output → cross-expert reviewer call (different model per G13).
-6. Mechanical gates run on every claim (G1/G2/G3/G9/G11 — injected via ``gates``).
+1. Intent is host-provided (defaults to ``NEW_GOAL``); the intent_parser LLM call
+   is removed (intent classification is now a host-agent decision).
+2. The deterministic ``plan.json`` (produced by ``opl-cancer plan``) is loaded —
+   or a host-provided ``plan_dict`` is used — instead of an LLM planner call.
+3. Pre-fetch integrator results per task (DB/API ``integrate()`` — not an LLM call).
+4. ``dispatch_wave`` runs the experts' scaffold/validate ``execute`` concurrently:
+   each returns the host-written report artifact if present, else a scaffold.
+5. Cross-expert review is dispatched as a host-agent reviewer subagent via
+   ``run_reviewer_pairing`` (distinct model + distinct expert, G13) — the
+   in-Python reviewer LLM call is removed.
+6. Mechanical gates run on every claim (injected via ``gates``) — Python verdicts.
 7. ``provenance_hash`` per claim (canonical SHA-256 via ``hash_claim``).
-8. ``PatientBriefRenderer`` writes ``delivery/patient_brief.{html,md}``.
+8. ``PatientBriefRenderer`` assembles ``delivery/patient_brief.{html,md}``
+   deterministically from the validated artifacts.
 
 Per ADR-2026-04-22 main-thread-only: this runner IS the main thread; Experts
 are dispatched once. Recursive ``dispatch_wave`` calls raise.
@@ -23,20 +29,25 @@ import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from opl_cancer.orchestrator.dispatch import ExpertHandler
 
 from opl_cancer.experts.base import Expert
 from opl_cancer.glue.case_loader import PatientCaseLoader
 from opl_cancer.glue.progress_reporter import ProgressReporter
 from opl_cancer.glue.renderer import PatientBriefRenderer
-from opl_cancer.llm.base import LLMClient, LLMRequest
-from opl_cancer.llm.prompts import PromptTemplate, find_prompts_root
-from opl_cancer.orchestrator.dispatch import ExpertHandler, dispatch_wave
 from opl_cancer.glue._post_write import (
     SnifferHalt,
     post_write_safety_check as _post_write_safety_check,
 )
-from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
+# NOTE (harness-split): orchestrator.* is the self-improvement engine being
+# extracted to a standalone repo. ExpertHandler / dispatch_wave /
+# run_reviewer_pairing are imported lazily (in-function at execution time) so
+# this runner stays importable when orchestrator/ is absent. ExpertHandler is
+# only needed at handler-build time, so the adapter subclass is built lazily via
+# ``_expert_handler_adapter_cls()`` below.
 from opl_cancer.validators.fakery_sniffer import scan_artifact  # noqa: F401 — back-compat re-export
 from opl_cancer.plan.schemas import Plan, Task, WaveAssignment
 from opl_cancer.provenance.hasher import hash_claim
@@ -108,20 +119,45 @@ _TASK_EXTRA_CONTEXT: dict[str, list[tuple[str, str]]] = {
 }
 
 
-class _ExpertHandlerAdapter(ExpertHandler):
-    """Adapt an :class:`Expert` to the :class:`ExpertHandler` protocol.
+_EXPERT_HANDLER_ADAPTER_CLS: type | None = None
 
-    ``run_task`` calls expert.execute → expert.review and returns both.
+
+def _expert_handler_adapter_cls() -> type:
+    """Lazily build the ``ExpertHandler`` adapter subclass.
+
+    ``ExpertHandler`` lives in the orchestrator engine (being extracted to a
+    standalone repo). Subclassing it at module-import time would couple this
+    runner's importability to orchestrator/. Building the subclass on first use
+    (handler-build / execution time) keeps ``import wave1_runner`` clean while
+    preserving identical runtime behaviour. The built class is cached.
     """
+    global _EXPERT_HANDLER_ADAPTER_CLS
+    if _EXPERT_HANDLER_ADAPTER_CLS is not None:
+        return _EXPERT_HANDLER_ADAPTER_CLS
 
-    def __init__(self, expert: Expert, task_package: str) -> None:
-        self.expert = expert
-        self.task_package = task_package
+    from opl_cancer.orchestrator.dispatch import ExpertHandler
 
-    async def run_task(self, task: Task, context: dict[str, Any]) -> dict[str, Any]:
-        output = await self.expert.execute(task.task_package, plan={}, context=context)
-        review = await self.expert.review(output, context=context)
-        return {"output": output, "review": review}
+    class _ExpertHandlerAdapter(ExpertHandler):  # type: ignore[misc, valid-type]
+        """Adapt an :class:`Expert` to the :class:`ExpertHandler` protocol.
+
+        ``run_task`` calls expert.execute → expert.review and returns both.
+        """
+
+        def __init__(self, expert: Expert, task_package: str) -> None:
+            self.expert = expert
+            self.task_package = task_package
+
+        async def run_task(
+            self, task: Task, context: dict[str, Any]
+        ) -> dict[str, Any]:
+            output = await self.expert.execute(
+                task.task_package, plan={}, context=context
+            )
+            review = await self.expert.review(output, context=context)
+            return {"output": output, "review": review}
+
+    _EXPERT_HANDLER_ADAPTER_CLS = _ExpertHandlerAdapter
+    return _EXPERT_HANDLER_ADAPTER_CLS
 
 
 class Wave1Runner:
@@ -129,27 +165,33 @@ class Wave1Runner:
         self,
         patient_root: Path,
         out_dir: Path,
-        intent_client: LLMClient,
-        planner_client: LLMClient,
-        executor_client: LLMClient,
-        reviewer_client: LLMClient,
         executor_model_id: str,
         reviewer_model_id: str,
         expert_factory: Callable[..., Expert],
         gates: list[Gate],
         *,
+        plan_dict: dict[str, Any] | None = None,
+        host_artifacts: dict[str, dict[str, Any]] | None = None,
+        intent: str = "NEW_GOAL",
         reporter: ProgressReporter | None = None,
     ) -> None:
         self.patient_root = Path(patient_root)
         self.out_dir = Path(out_dir)
-        self.intent_client = intent_client
-        self.planner_client = planner_client
-        self.executor_client = executor_client
-        self.reviewer_client = reviewer_client
+        # Harness-split: no LLM clients. model ids are retained as provenance
+        # labels + reviewer-pairing inputs (the host agent is the executor).
         self.executor_model_id = executor_model_id
         self.reviewer_model_id = reviewer_model_id
         self.expert_factory = expert_factory
         self.gates = gates
+        # Host-provided plan (the deterministic plan.json dict). When None the
+        # runner loads <out_dir>/plan.json. Shape: {"experts":[...], "tasks":[...]}.
+        self.plan_dict = plan_dict
+        # Host-written per-task report artifacts keyed by task_package. Routed
+        # into each expert's execute() context as _host_artifacts so the
+        # scaffold/validate expert returns the real report instead of a stub.
+        self.host_artifacts = host_artifacts or {}
+        # Intent is now host-provided (the intent_parser LLM call is removed).
+        self.intent = intent
         # v1.5.2: optional plain-language progress reporter. When None,
         # silently no-op (back-compat with v1.4 / v1.5 callers).
         self.reporter = reporter
@@ -169,6 +211,10 @@ class Wave1Runner:
         ctx = PatientCaseLoader(self.patient_root).load()
         # Always promote profile_json (json-encoded profile) for templates
         ctx["profile_json"] = json.dumps(ctx["profile"], ensure_ascii=False)
+        # Route host-written report artifacts into the expert execute() context
+        # so the scaffold/validate expert returns the real report (keyed by
+        # task_package) instead of a stub placeholder.
+        ctx["_host_artifacts"] = dict(self.host_artifacts)
         if self.reporter is not None:
             self.reporter.heartbeat(
                 1,
@@ -176,8 +222,8 @@ class Wave1Runner:
                 force=True,
             )
 
-        # 1. Intent classification
-        intent = await self._classify_intent(patient_text, ctx)
+        # 1. Intent — host-provided (intent_parser LLM call removed in harness-split)
+        intent = self.intent
         if intent != "NEW_GOAL":
             if self.reporter is not None:
                 self.reporter.end_stage(
@@ -195,7 +241,7 @@ class Wave1Runner:
             )
 
         # 2. Plan
-        plan, plan_dict = await self._build_plan(patient_text, ctx)
+        plan, plan_dict = self._build_plan(patient_text, ctx)
         if self.reporter is not None:
             experts_count = len(plan_dict.get("experts", []))
             self.reporter.heartbeat(
@@ -215,6 +261,7 @@ class Wave1Runner:
             )
 
         # 4. Dispatch wave 1 concurrently
+        from opl_cancer.orchestrator.dispatch import dispatch_wave
         outputs = await dispatch_wave(plan, 1, handlers, context=ctx)
         if self.reporter is not None:
             self.reporter.heartbeat(
@@ -229,6 +276,15 @@ class Wave1Runner:
         rendered_experts, risk_cards = await self._collect_claims(
             plan=plan, outputs=outputs, provenance=prov,
         )
+        # Harness-split: a task whose host-agent report was not written back yet
+        # comes through as a scaffold placeholder (produced_by="scaffold"). The
+        # brief is then INCOMPLETE — surface this honestly rather than ship a
+        # brief that silently omits experts (memory:feedback_no_false_completion).
+        scaffolded_tasks = [
+            task.expert
+            for task in plan.tasks
+            if outputs.get(task.id, {}).get("output", {}).get("produced_by") == "scaffold"
+        ]
 
         # v2.1 P0-#7: reviewer pairing. For each task that just landed, we
         # persist a per-expert report sidecar AND dispatch a distinct-model
@@ -254,6 +310,14 @@ class Wave1Runner:
             "experts": rendered_experts,
             "world_unknown_candidates": load_world_unknown_candidates(run_dir),
         }
+        if scaffolded_tasks:
+            render_ctx["run_incomplete_notice"] = (
+                "INCOMPLETE RUN — the following experts have not written back a "
+                "host-agent report yet: "
+                + ", ".join(sorted(set(scaffolded_tasks)))
+                + ". Run prompts/experts/expert_task_package.md per scaffold and "
+                "re-assemble before treating this brief as complete."
+            )
         delivery_dir = run_dir / "delivery"
         renderer.render_html(render_ctx, delivery_dir / "patient_brief.html")
         renderer.render_md(render_ctx, delivery_dir / "patient_brief.md")
@@ -301,28 +365,15 @@ class Wave1Runner:
                 ),
             )
 
-        return {"status": "ok", "run_id": plan.run_id, "out_dir": str(run_dir)}
+        status = "incomplete" if scaffolded_tasks else "ok"
+        return {
+            "status": status,
+            "run_id": plan.run_id,
+            "out_dir": str(run_dir),
+            "scaffolded_experts": sorted(set(scaffolded_tasks)),
+        }
 
     # ---- pipeline stages ------------------------------------------------
-
-    async def _classify_intent(self, patient_text: str, ctx: dict[str, Any]) -> str:
-        intent_template = PromptTemplate.load(
-            find_prompts_root() / "pi" / "intent_parser.md",
-            version="intent_parser@v0.1.0",
-        )
-        intent_prompt = intent_template.render(
-            patient_text=patient_text,
-            profile_json=ctx["profile_json"],
-        )
-        intent_resp = await self.intent_client.complete(LLMRequest(
-            model=self.executor_model_id,
-            messages=[{"role": "user", "content": intent_prompt}],
-            max_tokens=512,
-            response_format={"type": "json_object"},
-        ))
-        intent_parsed = json.loads(intent_resp.content)
-        intent_raw = intent_parsed.get("intent", "")
-        return str(intent_raw)
 
     @staticmethod
     def _apply_intake_router(
@@ -379,46 +430,66 @@ class Wave1Runner:
             merged["experts"] = experts
         return merged
 
-    async def _build_plan(
+    def _load_plan_dict(self) -> dict[str, Any]:
+        """Resolve the Wave-1 plan WITHOUT an LLM call (harness-split).
+
+        Resolution order:
+        1. ``self.plan_dict`` injected by the caller (host-produced plan).
+        2. ``<out_dir>/plan.json`` (the deterministic plan from ``opl-cancer plan``).
+
+        The PI/global planner reasoning that used to run as an LLM call is now
+        produced upstream (deterministic comorbid planner / host agent). The
+        runner consumes that plan rather than synthesising one.
+        """
+        if self.plan_dict is not None:
+            return dict(self.plan_dict)
+        plan_path = self.out_dir / "plan.json"
+        if not plan_path.is_file():
+            raise FileNotFoundError(
+                f"Wave-1 plan not provided and {plan_path} missing. The host agent "
+                "must produce a plan (run `opl-cancer plan` or pass plan_dict) — the "
+                "in-Python LLM planner was removed in the harness split."
+            )
+        loaded = json.loads(plan_path.read_text(encoding="utf-8"))
+        if not isinstance(loaded, dict):
+            raise ValueError(f"{plan_path} is not a JSON object plan")
+        return loaded
+
+    def _build_plan(
         self, patient_text: str, ctx: dict[str, Any]
     ) -> tuple[Plan, dict[str, Any]]:
-        # v2.0.1 (post-review): planner now sees the full 20-expert roster
-        # including Maya (KG-synergy) + Julius (in-silico medicinal chemist).
-        # Hardcoded 6-expert list was the reason Maya / Julius were dead
-        # roster entries in v2.0.0-rc1.
-        plan_resp = await self.planner_client.complete(LLMRequest(
-            model=self.executor_model_id,
-            messages=[{"role": "user", "content":
-                f"Patient text: {patient_text}\n"
-                f"Profile: {ctx['profile_json']}\n"
-                "Select 5-12 experts from the v2.0 roster: "
-                "[rosa (pathology), bert (NGS/molecular), vince (treating oncology), "
-                "rick (trial matching), heddy (imaging), mary (DDI/PGx), aviv (bioinformatics), "
-                "tyler (wet-lab design), iain (meta-analysis), ted (radiation), "
-                "riad (interventional), jen (palliative), kieren (infection), "
-                "mark (irAE endocrine), hong (TCM), frances (expanded access), "
-                "dennis (cross-border), steve (nutrition), maya (KG-synergy), "
-                "julius (in-silico drug design)].\n"
-                "Dispatch heuristics (v2.0.1):\n"
-                "- maya MUST be included when patient profile has ≥2 actionable "
-                "molecular alterations or asks about target-target synergy.\n"
-                "- julius MUST be included when patient profile has an undrugged "
-                "actionable target (e.g. MTAP-loss, RB1-loss, undruggable splicing, "
-                "or any variant without an FDA-approved drug).\n"
-                "- Always include rosa+bert+vince+rick as the minimum spine; "
-                "expand based on patient comorbidities + molecular profile.\n"
-                "Return strict JSON: {\"experts\": [...], \"tasks\": "
-                "[{\"id\":...,\"expert\":...,\"task_package\":...,\"sub_goal\":...}]}"
-            }],
-            max_tokens=2048,
-            response_format={"type": "json_object"},
-        ))
-        plan_dict: dict[str, Any] = json.loads(plan_resp.content)
+        # Harness-split: load the deterministic plan (host-produced /
+        # opl-cancer plan) instead of an LLM planner call. The plan dict may be
+        # in the runner shape ({"experts":[...],"tasks":[{id,expert,task_package,
+        # sub_goal}]}) or the full Plan-schema shape ({"tasks":[...],"waves":[...]});
+        # we normalise to the runner shape.
+        raw = self._load_plan_dict()
+        plan_dict: dict[str, Any] = {
+            "experts": list(raw.get("experts", [])),
+            "tasks": [dict(t) for t in raw.get("tasks", [])],
+        }
+        # Derive experts roster from tasks when not explicitly listed.
+        if not plan_dict["experts"]:
+            plan_dict["experts"] = sorted(
+                {str(t["expert"]) for t in plan_dict["tasks"] if t.get("expert")}
+            )
         # v2.5.1 B2 — fold intake_router output before constructing the Plan,
-        # so the c3195b66 AutoML case adds `unknown_task_intake` + method DAG
-        # rather than silently passing through the LLM planner.
+        # so the c3195b66 AutoML case adds `unknown_task_intake` + method DAG.
         plan_dict = self._apply_intake_router(plan_dict, patient_text)
-        run_id = f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}"
+        # Only Wave-1 tasks (the runner runs a single wave). If the plan carries
+        # explicit wave assignments, keep just wave 1; else all tasks are wave 1.
+        wave1_ids: list[str] | None = None
+        for w in raw.get("waves", []) or []:
+            if isinstance(w, dict) and w.get("wave_number") == 1:
+                wave1_ids = [str(i) for i in w.get("task_ids", [])]
+                break
+        tasks = plan_dict["tasks"]
+        if wave1_ids is not None:
+            wave1_set = set(wave1_ids)
+            # Always keep any intake task the router appended.
+            tasks = [t for t in tasks if t["id"] in wave1_set or t["id"].startswith("t_intake")]
+            plan_dict["tasks"] = tasks
+        run_id = str(raw.get("run_id") or f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}")
         plan = Plan(
             run_id=run_id,
             patient_code=ctx["patient_code"],
@@ -429,7 +500,7 @@ class Wave1Runner:
             tasks=[
                 Task(
                     id=t["id"], expert=t["expert"], task_package=t["task_package"],
-                    sub_goal=t["sub_goal"], dependencies=[],
+                    sub_goal=t.get("sub_goal", ""), dependencies=[],
                 )
                 for t in plan_dict["tasks"]
             ],
@@ -441,17 +512,19 @@ class Wave1Runner:
     ) -> tuple[dict[str, ExpertHandler], dict[str, Expert]]:
         expert_instances: dict[str, Expert] = {}
         for name in expert_names:
+            # Harness-split: factory no longer receives LLM clients (the host
+            # agent is the executor). It receives the expert name + model-id
+            # provenance labels only.
             expert_instances[name] = self.expert_factory(
                 name,
-                self.executor_client,
-                self.reviewer_client,
                 self.executor_model_id,
                 self.reviewer_model_id,
             )
+        adapter_cls = _expert_handler_adapter_cls()
         handlers: dict[str, ExpertHandler] = {}
         # Pick adapter per (expert_name, task_package) — use the first task's pkg.
         for task in plan.tasks:
-            handlers[task.expert] = _ExpertHandlerAdapter(
+            handlers[task.expert] = adapter_cls(
                 expert_instances[task.expert], task.task_package,
             )
         return handlers, expert_instances
@@ -574,6 +647,29 @@ class Wave1Runner:
             exec_out = data.get("output", {})
             report_dir = tasks_root / f"w1_{task.id}"
             report_dir.mkdir(parents=True, exist_ok=True)
+
+            # Harness-split: a task with no host-written report yet comes through
+            # as a scaffold placeholder. We persist the host-agent execution
+            # scaffold (NOT a finished report.md) so the artifact-state probe
+            # still sees the task as not-yet-complete and the host agent has the
+            # exact prompt + context to run. No fakery sniffer / reviewer pairing
+            # runs on a scaffold — those guard finished reports.
+            if exec_out.get("produced_by") == "scaffold":
+                scaffold = exec_out.get("_scaffold", {})
+                (report_dir / "scaffold.json").write_text(
+                    json.dumps(scaffold, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                (report_dir / "report.md").write_text(
+                    f"# Wave 1 SCAFFOLD — {task.expert} / {task.task_package}\n\n"
+                    f"task_id: {task.id}\n\n"
+                    "Host-agent report not written back yet. Run the prompt named "
+                    "in scaffold.json (`execute_prompt`) with the included system "
+                    "prompt + task instructions, then write the JSON report.\n",
+                    encoding="utf-8",
+                )
+                continue
+
             report_path = report_dir / "report.md"
             report_path.write_text(
                 f"# Wave 1 — {task.expert} / {task.task_package}\n\n"
@@ -585,7 +681,9 @@ class Wave1Runner:
             # v2.1 P1-#9: fakery sniffer on the freshly written report.
             # Hits raise SnifferHalt which propagates out of the wave run.
             _post_write_safety_check(report_path, run_root=run_dir)
-            # Reviewer pairing — distinct model + distinct expert.
+            # Reviewer pairing — distinct model + distinct expert (host-agent
+            # reviewer subagent dispatched here per G13).
+            from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
             run_reviewer_pairing(
                 report_path=report_path,
                 primary_expert=task.expert,
