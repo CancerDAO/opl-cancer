@@ -4,17 +4,13 @@ description: "OPL for Cancer (CancerDAO) — a patient's own AI scientist team (
 license: Apache-2.0
 metadata:
   author: CancerDAO Contributors
-  version: "2.7.2"
+  version: "2.8.0"
   tags: oncology precision-medicine ai-scientist-team founder-mode hypothesis-generation co-scientist robin bixbench meta-analysis clinical-trials evidence-grounded world-unknown-candidates kg-synergy undrugged-target-design trace-digest-evolution equipped-experts bio-skills msi tmb hrd acmg cpic survival-analysis wave6 manuscript n1a preprint n1arxiv submission preprint-platform pr-assembly cross-repo-submission compositional method-primitive role-taxonomy n=1 automl prognosis
 ---
 
 # OPL for Cancer — your own AI scientist team
 
-> "让全世界的每一个人都能拥有一个完整的 AI scientist team,只为他/她一个人工作 — 调取世界已知的信息,并主动产生世界未知的新信息,患者本人是自己案例的唯一决策人。"
->
-> — North Star (PRD 2026-05-23, §0 Telos)
-
-> Per-version history (pre-v2 inline notes for v1.3.2 / v1.4.0) moved to [`references/version-history.md`](references/version-history.md); full changelog in `CHANGELOG.md`.
+> **North Star:** every person gets a complete AI scientist team working for them alone — retrieving the world-known + producing the world-unknown — and the patient is the sole decision-maker of their own case. (full text + per-version history: [`references/version-history.md`](references/version-history.md); changelog in `CHANGELOG.md`.)
 
 OPL for Cancer is the patient's own scientist team, built by **CancerDAO**. **Not** a clinical decision-support tool, **not** a diagnostic device, **not** a doctor-replacement. It is an open-source skill plugin that gives one patient one PI (Sid) coordinating a **20-expert virtual lab** (v1.x 18 + v2.0 Maya KG-synergy reasoner + Julius in-silico medicinal chemist) + an IRB-substitute auditor (Henry) + 29 live data integrators + PrimeKG stub, running a 5-Wave research lifecycle from records-in to patient-brief-out — with every claim PMID-anchored, provenance-hashed, three-tier-labelled, and reproducible.
 
@@ -33,6 +29,15 @@ These five rules are non-negotiable and **mechanically enforced** (gates G34–G
 5. **Never fabricate a clinical fact or a citation.** Do not write a lab value, stage, or biomarker you did not read from a source — write `UNKNOWN`. Every clinical value must carry a `[[src:...]]` anchor to an OCR sidecar (`G35`). Every PMID must come from a live PubMed search this session and actually be about the claim — never from model memory (`G1`+`G2`+`G36`; the incident's knee-OA / kefir / glioma / macrophage PMIDs are now blocked).
 
 **The one-command path:** `opl-cancer go --patient <dir> --goal "<the patient's words>"` drives the whole lifecycle and tells you the exact next action (with the full expert list) until the delivery is complete + attested. Prefer it over driving the steps by hand.
+
+## Execution model (v2.8 harness-split — read with rule 4)
+
+OPL is two halves that hand off via artifacts on disk. Do not confuse them:
+
+- **You (the host agent) are the only reasoning brain.** The named experts, the planner's judgment, hypothesis generation, cross-expert review, and Henry's disagreement reasoning are all done by **you dispatching subagents** per `prompts/experts/expert_task_package.md` (+ `prompts/render/`, `prompts/auditor/`). Each subagent writes its report into `triggers/<run_id>/tasks/<task_id>/`. **There is no LLM inside the Python package — it never calls a model.**
+- **The `opl-cancer` CLI is a deterministic harness, not an executor.** `plan` / `wave1..4` / `run` / `audit` / `deliver` / `attest` scaffold the run, pre-fetch live integrator data, **validate the artifacts you wrote**, run the 42 gates (verdict = Python, `exit≠0` on violation), hash provenance, and assemble the brief. `opl-cancer wave1` and friends are *state-checks*: they confirm your dispatched reports exist and pass gates — they do **not** produce the reasoning.
+- So every wave is a **two-beat loop**: (1) you dispatch the experts as subagents → they write reports; (2) you run the matching CLI command → it validates + gates and tells you the next beat.
+- **Install consequence:** `pip install -e <skill_dir>` installs the *harness*. The patient path needs **no LLM provider key** — the reviewer is a second subagent of yours, not a Python API call. (Provider keys only feed the optional self-improvement engine, which is being extracted.)
 
 ## Where patient data lives
 
@@ -88,9 +93,9 @@ the executor-LLM contract below.
 
 The preflight reports:
 - Python ≥ 3.11 + `opl_cancer` package importable (the `scripts/cli.py` shim auto-runs `pip install -e <skill_dir>` on first use, or prints the one command to run).
-- **LLM model layer (host-aware — works on any agent, not just Claude Code):**
-  - **Main executor = the host agent's own LLM.** On **Claude Code** that is the main-thread Opus from your CC subscription (no `ANTHROPIC_API_KEY` needed). On **Codex / Cursor / OpenCode / other hosts** the executor is *that host's* model (GPT/Gemini/…); set `OPL_EXECUTOR_PROVIDER` (`anthropic|openai|google|minimax`) so preflight + G13 know the true executor. Preflight does not assume Anthropic.
-  - **Reviewer pool** needs a model from a **different family than the executor** (G13: `reviewer_family ≠ executor_family`). Set at least one of `MINIMAX_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` whose family differs from the executor. Preflight warns if it cannot prove `reviewer_family ≠ executor_family` for a patient run; on a non-Claude-Code host the default-Anthropic assumption no longer holds, so set the reviewer explicitly.
+- **Reasoning layer (no Python LLM, no provider key for the patient path — v2.8 harness-split):**
+  - **Executor = you, the host agent.** Experts run as your dispatched subagents (`prompts/experts/expert_task_package.md`). On Claude Code that is your main-thread Opus; on Codex / Cursor / OpenCode it is that host's model. The Python package calls no LLM, so **no `ANTHROPIC_API_KEY` is needed for a patient run**. (`OPL_EXECUTOR_PROVIDER` still tags which host model you are, so G13 knows the executor identity.)
+  - **Reviewer = a SECOND subagent you dispatch**, with a distinct persona and a distinct **declared** model identity. G13 deterministically checks that the executor and reviewer report artifacts declare *different* models (the old same-model echo chamber). This is a subagent dispatch, **not** a Python provider call — `MINIMAX_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` are **not** required for the patient path; they only feed the optional, being-extracted self-improvement engine.
 - Integrator readiness — PubMed, NCCN PageIndex, CT.gov, ChiCTR, OncoKB, CIViC, RxNorm, GEO, ArrayExpress, SRA, DepMap, CCLE, ClinVar, gnomAD, Open Targets, RetractionDB, Unpaywall, PaperQA2 index, NMPA-EAP, FDA-EAP, cBioPortal, GDC.
 - Optional compute runtime: `docker info` + `compute/bixbench.Dockerfile` build (Wave 3 only; skip-able).
 
@@ -155,7 +160,7 @@ A full run takes 30-90 minutes. During that time the user may type a mid-run com
 
 ### Wiring
 
-- The skill's main thread (the assistant) is the interrupt handler. There is no Python-level interrupt — the Wave runners (`wave1_runner.py` / `wave3_runner.py`) run end-to-end once dispatched. The interrupt protocol works between stages, not mid-stage.
+- The skill's main thread (the assistant) is the interrupt handler **and the executor**. The Wave runners (`wave1_runner.py` / `wave3_runner.py`) are pure scaffold/validate — they call no LLM; the reasoning is your subagent dispatch between CLI beats. The interrupt protocol works between stages (between dispatch beats), not mid-subagent.
 - Mid-stage SIMPLIFY for Wave 3 (the longest stage) is supported via `OPL_NATIVE_LIVE` env or `GEPIA3Integrator(min_request_interval_s=...)` knobs. The assistant translates "查数据快一点" → "把 GEPIA3 限速调小 / 跳过单细胞重分析" + confirms.
 - For PAUSE / PARTIAL-DELIVERY, the assistant calls `ProgressReporter.block(...)` (v1.5.1) with explicit options so the chat surface visibly waits for user input.
 
@@ -269,14 +274,16 @@ Wait for user `yes` / adjust.
 
 **Step 5 — Wave 1 · world-known retrieval (experts in parallel).**
 
-Each selected expert runs its **task package portfolio** (e.g. Bert → `molecular_ngs_interpretation`, `pathology_interpretation` cross-read; Rick → `trial_matching` over CT.gov + ChiCTR; Heddy → `recist_progression`). All run via the main-thread orchestrator (per ADR-0002: subagents do not fork subagents).
+Each selected expert runs its **task package portfolio** (e.g. Bert → `molecular_ngs_interpretation`, `pathology_interpretation` cross-read; Rick → `trial_matching` over CT.gov + ChiCTR; Heddy → `recist_progression`). **You dispatch them as subagents** per `prompts/experts/expert_task_package.md`; each writes its report into `triggers/<run_id>/tasks/w1_*/` (per ADR-0002 subagents do not fork subagents — you, the main thread, dispatch them). Then validate + gate with the harness:
 
 ```bash
+# state-check: confirms your dispatched reports exist + runs the mechanical gates.
+# This does NOT execute the experts — you already did, as subagents, above.
 opl-cancer wave1 \
   --patient <patient_dir> --run-id <run_id> --plan <plan.json>
 ```
 
-Cross-expert peer review pairings (per `models.yaml.reviewer_pairings`, distinct expert + distinct model) run automatically. Reviewer prompts: `pmid_quote_verify` · `retraction_check` · `self_contradiction` · `numerical_sanity` · `stats_correctness`.
+Cross-expert peer review is a **second subagent you dispatch** (distinct expert + distinct *declared* model; G13 checks the two report artifacts declare different models — `models.yaml.reviewer_pairings` is the expected-distinctness reference, no longer a Python model router). Reviewer prompts: `pmid_quote_verify` · `retraction_check` · `self_contradiction` · `numerical_sanity` · `stats_correctness`.
 
 **Mandatory user-facing progress messages (v1.5.1).** Throughout this Step and Steps 6–10, you MUST emit plain-language progress updates per `prompts/tasks/progress_message_rendering.md`. Use the 5 canonical stage labels (准备 / 想办法 / 查数据 / 审核 / 写报告), NEVER "Wave 1 / hypothesis tournament / Elo / Henry / G25" in the chat surface. ETA is a range, never a single number. Heartbeat at least once every 60 seconds during long sub-steps. The Python helper `src/opl_cancer/glue/progress_reporter.py` (`ProgressReporter`) provides the format if you want to drive it from code; otherwise emit the strings directly.
 

@@ -1,5 +1,35 @@
 # Changelog
 
+## [2.8.0] — 2026-06-01 — Harness-split: dual-brain decoupling (prompt-only reasoning)
+
+Paradigm change (PRD `docs/iteration/HARNESS_SPLIT_PRD.md`). Patient reasoning
+moved out of Python-internal LLM calls into the host agent; Python is now a
+deterministic harness only. Red line held: the 42 gates keep their `exit≠0`
+decision authority in Python.
+
+- **Removed `src/opl_cancer/llm/`** (7 modules). The Python package no longer
+  calls any LLM. `git grep` confirms zero LLM usage in the patient path.
+- **`experts/_common`, `wave1_runner`, `wave1_live`, `renderer`, `henry`** rewired
+  to pure scaffold / validate / deterministic-assembly. The host agent is the sole
+  reasoning brain, dispatching expert + reviewer subagents that write report
+  artifacts; the CLI state-checks + gates them (two-beat loop).
+- **New prompts:** `prompts/experts/expert_task_package.md`,
+  `prompts/render/brief_render.md`, `prompts/auditor/henry_axis_naming.md`.
+- **G13 redefined** — checks the executor and reviewer report artifacts declare
+  distinct model identities (dual-subagent), replacing the Python model-router check.
+- **P0 safety fixes folded in** — G36 fires by default (entities auto-derive or
+  block, no more self-disarming SKIP); offline (`pubmed=None`) with PMID-claims now
+  blocks instead of silent-passing; G35 verifies the asserted value actually appears
+  at the `[[src:...#Lnn]]` locator, not just that the file exists.
+- **SKILL.md** — added the "Execution model (harness-split)" section; corrected the
+  reviewer/provider-key layer (patient path needs no provider key) and the
+  wave-runner-execution description. No `ANTHROPIC_API_KEY` for a patient run.
+- **orchestrator/* + evolution/*** decoupled from the patient CLI (lazy-guarded);
+  slated for extraction to a standalone `opl-cancer-evolution` repo
+  (`docs/iteration/EVOLUTION_EXTRACTION_TODO.md`). Their tests are parked via
+  `conftest.py` `collect_ignore` pending the move.
+- Suite: 1749 passed / 8 skipped on a bare `pytest -q`; non-bypassable suite green.
+
 ## [2.7.2] — 2026-05-29 — Skill-quality audit (skill-creator + skill-creator-pro)
 
 Audit-only polish from the skill-creator-pro lint + skill-creator triggering lens.
