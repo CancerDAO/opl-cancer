@@ -118,7 +118,8 @@ def all_gate_classes() -> list[type[Gate]]:
         G35ClinicalFactProvenanceGate,
         G36PMIDTopicRelevanceGate,
         G37ServiceCompletenessGate,
-        # v2.7.1 ADR-0026 (P1) — reasoning-quality gates (G38 reserved).
+        # v2.7.1 ADR-0026 (P1) — reasoning-quality gates (G38 reserved; entity-
+        # attachment enforcement is in-line in G36, which fails closed).
         G39BiomarkerContingencyGate,
         G40DrugComorbiditySafetyGate,
         G41SoCCompletenessGate,

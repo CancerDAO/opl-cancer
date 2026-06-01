@@ -183,3 +183,20 @@ def test_wrong_paper_pmid_blocks_complete_run(tmp_path: Path) -> None:
     verdict = run_delivery_gates(run_root=run_root, pubmed=fake)
     assert not verdict["ok"]
     assert "G36_pmid_topic_relevance" in verdict["blocked_by"]
+
+
+def test_pmid_claims_with_no_integrator_block_not_silent_pass(tmp_path: Path) -> None:
+    """P0-2: a complete run whose claims cite PMIDs, run with pubmed=None, must
+    BLOCK — citations are unverifiable, and a medical brief must not ship
+    unverified citations (memory:feedback_no_offline_only). NOT a silent ok=True."""
+    experts = ["rosa", "bert", "vince"]
+    # use the wrong-paper PMID so this is unambiguously unsafe to ship unchecked
+    run_root = _build_complete_run(
+        tmp_path, experts=experts, pmid="32366523", gene="KRAS", cancer="colorectal"
+    )
+    verdict = run_delivery_gates(run_root=run_root, pubmed=None)  # no integrator
+    assert verdict["ok"] is False, (
+        "PMID-bearing claims with no integrator must NOT silently pass; "
+        f"blocked_by={verdict['blocked_by']}"
+    )
+    assert "citation_gates_not_run" in verdict["blocked_by"]

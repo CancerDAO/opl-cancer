@@ -48,8 +48,9 @@ from .g34_delivery_attestation import G34DeliveryAttestationGate
 from .g35_clinical_fact_provenance import G35ClinicalFactProvenanceGate
 from .g36_pmid_topic_relevance import G36PMIDTopicRelevanceGate
 from .g37_service_completeness import G37ServiceCompletenessGate
-# v2.7.1 ADR-0026 (P1) — reasoning-quality gates (G38 reserved: citation-provenance
-# completeness is covered by G1/G2/G36 via the delivery gate runner).
+# v2.7.1 ADR-0026 (P1) — reasoning-quality gates (G38 reserved: entity-attachment
+# enforcement is now done in-line by G36, which fails CLOSED when a PMID-bearing
+# claim has no upstream entities and none can be derived — see g36 docstring).
 from .g39_biomarker_contingency import G39BiomarkerContingencyGate
 from .g40_drug_comorbidity_safety import G40DrugComorbiditySafetyGate
 from .g41_soc_completeness import G41SoCCompletenessGate

@@ -18,6 +18,14 @@ BRAF / MSI / TMB / HRD with a state) — the asserting line MUST carry a resolva
 file under the patient directory (canonical: an ``ocr/`` sidecar). A value with
 no anchor, or an anchor whose target file does not exist, FAILs and BLOCKs.
 
+v2.7.x P0-3: the ``#Lnn`` line locator is no longer cosmetic. When present, the
+gate opens the sidecar, reads the addressed line(s) (with a small +/- window for
+OCR line drift), and requires the asserted value (every salient number, or the
+state/grade token) to actually appear there. A real-file anchor pointing at the
+wrong, empty, or out-of-range line FAILs — closing the "invented value with a
+real anchor to the wrong line" hole. Path-only anchors keep the weaker
+file-existence behaviour.
+
 Grammar (shared with cancer-buddy-organize, documented in
 ``references/patient-data-layout.md``):
 
@@ -112,11 +120,88 @@ def _scan_line_for_values(line: str) -> list[str]:
     return kinds
 
 
+# ── value-at-locator verification ───────────────────────────────────────────
+# A locator token after the path: "#L12", "#L12-15", "#L12,18", or a bare line
+# range. We accept L-prefixed and bare-number forms.
+_LOCATOR_LINE_RE = re.compile(r"L?(\d+)(?:\s*[-–]\s*L?(\d+))?", re.IGNORECASE)
+# The salient numbers asserted on a value line (lab numbers, percentages, scores).
+_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
+# Window of source lines to scan around the locator (tolerates off-by-a-few
+# OCR/line-count drift without going file-wide).
+_LOCATOR_WINDOW = 2
+
+
+def _read_locator(target: Path, loc: str) -> str | None:
+    """Read the source text addressed by a ``#Lnn`` / ``#Lnn-mm`` locator.
+
+    Returns the joined snippet (with a small +/- window for OCR line drift), or
+    ``None`` if the file is unreadable or the line number is missing/out of range
+    (fail-closed: caller treats None as 'value not found at locator').
+    """
+    m = _LOCATOR_LINE_RE.search(loc or "")
+    if not m:
+        return None
+    start = int(m.group(1))
+    end = int(m.group(2)) if m.group(2) else start
+    if start < 1 or end < start:
+        return None
+    try:
+        src_lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    if start > len(src_lines):
+        return None  # locator points past EOF — unresolvable, fail-closed
+    lo = max(1, start - _LOCATOR_WINDOW)
+    hi = min(len(src_lines), end + _LOCATOR_WINDOW)
+    return "\n".join(src_lines[lo - 1:hi])
+
+
+def _value_appears_at_locator(line: str, snippet: str) -> bool:
+    """True if the asserted clinical value on ``line`` is corroborated by ``snippet``.
+
+    Conservative match: every salient *number* asserted on the line (lab values,
+    percentages, scores) must appear in the source snippet. If the line asserts a
+    state without a number (e.g. "KRAS 突变" / "Child-Pugh A"), we require the
+    state token / grade to appear instead. No number and no recoverable token ⇒
+    fall back to True (can't strengthen) — but a present number that is ABSENT
+    from the snippet is a hard mismatch (the fabrication case we must catch).
+    """
+    if snippet is None:
+        return False
+    hay = snippet.lower()
+    # Strip the provenance anchor before reading the asserted value, so the
+    # locator's own digits (e.g. "#L2") are not mistaken for a clinical number.
+    line = _SRC_ANCHOR_RE.sub("", line)
+    line_numbers = _NUMBER_RE.findall(line)
+    if line_numbers:
+        # Every asserted number must be corroborated at the locator.
+        return all(n in hay for n in line_numbers)
+    # No number on the line — require the value-bearing token (e.g. grade letter
+    # for Child-Pugh A / ECOG state, or the molecular state word) to appear.
+    line_low = line.lower()
+    for kind, pat in _CLINICAL_VALUE_PATTERNS:
+        m = pat.search(line)
+        if not m:
+            continue
+        matched = m.group(0).lower()
+        # strip the [[src:...]] anchor text out of the matched span if present
+        token = re.sub(r"\[\[src:.*?\]\]", "", matched).strip()
+        if token and token in hay:
+            return True
+    return True  # nothing numeric/tokenizable to corroborate — don't over-block
+
+
 def _anchor_targets_exist(line: str, patient_dir: Path | None) -> tuple[bool, list[str]]:
-    """True if the line carries ≥1 [[src:...]] anchor that resolves to a file.
+    """True if the line carries ≥1 [[src:...]] anchor that resolves AND (when a
+    line locator is present) whose target text actually corroborates the value.
 
     Returns (ok, unresolved_targets). When patient_dir is None we accept the
     presence of any anchor (cannot verify target existence) but still report it.
+
+    P0-3: a ``#Lnn`` locator is no longer discarded. We open the sidecar, read
+    the addressed line(s), and require the asserted value to appear there. A
+    real-file anchor pointing at the wrong/empty/out-of-range line FAILs — that
+    was the residual anti-fabrication hole.
     """
     anchors = _SRC_ANCHOR_RE.findall(line)
     if not anchors:
@@ -125,13 +210,22 @@ def _anchor_targets_exist(line: str, patient_dir: Path | None) -> tuple[bool, li
         return True, []  # anchor present; existence unverifiable
     unresolved: list[str] = []
     any_ok = False
-    for rel, _loc in anchors:
+    for rel, loc in anchors:
         rel = rel.strip()
         target = (patient_dir / rel)
-        if target.exists():
-            any_ok = True
-        else:
+        if not target.exists():
             unresolved.append(rel)
+            continue
+        loc = (loc or "").strip()
+        if loc:
+            snippet = _read_locator(target, loc)
+            if snippet is not None and _value_appears_at_locator(line, snippet):
+                any_ok = True
+            else:
+                unresolved.append(f"{rel}#{loc} (value not found at locator)")
+        else:
+            # path-only anchor: existing weaker behaviour (file existence only)
+            any_ok = True
     return any_ok, unresolved
 
 

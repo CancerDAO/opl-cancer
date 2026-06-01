@@ -135,6 +135,87 @@ async def test_g36_fails_closed_on_unfetchable_pmid() -> None:
     assert res.status is GateStatus.FAIL and res.block  # unverifiable ⇒ blocked
 
 
+@pytest.mark.asyncio
+async def test_g36_no_entities_derives_and_blocks_wrong_paper() -> None:
+    """P0-1: a claim with NO upstream entities but a gene in its text. The gate
+    must derive the gene (KRAS) and STILL block a real-but-topically-wrong PMID,
+    instead of silently SKIPping (the disarmed-gate hole)."""
+    fake = _FakePubMed({"32366523": {
+        "pmid": "32366523",
+        "title": "Energy balance and knee osteoarthritis progression",
+        "abstract": "A study of cartilage and body-mass in knee OA patients.",
+        "journal": "Ann Rheum Dis",
+    }})
+    gate = G36PMIDTopicRelevanceGate(fake)
+    claim = {  # NOTE: no "entities" key at all
+        "claim_text": "KRAS G12C inhibition with adagrasib in colorectal cancer",
+        "evidence": [{"type": "pmid", "id": "32366523", "quote": "KRAS..."}],
+    }
+    res = await gate.check_async(claim)
+    assert res.status is GateStatus.FAIL and res.block, res.message
+    assert res.evidence["entities_source"] == "derived_fallback"
+    assert "KRAS" in res.evidence["entities"]
+
+
+@pytest.mark.asyncio
+async def test_g36_no_derivable_entities_blocks() -> None:
+    """P0-1: a PMID-bearing claim with no entities and nothing derivable from its
+    text is UNJUDGEABLE and must BLOCK (fail-closed), never a silent SKIP."""
+    fake = _FakePubMed({"12345678": {
+        "pmid": "12345678", "title": "Some paper", "abstract": "text", "journal": "J",
+    }})
+    gate = G36PMIDTopicRelevanceGate(fake)
+    claim = {
+        "claim_text": "the patient should be treated per the team's view",
+        "evidence": [{"type": "pmid", "id": "12345678"}],
+    }
+    res = await gate.check_async(claim)
+    assert res.status is GateStatus.FAIL and res.block, res.message
+    assert res.evidence["entities_source"] == "none"
+
+
+# ─── G35 value-at-locator (P0-3: locator no longer cosmetic) ────────────────
+
+def test_g35_blocks_value_not_at_locator(tmp_path: Path) -> None:
+    """P0-3: a fabricated lab value anchored to an EXISTING sidecar whose target
+    line does NOT contain that value must BLOCK. File-existence alone is no
+    longer enough — the #Lnn locator must corroborate the asserted number."""
+    pdir = tmp_path / "patient"
+    (pdir / "ocr").mkdir(parents=True)
+    # the sidecar line 1 says creatinine 88 — the claim fabricates 999
+    (pdir / "ocr" / "labs.txt").write_text("肌酐 88 umol/L\n", encoding="utf-8")
+    (pdir / "case_text.md").write_text(
+        "肌酐 999 [[src:ocr/labs.txt#L1]]\n", encoding="utf-8"
+    )
+    res = G35ClinicalFactProvenanceGate().check({"patient_dir": str(pdir)})
+    assert res.status is GateStatus.FAIL and res.block, res.message
+    assert any("value not found at locator" in v["reason"] for v in res.evidence["violations"])
+
+
+def test_g35_passes_value_present_at_locator(tmp_path: Path) -> None:
+    """P0-3 positive: the asserted value IS present at the locator → PASS."""
+    pdir = tmp_path / "patient"
+    (pdir / "ocr").mkdir(parents=True)
+    (pdir / "ocr" / "labs.txt").write_text("项目\n肌酐 88 umol/L\n", encoding="utf-8")
+    (pdir / "case_text.md").write_text(
+        "肌酐 88 [[src:ocr/labs.txt#L2]]\n", encoding="utf-8"
+    )
+    res = G35ClinicalFactProvenanceGate().check({"patient_dir": str(pdir)})
+    assert res.status is GateStatus.PASS, res.message
+
+
+def test_g35_blocks_locator_past_eof(tmp_path: Path) -> None:
+    """P0-3: a locator pointing past end-of-file is unresolvable → fail-closed."""
+    pdir = tmp_path / "patient"
+    (pdir / "ocr").mkdir(parents=True)
+    (pdir / "ocr" / "labs.txt").write_text("肌酐 88\n", encoding="utf-8")
+    (pdir / "case_text.md").write_text(
+        "肌酐 88 [[src:ocr/labs.txt#L99]]\n", encoding="utf-8"
+    )
+    res = G35ClinicalFactProvenanceGate().check({"patient_dir": str(pdir)})
+    assert res.status is GateStatus.FAIL and res.block, res.message
+
+
 # ─── G37 service completeness (the 20→4 collapse / under-delivery fix) ──────
 
 def _write_plan(run_root: Path, experts: list[str], waves: list[int]) -> None:

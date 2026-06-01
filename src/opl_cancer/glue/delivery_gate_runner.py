@@ -135,6 +135,12 @@ def run_delivery_gates(
                 "PMIDs but no PubMed/PaperQA2 integrator was supplied. This is an honest "
                 "gap, not a pass; supply integrators (live path) to verify citations."
             )
+            # memory:feedback_no_offline_only — a medical brief must not ship
+            # unverified citations. With PMID-bearing claims and no integrator we
+            # CANNOT verify them, so the delivery is BLOCKED (ok=False), not a
+            # silent pass. Record a sentinel gate name in `blocked` so it surfaces
+            # in verdict["blocked_by"] exactly like a hard-block gate failure.
+            blocked.append("citation_gates_not_run")
 
     # ── reasoning-quality gates (sync, per-claim) — G39/G40/G42 hard-block,
     #    G41/G43 + G42-adjacency warn (Fork A). These check structured fields the

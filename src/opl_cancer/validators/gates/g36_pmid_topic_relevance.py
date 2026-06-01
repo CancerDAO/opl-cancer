@@ -18,9 +18,15 @@ paper title so the reviewer sees *what the wrong PMID actually points to*.
 
 Entities come from upstream (the expert/claim layer), never a hardcoded disease
 keyword list (memory:feedback_default_prompt_over_script). If a claim carries
-PMIDs but no entities, the gate cannot judge relevance and returns a non-blocking
-SKIP — the companion G38 / source_verification prompt is what guarantees entities
-are always attached.
+PMIDs but no upstream-supplied ``entities``, the gate FAILs CLOSED rather than
+silently skipping: it first attempts a *narrow, deterministic* fallback
+derivation of structured tokens (HGNC-style gene symbols, protein-change /
+exon variant notations, and an explicit drug/cancer-type list the claim may
+carry in ``drugs`` / ``cancer_type``) from the claim's own text and fields. The
+fallback is a last-resort relevance anchor, NOT a substitute for upstream
+entity attachment. If neither upstream entities nor any derivable token exist,
+the citation cannot be relevance-judged and is BLOCKED — an unjudgeable
+citation must not ship (SKILL.md core principle #4 / memory:feedback_no_offline_only).
 
 Network-unreachable ⇒ the per-PMID check errors *closed* (treated as a relevance
 failure for that PMID), never silently skipped — a medical agent must not ship a
@@ -52,6 +58,69 @@ def _entity_present(entity: str, haystack: str) -> bool:
         return False
     # token-boundary contains (so "ATM" matches "atm" but not "treatment")
     return bool(re.search(rf"(?<![a-z0-9]){re.escape(ent)}(?![a-z0-9])", haystack))
+
+
+# ── deterministic fallback entity derivation ────────────────────────────────
+# Last-resort only: when upstream did not attach claim['entities']. We extract
+# *structured* tokens that are safe to require in the cited paper's record:
+#   * gene-symbol shaped tokens (e.g. KRAS, BRCA2, ATM, TP53, PIK3CA) — 2-7 chars
+#     uppercase letters with optional trailing digits, the HGNC shape.
+#   * protein-change / variant notations (e.g. G12C, V600E, exon 20).
+# We deliberately do NOT keyword-match disease names here (that would be the
+# hardcoded list memory:feedback_default_prompt_over_script forbids); explicit
+# drug / cancer-type strings, if present, come from the claim's own structured
+# fields, not an inferred dictionary.
+_GENE_SHAPE_RE = re.compile(r"\b([A-Z]{2,6}[0-9]{0,3}[A-Z]?)\b")
+_VARIANT_SHAPE_RE = re.compile(
+    r"\b([A-Z]\d{1,4}[A-Z*](?:fs)?|exon\s*\d{1,2}|c\.\d+[ACGT]>[ACGT]|p\.[A-Z]\d+[A-Z])\b",
+    re.IGNORECASE,
+)
+# Tokens that *look* like gene symbols but are common English/clinical words —
+# excluded so they cannot become spurious relevance anchors.
+_GENE_SHAPE_STOPWORDS = frozenset({
+    "DNA", "RNA", "MRNA", "FDA", "EMA", "NCCN", "ESMO", "ASCO", "NGS", "PCR",
+    "CT", "MRI", "PET", "ECOG", "OS", "PFS", "ORR", "DCR", "AE", "SAE", "QOL",
+    "PMID", "DOI", "ID", "USA", "UK", "EU", "WHO", "IRB", "PI", "MTB",
+})
+
+
+def _derive_entities_fallback(claim: dict[str, Any]) -> list[str]:
+    """Best-effort structured tokens when upstream attached no ``entities``.
+
+    Returns a de-duplicated list of gene-symbol / variant tokens plus any
+    explicit drug / cancer-type strings carried on the claim's own fields.
+    Empty list ⇒ nothing relevance-judgeable could be derived (caller blocks).
+    """
+    derived: list[str] = []
+    seen: set[str] = set()
+
+    def _add(tok: str) -> None:
+        t = tok.strip()
+        if t and t.lower() not in seen:
+            seen.add(t.lower())
+            derived.append(t)
+
+    # explicit structured fields the claim producer may carry
+    for field in ("drugs", "drug", "cancer_type", "cancer", "biomarker", "biomarkers"):
+        val = claim.get(field)
+        if isinstance(val, str):
+            _add(val)
+        elif isinstance(val, (list, tuple)):
+            for v in val:
+                if isinstance(v, str):
+                    _add(v)
+
+    # gene / variant shapes parsed from the claim text
+    text = " ".join(
+        str(claim.get(k, ""))
+        for k in ("claim_text", "text", "statement", "title")
+    )
+    for m in _GENE_SHAPE_RE.findall(text):
+        if m.upper() not in _GENE_SHAPE_STOPWORDS:
+            _add(m)
+    for m in _VARIANT_SHAPE_RE.findall(text):
+        _add(m if isinstance(m, str) else m[0])
+    return derived
 
 
 class G36PMIDTopicRelevanceGate(Gate):
@@ -87,16 +156,25 @@ class G36PMIDTopicRelevanceGate(Gate):
                 message="G36 SKIP — no PMID evidence to check.",
             )
         entities = [str(x) for x in (claim.get("entities") or []) if str(x).strip()]
+        entities_source = "upstream"
         if not entities:
-            return GateResult(
-                gate=self.name, status=GateStatus.SKIP,
-                message=(
-                    "G36 SKIP — claim carries PMIDs but no structured 'entities' to "
-                    "judge relevance against. Upstream (expert/source_verification) "
-                    "must attach claim['entities']; G38 enforces this."
-                ),
-                evidence={"pmids": pmids},
-            )
+            # No upstream entities. Try a narrow deterministic fallback before
+            # giving up — but if nothing relevance-judgeable can be derived, the
+            # citation is UNJUDGEABLE and must NOT ship (fail-closed, same as the
+            # unfetchable-PMID branch below). Never a silent SKIP.
+            entities = _derive_entities_fallback(claim)
+            entities_source = "derived_fallback"
+            if not entities:
+                return GateResult(
+                    gate=self.name, status=GateStatus.FAIL, block=True,
+                    message=(
+                        "G36 FAIL — claim carries PMIDs but no structured 'entities' "
+                        "to judge relevance against, and none could be derived from "
+                        "the claim text/fields. An unjudgeable citation cannot ship. "
+                        "Upstream (expert/source_verification) must attach claim['entities']."
+                    ),
+                    evidence={"pmids": pmids, "entities_source": "none"},
+                )
 
         off_topic: list[dict[str, Any]] = []
         verified: list[str] = []
@@ -139,11 +217,17 @@ class G36PMIDTopicRelevanceGate(Gate):
                     f"unverifiable for entities {entities}. None of the claim's "
                     f"entities appear in their PubMed records. {sample}"
                 ),
-                evidence={"off_topic": off_topic, "entities": entities, "verified": verified},
+                evidence={
+                    "off_topic": off_topic, "entities": entities,
+                    "verified": verified, "entities_source": entities_source,
+                },
             )
         return GateResult(
             gate=self.name,
             status=GateStatus.PASS,
             message=f"G36 OK — all {len(verified)} PMID(s) topically match claim entities.",
-            evidence={"verified": verified, "entities": entities},
+            evidence={
+                "verified": verified, "entities": entities,
+                "entities_source": entities_source,
+            },
         )
