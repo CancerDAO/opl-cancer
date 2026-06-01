@@ -1,6 +1,16 @@
-# Mechanical Gates — Failure Mode × G1-G20
+# Mechanical Gates — Failure Mode × G1-G43
 
-机械门是 OPL 安全栈的 L1 (PRD §2.6),完全 LLM-free — 它们是 Python 硬规则,在 claim 落盘前 block。失败处理:不静默 truncate,改 prompt 重跑 (PRD §6.5 + §7;ADR-0003)。本文件展开 6 族 30 项 failure mode + 20 个 gate 的完整对照。
+> **Superseded/extended by v2 — see [`v2-paradigm.md`](v2-paradigm.md).** This doc details the original v1-era core gate set (G1–G20). The registry has since grown to **42 registered gates, numbered G1–G43 with G38 reserved** (G21–G37 + G39–G43 added across v1.3–v2.7). Source of truth: `src/opl_cancer/validators/mechanical_gates.py` (`all_gate_classes()`). The §2 table below documents G1–G20; the later gates follow the same Python-hard-rule, fail-closed contract.
+
+## Contents
+
+- §1 Failure Mode Taxonomy (6 族 30 项)
+- §2 Mechanical Gates G1-G20 (Layer 1, no-LLM) — core set
+- §3 Henry 4-Layer Auditor 与 Mechanical Gates 的关系
+- §4 失败处理协议
+- §5 测试矩阵
+
+机械门是 OPL 安全栈的 L1 (PRD §2.6),完全 LLM-free — 它们是 Python 硬规则,在 claim 落盘前 block。失败处理:不静默 truncate,改 prompt 重跑 (PRD §6.5 + §7;ADR-0003)。本文件展开 6 族 30 项 failure mode + 核心 20 个 gate 的完整对照;G21–G43 (G38 reserved) 见上方注记的 registry。
 
 ## 1. Failure Mode Taxonomy (6 族 30 项) — PRD §6.5
 
@@ -38,9 +48,9 @@
 | PI-B1 | PI 隐私 | PI session cross-patient leak | G5 (PI 作用域) |
 | PI-O1 | PI 越界 | PI 主动 push 频率失控 | `push_budget.json` + Feedback agent rate limit |
 
-## 2. Mechanical Gates G1-G20 (Layer 1, no-LLM)
+## 2. Mechanical Gates G1-G20 (Layer 1, no-LLM) — core set
 
-每个 gate 实现在 `src/opl_cancer/validators/gates/g<N>_*.py`,被 `validators/mechanical_gates.py` 统一调度。
+每个 gate 实现在 `src/opl_cancer/validators/gates/g<N>_*.py`,被 `validators/mechanical_gates.py` 统一调度。下表是 v1-era 核心 20 个;registry 现共 42 个 (G1–G43,G38 reserved),G21–G43 同样 no-LLM、fail-closed。
 
 | Gate | 规则 | 对应 failure mode | 实现文件 |
 |---|---|---|---|
@@ -71,7 +81,7 @@ Henry 是 L4 in 8-layer validation stack;`validators/henry.py` 内部跑 4 个 s
 
 | Henry layer | 内容 | 与 G* 关系 |
 |---|---|---|
-| **L1 mechanical** | 跑 G1-G20 全规则 | 直接调 `validators/mechanical_gates.py` (跨族 30 项 failure mode 全覆盖) |
+| **L1 mechanical** | 跑 G1-G43 全规则 (42 gates,G38 reserved) | 直接调 `validators/mechanical_gates.py` (跨族 30 项 failure mode 全覆盖) |
 | **L2 disagreement-summariser** | Reviewer Δ confidence > 0.4 → forced two-view delivery | 触发 G20 + 与 expert 联赛协议联动 |
 | **L3 permission gate** | Level 0-4 分类;L3/L4 必有 risk-disclosure-card + patient ack | 触发 G8 + 写 `pi_session/outstanding/<card_id>.json` |
 | **L4 rollback registry** | retraction / 新文献 / 患者反馈 / auditor 复审 → withdraw queue + cascade | 与 G9 + `validators/rollback.py` 联动 |
@@ -82,7 +92,7 @@ Henry 不修改 expert claim,只决定 **可否渲染** / **需 risk-card** / **
 
 | 场景 | 处理 |
 |---|---|
-| G1-G4 fail | 重 prompt + 重跑;**禁止 LLM 编造** PMID (memory:feedback_no_false_completion) |
+| G1-G4 fail | 重 prompt + 重跑;**禁止 LLM 编造** PMID (no-false-completion rule, `CONTRIBUTING.md`) |
 | G5/G6 fail | abort run + 写 audit log + Sid 告知 patient 哪个 input 被拒 + reason |
 | G7/G19 fail | rewrite (降命令式 → reasoning 语气);不重跑;直接接受 rewrite |
 | G8 fail | emit risk-card → 写 `pi_session/outstanding/<card_id>.json` → block render 直到 ack |
@@ -94,7 +104,7 @@ Henry 不修改 expert claim,只决定 **可否渲染** / **需 risk-card** / **
 | G14-G18 fail | Reviewer 重审 Wave 3 数据分析步骤;严重 fail → 弃 hypothesis 入 audit log |
 | G20 fail | Henry 强制把分歧 marker 注入 PI delivery;不允许 Sid 隐去 |
 
-通用约束:每次 gate block 都写到 `triggers/<run_id>/audit.json` + provenance.jsonl,**永不静默 drop claim** (memory:feedback_no_false_completion)。
+通用约束:每次 gate block 都写到 `triggers/<run_id>/audit.json` + provenance.jsonl,**永不静默 drop claim** (no-false-completion rule, `CONTRIBUTING.md`)。
 
 ## 5. 测试矩阵 — `validators/golden_set/`
 
@@ -114,6 +124,6 @@ CI policy (PRD §9):PR merge 前全 golden_set pass;failure_mode pass = "正确 
 - [`founder-mode-philosophy.md`](founder-mode-philosophy.md) — 为什么 gate 必须 LLM-free
 - [`troubleshooting.md`](troubleshooting.md) — gate block 后患者侧恢复
 - `src/opl_cancer/validators/mechanical_gates.py`
-- `src/opl_cancer/validators/gates/` (G1-G20)
+- `src/opl_cancer/validators/gates/` (G1-G43,G38 reserved)
 - `src/opl_cancer/validators/henry.py` (4-layer)
 - PRD §6.5 (failure taxonomy), §7 (gates), §8 (IRB substitute), §9 (golden_set + CI)

@@ -1,4 +1,12 @@
 """v2.2 P1-#16 — atomic Henry audit + dual brief delivery.
+
+CLI wiring: ``cli.py deliver`` invokes this module's ``run_atomic_delivery`` to
+write the patient-delivery package as ONE all-or-nothing transaction (Henry
+audit → plain brief → PI brief, with rollback on any failure). This is the
+*delivery transaction*; the sibling ``delivery_gate_runner.py`` is the separate
+*gate-sweep wiring* that fires the G34-G43 delivery-integrity / reasoning-quality
+gates over an (already-written) package.
+
 v2.5.1 B1 — wires the real HenryAuditor + real Wave-5 brief rendering.
 
 Closes the v2.1 failure mode where the patient saw a plain brief while
@@ -299,7 +307,7 @@ class DeliveryRunner:
         Runs ``HenryAuditor.audit_claim`` for every structured claim in
         ``<run_root>/claims.json`` (or ``<out_dir>/claims.json``). The runner
         stays *mechanical* — it never parses drugs/levels out of free text
-        (that is LLM judgment; memory:feedback_default_prompt_over_script). It
+        (that is LLM judgment, owned by the LLM/expert layer, not the runner). It
         consumes the claims the expert/main-thread layer already produced and
         runs the deterministic catalogue lookup + risk-card + ack loop.
         """

@@ -30,7 +30,7 @@ OPL is a **research preview**. It is not a clinical decision-support tool, not a
 
 ## What is this
 
-OPL is consumed in two ways: as a **Claude Code skill** (`npx skills add CancerDAO/opl-cancer-skill`), where the Claude Code main thread runs the reasoning, and as a **Python package** (`pip install`), which provides the harness — planning, validation, safety gates, live-data integrators, and honest scaffolds. You point it at a folder of your medical records. It assembles a 20-expert virtual lab around your specific situation — a PI named **Sid** coordinates which 5-12 experts come onto your case — and runs a 5-Wave research lifecycle from records-in to brief-out. About 30-50 minutes per session.
+OPL is consumed in two ways: as a **Claude Code skill** (`npx skills add CancerDAO/opl-cancer`), where the Claude Code main thread runs the reasoning, and as a **Python package** (`pip install`), which provides the harness — planning, validation, safety gates, live-data integrators, and honest scaffolds. You point it at a folder of your medical records. It assembles a 20-expert virtual lab around your specific situation — a PI named **Sid** coordinates which 5-12 experts come onto your case — and runs a 5-Wave research lifecycle from records-in to brief-out. About 30-50 minutes per session.
 
 The lifecycle ends with two artifacts:
 
@@ -66,7 +66,7 @@ The 20-expert roster (each is an *archetype* of a real-world clinician/scientist
 **OPL runs as a Claude Code skill — that is how you use it.** Install it once:
 
 ```bash
-npx skills add CancerDAO/opl-cancer-skill
+npx skills add CancerDAO/opl-cancer
 ```
 
 Then, in Claude Code, point **Sid** (your PI) at your records folder and ask your question in plain language — no commands to memorise:
@@ -140,7 +140,7 @@ the prose and re-runs with `--finalize` for the real audit):
 > emits honest scaffolds + state — it does **not** itself write the patient-facing
 > prose or run the expert LLMs. The reasoning (Sid + the 20 experts + Henry's
 > per-claim audit) runs on the **Claude Code SKILL main thread** (`npx skills add
-> CancerDAO/opl-cancer-skill`). `opl deliver` (no flag) is a scaffold; `opl
+> CancerDAO/opl-cancer`). `opl deliver` (no flag) is a scaffold; `opl
 > deliver --finalize` audits the SKILL-filled briefs.
 
 If upstream Waves 1-5 haven't produced real artifacts, `opl deliver` refuses with a structured error rather than shipping a fabricated brief (v2.5.1 B5):
@@ -363,7 +363,7 @@ Full ethics declaration and disclaimer: [DISCLAIMER.md](DISCLAIMER.md). Safety r
   author       = {{CancerDAO Contributors}},
   title        = {{OPL for Cancer: One Person Lab — your own AI scientist team for one cancer patient}},
   year         = {2026},
-  version      = {2.6.0},
+  version      = {2.8.0},
   url          = {https://github.com/CancerDAO/opl-cancer},
   license      = {Apache-2.0}
 }

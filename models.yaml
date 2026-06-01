@@ -19,7 +19,7 @@ executor_model:
   rationale: |
     Spec §17.5 P2 per-task routing — Opus is default executor for deep
     reasoning (hypothesis generation, meta-analysis, drill-down).
-    memory:feedback_no_model_downgrade — never silently swap to cheaper model.
+    Never silently swap to a cheaper model (see CONTRIBUTING.md discipline rule #4).
 
 reviewer_pool:
   - id: minimax-m2-7
@@ -29,7 +29,7 @@ reviewer_pool:
     max_tokens: 96000
     version_pinned: true
     rationale: |
-      memory:reference_minimax_llm — default Reviewer for cross-model diversity.
+      Default Reviewer for cross-model diversity.
       Different model family than executor (Anthropic vs MiniMax).
 
   - id: gpt-5
@@ -54,7 +54,7 @@ integrator_ttl_seconds:
 
 # Per-task model routing — spec §17.5 P2.
 # Falls back to executor_model when task_package is absent from this map.
-# memory:feedback_no_model_downgrade — Opus default for deep reasoning;
+# Opus default for deep reasoning (CONTRIBUTING.md discipline rule #4);
 # only swap to MiniMax where its capability is demonstrably sufficient.
 per_task_routing:
   bioinformatics_data_analysis: claude-opus-4-7   # heavy code reasoning
@@ -65,7 +65,7 @@ per_task_routing:
 # Reviewer pairings — P5 per spec §2.2 reviewer rotation.
 # Rule: reviewer expert MUST NOT be the same as producer; pairing pairs cross-
 # domain so genomics is reviewed by clinical, trials by EAP, etc.
-# memory:feedback_review_via_parallel_subagents — independent third-party lens.
+# Independent third-party lens — reviewer expert is never the producer.
 reviewer_pairings:
   # ── Genomics ↔ Bioinformatics ──
   bert: aviv      # somatic-genomics (Vogelstein archetype) reviewed by bioinformatics/single-cell (Regev archetype)

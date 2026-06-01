@@ -1,8 +1,13 @@
 # Gate-family registry — v2.5 compositional foundation (RFC 0001 §2.5)
 #
-# Each of the 33 v2.4 gates (G1-G33) is mapped to one of the six families:
+# 42 registered gates, numbered G1-G43 with G38 RESERVED (see the G38 note
+# below — no separate gate, to avoid a disconnected stub). Each gate is mapped
+# to one of the gate families:
 #   provenance / statistical-validity / temporal-recency / scope-isolation
-#   / safety-disclosure / reproducibility
+#   / safety-disclosure / reproducibility       (the original six, G1-G33)
+#   / reasoning-quality                          (v2.7.1 tier, G39-G43)
+# G34-G37 extend the `provenance` family as the delivery-integrity tier
+# (v2.7.0 ADR-0026); G39-G43 form the reasoning-quality tier (v2.7.1 ADR-0026 P1).
 #
 # Migration status:
 #   migrated=true   ⇒ class inherits-or-tags via family_id attribute already

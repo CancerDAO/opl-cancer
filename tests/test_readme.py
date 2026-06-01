@@ -81,8 +81,8 @@ def test_readme_has_install_command() -> None:
     skill-installation workflow."""
     text = (REPO_ROOT / "README.md").read_text()
     assert "pip install" in text, "README must show pip install"
-    assert "npx skills add CancerDAO/opl-cancer-skill" in text, (
-        "README must show npx skills add CancerDAO/opl-cancer-skill"
+    assert "npx skills add CancerDAO/opl-cancer" in text, (
+        "README must show npx skills add CancerDAO/opl-cancer"
     )
 
 
@@ -176,9 +176,9 @@ def test_readme_links_to_rfc_and_adr_ledger() -> None:
 
 
 def test_disclaimer_has_v1_release_and_emergency_notice() -> None:
-    """Iter 16: DISCLAIMER carries v1.x scope + emergency-number guidance + jurisdictional notice."""
+    """Iter 16 (v2.9: scope updated v1.x → v2.x): DISCLAIMER carries the current release scope + emergency-number guidance + jurisdictional notice."""
     text = (REPO_ROOT / "DISCLAIMER.md").read_text()
-    assert "v1.x" in text
+    assert "v2.x" in text
     assert "120" in text and "911" in text  # CN + US emergency numbers
     assert "WITHOUT WARRANTY" in text
     assert "Jurisdictional notice" in text

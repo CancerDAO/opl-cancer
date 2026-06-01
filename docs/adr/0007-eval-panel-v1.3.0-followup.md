@@ -41,7 +41,7 @@ Result: Aviv emitted "no cohort" placeholder for the n1_cohort_projection step, 
 
 ### Finding 2 — Off-scope hand-off (Patient #8 daughter cascade)
 
-Patient #8 in drill-down E5 asked: "My daughter is 36, should she get tested too?" — pure cascade-genetic-counselling question. v1.3.0 had general `scope_handoff_routing.md` but no cancer-syndrome-cascade specialisation; Sid hand-waved between firefly / firefly-genetic-counseling / cancer-buddy without a clean variant-fidelity payload for the receiving skill.
+Patient #8 in drill-down E5 asked: "My daughter is 36, should she get tested too?" — pure cascade-genetic-counselling question. v1.3.0 had general `scope_handoff_routing.md` but no cancer-syndrome-cascade specialisation; Sid hand-waved between adjacent genetic-counselling / rare-disease / companion tools without a clean variant-fidelity payload for the receiving tool.
 
 ### Finding 3 — Serious-risks task-package stubs (Patient #4 irAE + #9 unregulated channel + #10 LM intrathecal)
 
@@ -80,7 +80,7 @@ Add 7 integrator modules raising `IntegratorError` with the canonical access pat
 
 ### Fixes (Finding 2 — cascade hand-off → new task package)
 
-- `prompts/tasks/family_cascade_routing.md` — cancer-syndrome-cascade specialisation of `scope_handoff_routing.md`. Sid + Bert reviewer pairing. Emits variant-fidelity payload + at-risk-relative graph + handoff card to `firefly-genetic-counseling`. No auto-invocation (patient initiates).
+- `prompts/tasks/family_cascade_routing.md` — cancer-syndrome-cascade specialisation of `scope_handoff_routing.md`. Sid + Bert reviewer pairing. Emits variant-fidelity payload + at-risk-relative graph + handoff card to an external genetic-counselling tool. No auto-invocation (patient initiates).
 
 ### Fixes (Finding 3 — serious-risks gaps → 3 new task packages)
 

@@ -1,5 +1,14 @@
 # Permission Levels — Level 0-4 + Risk-Disclosure-Card Schema
 
+## Contents
+
+- §1 Level 0-4 完整定义
+- §2 永久 block 的越权 (不在 0-4 里)
+- §3 Risk-Disclosure-Card JSON Schema
+- §4 Acknowledgement Loop (PRD §8 layer 4)
+- §5 Henry L3 Permission Gate 实现
+- §6 Founder-Mode 与 HITL 的边界
+
 Founder-mode 哲学:**Level 不 gate AI 的输出自由,只 gate 患者侧的 transparency / acknowledgment 机制** (PRD §8 + ADR-0003)。所有 Expert 都可以产生任何 Level 的 claim;Henry L3 permission gate 决定的是 — 这条 claim 该用什么样的 risk-card 包装、要不要先收 patient ack、什么时候被允许 render。本文件展开 PRD §8 + `src/opl_cancer/validators/permission_levels.py` 的完整规范。
 
 ## 1. Level 0-4 完整定义

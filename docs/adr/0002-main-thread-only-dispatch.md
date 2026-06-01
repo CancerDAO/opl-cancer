@@ -17,9 +17,9 @@ executor → reviewer → auditor → integrator → feedback). A naive port wou
 model each Expert as a subagent that further forks its six primitives as
 sub-subagents. On Claude Code that design simply does not run.
 
-This is not a theoretical concern: `CancerDAO/vmtb-skill` already hit the same
-wall on 2026-04-22 and resolved it with the "main-thread orchestrator" pattern
-recorded in that repo's ADR-2026-04-22. OPL for Cancer reuses that resolution
+This is not a theoretical concern: a CancerDAO internal predecessor already hit
+the same wall on 2026-04-22 and resolved it with the "main-thread orchestrator"
+pattern recorded in that repo's ADR-2026-04-22. OPL for Cancer reuses that resolution
 verbatim rather than rediscovering it.
 
 ## Decision
@@ -58,5 +58,4 @@ depth 1.
 
 ## References
 - Spec §6 (Dispatch model)
-- `CancerDAO/vmtb-skill` ADR-2026-04-22 (origin of the pattern)
-- `memory:project_vmtb_architecture`
+- A CancerDAO internal predecessor ADR (2026-04-22) — origin of the pattern.

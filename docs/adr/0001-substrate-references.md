@@ -24,17 +24,17 @@ The substrate inventory the spec relies on:
   framework, but v0 does *not* lift code or prompts; the dependency is read-only
   inspiration for the multi-expert architecture.
 - **ai-scientist-os-proto** (internal predecessor) — five conceptual archetypes
-  (PI, Domain Expert, Reviewer, Critic, Integrator) that predate the 18-name
+  (PI, Domain Expert, Reviewer, Critic, Integrator) that predate the named
   roster. The OS-proto archetypes survive as roles inside the 6-primitive
   grammar (planner / executor / reviewer / auditor / integrator / feedback).
-- **CancerDAO/vmtb-skill `feat/hypothesis-generation`** — the most direct
-  predecessor. Roughly 60-70 % of v0's expert + tournament code derives from
-  that branch, including the wave-based dispatch pattern (main-thread only,
+- **A CancerDAO internal molecular-tumor-board predecessor branch** — the most
+  direct predecessor. Roughly 60-70 % of v0's expert + tournament code derives
+  from that branch, including the wave-based dispatch pattern (main-thread only,
   see ADR-0002) and the SQLite-backed integrator cache.
-- **CancerDAO/mtb** (engine repo, separate from vmtb-skill) — used as a
+- **A CancerDAO internal engine repo** (separate from the plugin) — used as a
   reference for organize-side schemas (`profile.json`, `readiness.json`,
-  `timeline.md`) but *not* taken as a runtime dependency; per
-  `memory:project_mtb_ownership` the two repos diverged into engine vs plugin.
+  `timeline.md`) but *not* taken as a runtime dependency; the upstream engine
+  and the downstream plugin diverged into separate repos.
 
 ## Decision
 The P0 README, SKILL.md, and CHANGELOG explicitly cite each substrate at the
@@ -44,8 +44,8 @@ must be named in a comment header or commit message. The two open-source
 substrates lifted in v0 (open-coscientist, robin) are subject to upstream
 license compatibility review before P1 ship.
 
-`era` and `mtb` are reference-only for v0. Any future code lift from those
-two requires a follow-up ADR.
+`era` and the internal engine repo are reference-only for v0. Any future code
+lift from those two requires a follow-up ADR.
 
 ## Consequences
 **Positive**: attribution is mechanical, contributors can find prior art
@@ -62,5 +62,4 @@ this ADR's inventory rather than starting a new ADR per substrate.
 
 ## References
 - Spec §18.1-18.4 (substrate inventory and lift policy)
-- `memory:project_mtb_ownership`
-- `memory:project_vmtb_global_evidence`
+- See `CONTRIBUTING.md` for the substrate-attribution and provenance discipline.

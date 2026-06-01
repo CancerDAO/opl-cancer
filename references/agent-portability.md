@@ -1,5 +1,7 @@
 # Agent portability — running OPL on Claude Code, Codex, Cursor, OpenCode, …
 
+> **Superseded/extended by v2 — see [`v2-paradigm.md`](v2-paradigm.md).** Counts in this doc are already v2-current (20 experts, 42 gates G1–G43 with G38 reserved, 29 integrator modules); the portability contract itself is unchanged by the v2 paradigm shift.
+
 OPL for Cancer is an **agent-agnostic skill**: it installs via
 `npx skills add CancerDAO/opl-cancer-skill` into whatever agent(s) the
 [vercel-labs/skills](https://github.com/vercel-labs/skills) CLI detects. This doc

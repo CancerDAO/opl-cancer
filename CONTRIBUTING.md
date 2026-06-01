@@ -63,7 +63,7 @@ Architectural Decision Records live under [`docs/adr/`](docs/adr/). Open one for
 * Adds or removes a wave / expert / integrator
 * Changes the founder-mode safety floor (drug-class redaction, banner stamps, refusal contracts)
 * Trades off performance vs honesty
-* Touches the Henry audit gates (G1-G33)
+* Touches the Henry audit gates (G1-G43; G38 reserved)
 
 Template: copy the latest existing ADR (e.g. [`docs/adr/0025-compositional-paradigm.md`](docs/adr/0025-compositional-paradigm.md)) and follow the same structure (Context / Decision / Consequences / References).
 
@@ -98,11 +98,11 @@ Failing test → confirm fail → implement → confirm pass → commit. No retr
 
 ### 3. No mock-only paths to production
 
-Medical integrators query **live APIs** (`memory:feedback_no_offline_only`). When the network is unavailable, integrators raise; they do not silently fall back to canned snapshots. LLM synthesis is never a substitute for evidence retrieval. New integrators must include both a live-mode test (marked `@pytest.mark.live`) and a transport-error test.
+Medical integrators query **live APIs**. When the network is unavailable, integrators raise; they do not silently fall back to canned snapshots. LLM synthesis is never a substitute for evidence retrieval. New integrators must include both a live-mode test (marked `@pytest.mark.live`) and a transport-error test.
 
 ### 4. No model downgrade
 
-Opus 4.7 stays the executor for any LLM work the runner spawns (`memory:feedback_no_model_downgrade`). Don't drop to Sonnet / Haiku for medical synthesis tasks to save cost — the trade-off is unacceptable for a patient-facing tool.
+Opus 4.7 stays the executor for any LLM work the runner spawns. Don't drop to Sonnet / Haiku for medical synthesis tasks to save cost — the trade-off is unacceptable for a patient-facing tool.
 
 ---
 
@@ -112,7 +112,7 @@ Opus 4.7 stays the executor for any LLM work the runner spawns (`memory:feedback
 * `pydantic` v2 for all schemas
 * `ruff` for linting; `mypy --strict` for typing
 * File responsibility ≤ ~300 lines (split when growing)
-* Docstrings: explicit pre/post-conditions for any function the wave runners call; cite the relevant ADR / RFC / `memory:*` rule
+* Docstrings: explicit pre/post-conditions for any function the wave runners call; cite the relevant ADR / RFC
 
 Run before committing:
 

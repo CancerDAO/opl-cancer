@@ -42,11 +42,11 @@ tracked as its own branch + ADR + E2E validation.
 | `iter/v2-followup-cross-run-memory` | (consolidated into 0017 above) | — | — |
 
 Each branch lands in its own PR with its own ADR + E2E validation matrix
-(≥2 patients ≥2 cancer types per `memory:feedback_multi_case_validation`).
+(≥2 patients ≥2 cancer types per the multi-case validation rule in `CONTRIBUTING.md`).
 
 ## Triage policy
 
-Follow-ups are NOT bundled into a single v2.0.0 release. Per
-`memory:feedback_branch_purpose_separation`, each branch ships independently
-with its own E2E validation. v2 as a paradigm is "complete" when P0 follow-
+Follow-ups are NOT bundled into a single v2.0.0 release. Per the
+branch-purpose-separation rule in `CONTRIBUTING.md`, each branch ships
+independently with its own E2E validation. v2 as a paradigm is "complete" when P0 follow-
 ups merge; v2.x continues to expand P1 + P2.

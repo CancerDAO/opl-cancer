@@ -15,8 +15,8 @@ It does NOT replace a full live-LLM 5-wave run. A live run requires:
 - `opl-cancer plan → wave1 → ... → wave5` via the SKILL.md main-thread orchestrator
 - ~20-40 min wall-time + ~$10-30 API cost per patient
 
-Per `memory:feedback_no_false_completion` I'm reporting only what I actually
-ran in this session. The user will perform the live-LLM E2E after pulling
+Per the no-false-completion rule in `CONTRIBUTING.md`, this reports only what
+was actually run in this session. The user will perform the live-LLM E2E after pulling
 this branch — see "Next step (user)" below.
 
 ## Matrix
@@ -26,7 +26,7 @@ this branch — see "Next step (user)" below.
 | 1 | PT-EE62321353 (template) | mCRC | IV L4+ KRAS G12C MSS | `tests/fixtures/v2/wave2_output_with_novelty.json` | `/tmp/v2-e2e-test-1` | ✅ PASS | <1s |
 | 2 | TEST-HCC-001 (template) | HCC | TACE-refractory ICI-naive Child-Pugh A6 | `tests/fixtures/v2/wave2_output_hcc_novelty.json` | `/tmp/v2-e2e-test-2` | ✅ PASS | <1s |
 
-Per `memory:feedback_multi_case_validation`: ≥2 patients ≥2 cancer types
+Per the multi-case validation rule in `CONTRIBUTING.md`: ≥2 patients ≥2 cancer types
 covered (mCRC + HCC).
 
 ## What each verifier check confirms

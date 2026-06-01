@@ -10,7 +10,7 @@ Accepted (v1.4.1 partial fix; v1.5 full architectural rewrite).
 
 v1.4.0 preflight 强制 `ANTHROPIC_API_KEY OR MINIMAX_API_KEY`,把主 executor LLM call 走 `src/opl_cancer/llm/anthropic_client.py` 直接 HTTP 到 api.anthropic.com。用户已经付 Claude Code subscription(主线程 Opus 4.7),却被要求再付一份 Anthropic API。违反 PRD §0 telos "让全世界每一个人" — paywall 不该卡在 OPL 入口。
 
-姊妹 skill `cancerdao-vmtb` v4.0 用 claude-native 模式("All LLM tokens come from the user's Claude Code subscription"),OPL 应对齐。
+一个 CancerDAO 姊妹工具 v4.0 用 claude-native 模式("All LLM tokens come from the user's Claude Code subscription"),OPL 应对齐。
 
 ## Decision
 
@@ -34,7 +34,7 @@ v1.4.0 preflight 强制 `ANTHROPIC_API_KEY OR MINIMAX_API_KEY`,把主 executor L
 
 ## Consequences
 
-- (+) 用户**不再需要 Anthropic API key** — 跟 cancerdao-vmtb / firefly 等 sibling skill 对齐
+- (+) 用户**不再需要 Anthropic API key** — 跟 CancerDAO 其它姊妹工具对齐
 - (+) 真 patient 触发路径**只付 CC subscription**(~$1-3 per Wave run)+ 选一个便宜 reviewer key(MiniMax 几乎免费,GPT 按量,Gemini 按量)
 - (+) 北极星 "让全世界每一个人" 不被 paywall 卡住 — 学生 / 罕见癌种 / 跨境就医患者更易触达
 - (+) G13 cross-model reviewer 真实可信(executor 是 Anthropic main thread,reviewer 必定是 non-Anthropic)
@@ -46,5 +46,4 @@ v1.4.0 preflight 强制 `ANTHROPIC_API_KEY OR MINIMAX_API_KEY`,把主 executor L
 - PRD §0 telos
 - ADR-0002 main-thread-only dispatch
 - ADR-0008 round-2 v1.3.2 deferred backlog(D11/D12 也归到 v1.5)
-- cancerdao-vmtb v4.0 claude-native precedent
-- vmtb-skill diff report `docs/VMTB_DIFF_v1.4.0_zh.md`
+- A CancerDAO internal predecessor v4.0 claude-native precedent

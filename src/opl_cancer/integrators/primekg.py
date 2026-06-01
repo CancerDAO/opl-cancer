@@ -13,7 +13,7 @@ this is acceptable for v2.0.0-rc1 because:
   (b) The hypothesis_generation prompt accepts empty ``kg_evidence`` and
       routes to the non-KG-dependent strategies (literature_gap etc.).
   (c) Real PrimeKG client is a tracked follow-up
-      (see ``references/v2/ROADMAP.md`` row ``iter/v2-followup-primekg``).
+      (see ``references/v2-roadmap.md`` row ``iter/v2-followup-primekg``).
 
 Maya is the primary consumer (target_synergy_emergent strategy).
 """

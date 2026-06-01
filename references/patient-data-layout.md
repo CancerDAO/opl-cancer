@@ -2,7 +2,7 @@
 
 OPL is **downstream of records organization** — it does not OCR or triage raw
 uploads. Before any Wave runs, the patient's records must be organized into the
-canonical layout below (by `cancer-buddy-organize` or an equivalent). This is the
+canonical layout below (by a records-organization tool or an equivalent). This is the
 single source of truth shared by the SKILL, the readiness gate, and
 `G35 clinical_fact_provenance`.
 

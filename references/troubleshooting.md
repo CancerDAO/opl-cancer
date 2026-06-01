@@ -1,5 +1,15 @@
 # Troubleshooting — Common Failures & Recovery
 
+## Contents
+
+- §1 Preflight / Install
+- §2 Patient Ingest / Readiness
+- §3 Wave Execution Failures
+- §4 Patient-Side UX
+- §5 Provenance / Reproducibility
+- §6 License / Fork
+- §7 紧急 / 越界场景 (永久 block)
+
 本文件按 "patient / operator 实际遇到的现象 → 根因 → 怎么修" 组织。SKILL.md 的 Step 0-11 在正常路径上,本文件覆盖偏离。
 
 ## 1. Preflight / Install
@@ -12,7 +22,7 @@
 export ANTHROPIC_API_KEY=sk-ant-...
 export MINIMAX_API_KEY=sk-cp-...
 ```
-不要降级到 Sonnet/Haiku 省成本 — memory:feedback_no_model_downgrade。
+不要降级到 Sonnet/Haiku 省成本 — 见 `CONTRIBUTING.md` 的 model-routing discipline。
 
 ### "Python deps missing"
 **症状**:`preflight` 告 `opl_cancer` 包 import 失败。
@@ -29,8 +39,8 @@ export MINIMAX_API_KEY=sk-cp-...
 ### "readiness grade < C"
 **症状**:`opl-cancer readiness <patient_dir> --json` 返回 grade D 或 F + blocking_gaps 列出缺字段。
 **修复路径**:
-1. **优先**:fork `vmtb-deepdive` subagent 从 OCR sidecar (`<patient_dir>/ocr/`) 找回字段。SKILL.md Step 3 已自动走这条。
-2. **手工补**:patient 把缺的报告补到 `<patient_dir>/inbox/`,触发 cancer-buddy-organize 重跑。
+1. **优先**:fork a deep-dive subagent 从 OCR sidecar (`<patient_dir>/ocr/`) 找回字段。SKILL.md Step 3 已自动走这条。
+2. **手工补**:patient 把缺的报告补到 `<patient_dir>/inbox/`,触发病历整理流程重跑。
 3. **--force**:绕过 readiness gate(不推荐 — 数据完备度 < C team 分析准度会显著下降)。
 
 ### "review_flags_total > 0 (red flags)"
@@ -48,7 +58,7 @@ export MINIMAX_API_KEY=sk-cp-...
 2. Henry L2 disagreement-summariser 提取分歧 axis
 3. G20 强制 Sid PI delivery 显式呈现两视角
 
-**不要**手工压制 — 这正是 OPL 想给患者看的(memory:feedback_third_party_lens + ADR-0003 L2)。
+**不要**手工压制 — 这正是 OPL 想给患者看的(独立第三方视角 + ADR-0003 L2)。
 
 ### "PMID 不存在 G1 block"
 **症状**:Henry L1 mechanical gate G1 报某 PMID 在 PubMed 验不到。
@@ -130,9 +140,9 @@ ack 是患者**主动声明:"我看到这些不确定 + 风险了,我选择 info
 | 情况 | OPL 不做,改去 |
 |---|---|
 | Oncologic emergency (脊髓压迫 / 高钙危象 / 中性粒减少 sepsis / TLS) | 120 / 911 / 112 — OPL 不是 triage system |
-| 未确诊 ("我有没有癌"/"我是不是末期") | firefly skill(罕见病/未确诊导航) |
-| 单纯情绪 / 陪伴 | cancer-buddy-mind sub-skill (Sid 会自动 invoke) |
-| 病历整理 | cancer-buddy-organize / cancer-buddy-organize-v2 (Sid Step 2 已自动 delegate) |
+| 未确诊 ("我有没有癌"/"我是不是末期") | 罕见病 / 未确诊诊断导航类工具 |
+| 单纯情绪 / 陪伴 | 陪伴 / 心理支持类工具 (Sid 会自动 invoke) |
+| 病历整理 | 病历整理类工具 (Sid Step 2 已自动 delegate) |
 | 由非患者、非 primary caregiver-with-consent 的人发起 | 拒绝;`DISCLAIMER.md` 明示 OPL 是 patient-owned |
 | 14 岁以下未成年人 (guardian-mode 未实装) | v0 拒;等 v1.4 (PRD §15 G4) |
 

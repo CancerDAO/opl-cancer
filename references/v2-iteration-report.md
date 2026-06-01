@@ -6,6 +6,17 @@
 **Target patient:** PT-EE62321353 (王国洪 69yo 男性 KRAS G12C MSS mCRC L4+)
 **Final test count:** 1300 passed, 0 failures (3 live-LLM tests deselected by marker)
 
+## Contents
+
+- §1 What we shipped this iteration (v2.0.0-rc1 → v2.0.2)
+- §2 Live LLM E2E results (MiniMax-M2.7)
+- §3 Multi-perspective output review
+- §4 已知红线
+- §5 提交 + 测试矩阵
+- §6 范式价值的诚实评估
+- §7 与 EvoMaster 集成的诚实评估
+- §8 PR / merge 决策
+
 ---
 
 ## 1. What we shipped this iteration
@@ -99,7 +110,7 @@ Dispatched 3 parallel subagents simulating different reader perspectives:
 
 ## 4. 已知红线（必须在下一轮迭代前面对）
 
-1. **Henry 仍是 disclosure 不是 block** — 医学 reviewer 的 finding #1 没在这次解决，原因是改造 Henry 的 block 行为会影响 1200+ 现有测试。已记入 `references/v2/ROADMAP.md` 作 ADR-0023 待办。
+1. **Henry 仍是 disclosure 不是 block** — 医学 reviewer 的 finding #1 没在这次解决，原因是改造 Henry 的 block 行为会影响 1200+ 现有测试。已记入 `references/v2-roadmap.md` 作 ADR-0023 待办。
 2. **LLM 引用幻觉** — 没有自动 PMID/NCT 真实性 + 上下文匹配验证。Round-2 给 anchors 加了 "未独立校验" 框作过渡。真正的 PMID validator 需要接 PubMed 实时查询 + NCT 主题匹配，留作 `iter/v2-followup-pmid-validator` (ADR-0024)。
 3. **跨语言友好性** — 患者反馈"ferroptosis/MDSC/PROTAC 完全看不懂"。需要中文释义 + 类比层，留作 ADR-0021。
 4. **中国试验招募信息** — 患者 + 家属都要"哪个医院招我，电话多少"。需要 ChiCTR / CT.gov / 三甲招募信息接入 Wave 5，留作 ADR-0022。

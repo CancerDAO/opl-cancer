@@ -66,7 +66,7 @@ Ship a paradigm shift in **5 seams** (this branch `iter/v2-paradigm`):
    integrator stub at `src/opl_cancer/integrators/primekg.py` (live HTTP
    client deferred to follow-up).
 
-## Out of scope (this branch — tracked in `references/v2/ROADMAP.md`)
+## Out of scope (this branch — tracked in `references/v2-roadmap.md`)
 
 | Topic | Follow-up branch | Follow-up ADR |
 |---|---|---|
@@ -81,7 +81,7 @@ Ship a paradigm shift in **5 seams** (this branch `iter/v2-paradigm`):
 | Novelty benchmark dim in SBT_Benchmark | `iter/v2-followup-novelty-benchmark` | ADR-0019 |
 
 Each follow-up branch requires its own ADR + ≥2-patient ≥2-cancer-type E2E
-validation per `memory:feedback_multi_case_validation`.
+validation per the multi-case validation rule in `CONTRIBUTING.md`.
 
 ## Consequences
 
@@ -99,7 +99,8 @@ validation per `memory:feedback_multi_case_validation`.
   research direction.
 - Maya / Julius are LLM-shell only in this branch (no live KG / docking).
   This is honest — they raise `NotImplementedError` on live integrator
-  calls rather than silently returning empty (`memory:feedback_no_offline_only`).
+  calls rather than silently returning empty (the no-offline-only rule in
+  `CONTRIBUTING.md`).
 
 **Compatibility:**
 - All existing 18 experts untouched.
@@ -120,5 +121,5 @@ validation per `memory:feedback_multi_case_validation`.
 - `patient_brief.html` contains `World-Unknown` section with research-
   direction framing.
 
-E2E validation matrix at `references/v2/E2E-VALIDATION-MATRIX.md` covers
+E2E validation matrix at `references/v2-e2e-validation-matrix.md` covers
 ≥2 patients ≥2 cancer types.

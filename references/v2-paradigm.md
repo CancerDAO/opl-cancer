@@ -26,7 +26,7 @@ pipeline result that pre-dated publication.
 
 ## Why this happened (4 mechanisms)
 
-See `references/adr/0010-v2-paradigm-shift.md` §Context for the detailed
+See `docs/adr/0010-v2-paradigm-shift.md` §Context for the detailed
 forensic. The four converging mechanisms:
 
 1. The `Empty-integrator rule (v1.2.0)` forbids synthesizing from training
@@ -58,7 +58,7 @@ forensic. The four converging mechanisms:
 
 ## What v2 does NOT change (intentionally deferred)
 
-See `references/v2/ROADMAP.md` for the 9 follow-up branches. Most important:
+See `references/v2-roadmap.md` for the 9 follow-up branches. Most important:
 
 - Wave 3 hard gate (Henry L1 BLOCK if Wave 3 skipped).
 - Wave 3 → Wave 2 feedback loop (new hypotheses from real data go back to
@@ -84,6 +84,6 @@ v2 success criteria (programmatic check via `scripts/verify_v2_e2e.py`):
       bullets.
 - [ ] No regression in existing Wave 1 / 3 / 4 / 5 outputs.
 
-A second patient from a different cancer type (per
-`memory:feedback_multi_case_validation`) must also satisfy these. Tracked in
-`references/v2/E2E-VALIDATION-MATRIX.md`.
+A second patient from a different cancer type (per the multi-case validation
+rule in `CONTRIBUTING.md`) must also satisfy these. Tracked in
+`references/v2-e2e-validation-matrix.md`.

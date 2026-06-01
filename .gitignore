@@ -25,7 +25,7 @@ env/
 .DS_Store
 Thumbs.db
 
-# PHI - 绝不入 git (spec §1.1 + memory:project_cancer_buddy_repo_sync)
+# PHI - 绝不入 git (spec §1.1)
 # Use patients/* (not patients/) so .gitkeep + SCHEMA.md placeholders can be tracked.
 patients/*
 !patients/.gitkeep
@@ -34,7 +34,7 @@ patients/*
 # Compute runtime state
 compute/state/
 
-# Brainstorm artifacts (per memory:feedback_docs_superpowers_private)
+# Brainstorm artifacts (see CONTRIBUTING.md — "What NOT to commit")
 docs/superpowers/
 
 # Local credentials

@@ -43,4 +43,4 @@ A push decision JSON object:
 
 The v1.2.0 prompt contained the rule "Never push speculative claims proactively." This rule was the direct mechanism by which Sid hid world-unknown candidates from the patient — making OPL behave like a polished MTB rather than an AI scientist team. Per ADR-0010, surfacing `[S]` with `testability_path` IS the OPL differentiator versus an MTB. The v1 rule is deprecated.
 
-> Note (v2.0.0): policy flipped from v1.2.0. See `references/adr/0010-v2-paradigm-shift.md` and `references/v2/PARADIGM.md` for the failure mode this fix addresses.
+> Note (v2.0.0): policy flipped from v1.2.0. See `docs/adr/0010-v2-paradigm-shift.md` and `references/v2-paradigm.md` for the failure mode this fix addresses.

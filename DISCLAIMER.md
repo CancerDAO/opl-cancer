@@ -1,6 +1,6 @@
 # DISCLAIMER — Read This Before Using OPL for Cancer
 
-> **Release scope notice — v1.x.** This is an early v1 release of OPL for Cancer. It is provided **WITHOUT WARRANTY OF ANY KIND**, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, accuracy, or non-infringement. v1.x is intended for research, deliberation, and second-opinion drafting only; it is **NOT** validated for clinical decision-making and **NOT** for use in any oncologic emergency.
+> **Release scope notice — v2.x (research preview).** This is a research-preview release of OPL for Cancer. It is provided **WITHOUT WARRANTY OF ANY KIND**, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, accuracy, or non-infringement. It is intended for research, deliberation, and second-opinion drafting only; it is **NOT** validated for clinical decision-making and **NOT** for use in any oncologic emergency.
 >
 > **Emergencies.** If you or someone in your care has an oncologic emergency — spinal cord compression, febrile neutropenia, tumour lysis syndrome, brain herniation, massive hemoptysis, anaphylaxis, suicidal ideation, or any other acute medical crisis — **stop reading this software and contact emergency services immediately**: dial **120** (China), **911** (United States / Canada), **999** (United Kingdom), **112** (EU), or your local emergency number. This software cannot triage emergencies and must never be substituted for one.
 >
@@ -8,7 +8,7 @@
 
 **OPL for Cancer is NOT clinical decision support software. It is NOT a substitute for a qualified physician. It does NOT diagnose, treat, cure, or prevent any disease.**
 
-This project assembles an "AI scientist team" (18 expert archetypes inspired by real clinicians) that drafts **deliberative materials** — literature digests, hypothesis trees, risk cards, evidence-graded options — for **patients and their treating physicians to read together**. Every output is provisional. Every recommendation is conditional. Every claim is hashed back to a primary source.
+This project assembles an "AI scientist team" (20 expert archetypes inspired by real clinicians) that drafts **deliberative materials** — literature digests, hypothesis trees, risk cards, evidence-graded options — for **patients and their treating physicians to read together**. Every output is provisional. Every recommendation is conditional. Every claim is hashed back to a primary source.
 
 ---
 
@@ -35,7 +35,7 @@ The patient (or their legally authorised representative) is the **sole decision-
 2. Require the patient to acknowledge the card before the option is included in the final brief.
 3. Record the acknowledgement (timestamp + patient-side hash) in the provenance journal.
 
-A treating physician must co-sign any decision to act on a card. The software will not act for the patient.
+No external physician sign-off is required to run OPL or to read its briefs — the patient is the sole decision authority for their own case, and OPL never requires a doctor's approval to start a run or close a brief. OPL strongly encourages the patient to discuss any card with their treating clinician before acting on it, but that conversation is the patient's to choose, not a gate the software imposes. The software will not act for the patient.
 
 ## Provenance and verification
 

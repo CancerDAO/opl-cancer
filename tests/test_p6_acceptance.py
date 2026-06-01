@@ -166,8 +166,9 @@ def test_pyproject_version_is_v1() -> None:
 
 
 def test_changelog_has_1_0_0_section() -> None:
-    cl = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "1.0.0-p6" in cl or "[1.0.0]" in cl, "CHANGELOG missing v1.0.0 entry"
+    # v2.9: pre-v2 history moved to docs/CHANGELOG-archive.md.
+    cl = (REPO_ROOT / "docs" / "CHANGELOG-archive.md").read_text(encoding="utf-8")
+    assert "1.0.0-p6" in cl or "[1.0.0]" in cl, "CHANGELOG-archive missing v1.0.0 entry"
 
 
 # ---------------------------------------------------------------------------

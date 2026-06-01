@@ -14,4 +14,4 @@ The full text is canonical. Read it at the link above.
 
 ## Reporting
 
-If you experience or witness unacceptable behaviour, contact the maintainers at the address listed in [MAINTAINERS.md](MAINTAINERS.md). Reports are treated confidentially. For safety-relevant security or privacy issues, see [SECURITY.md](SECURITY.md) instead.
+If you experience or witness unacceptable behaviour, contact the maintainers at **[opl-security@cancerdao.org](mailto:opl-security@cancerdao.org)** (the same monitored mailbox used for security/safety reports; see [SECURITY.md](SECURITY.md)). Reports are treated confidentially. For safety-relevant security or privacy issues, use the private reporting channels in [SECURITY.md](SECURITY.md) instead.

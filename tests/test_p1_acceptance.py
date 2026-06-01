@@ -180,7 +180,8 @@ def test_acceptance_evaluator_dispatcher_present() -> None:
 
 
 def test_acceptance_changelog_enumerates_p1() -> None:
-    text = (REPO_ROOT / "CHANGELOG.md").read_text()
+    # v2.9: pre-v2 history moved to docs/CHANGELOG-archive.md (Keep-a-Changelog archive).
+    text = (REPO_ROOT / "docs" / "CHANGELOG-archive.md").read_text()
     assert "v0.1.0-p1" in text
     # Enumerates each major P1 deliverable
     for marker in (

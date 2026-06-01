@@ -1,0 +1,28 @@
+{
+  "name": "opl-cancer",
+  "version": "2.8.0",
+  "description": "OPL for Cancer (CancerDAO) — a patient's own AI scientist team (PI Sid + 20 expert archetypes + IRB-substitute auditor Henry) producing a PMID-anchored, three-tier-labelled research brief — not treatment advice; the patient is sole decision authority. Use when a cancer patient or caregiver has records (PDF/images/folder/zip) and wants research-grade analysis: next-line options, NGS interpretation, clinical-trial matching, expanded-access / cross-border navigation, hypothesis generation, drug repurposing, public-dataset re-analysis, or a second look at a treatment plan.",
+  "author": { "name": "CancerDAO" },
+  "homepage": "https://github.com/CancerDAO/opl-cancer",
+  "repository": "https://github.com/CancerDAO/opl-cancer",
+  "license": "Apache-2.0",
+  "keywords": ["oncology", "precision-medicine", "ai-scientist-team", "hypothesis-generation", "clinical-trials", "evidence-grounded", "ngs", "drug-repurposing", "cancerdao"],
+  "skills": "./",
+  "interface": {
+    "displayName": "OPL for Cancer",
+    "shortDescription": "A patient's own AI scientist team — PMID-anchored research brief, not treatment advice.",
+    "longDescription": "OPL for Cancer (CancerDAO) gives one patient one PI (Sid) coordinating a 20-expert virtual lab plus an IRB-substitute auditor (Henry), running a 5-Wave research lifecycle from records-in to patient-brief-out — every claim PMID-anchored, provenance-hashed, three-tier-labelled, and reproducible. Not a clinical decision-support tool, not a diagnostic device, not a doctor-replacement. The patient is the sole decision authority. Use it for next-line options, NGS interpretation, clinical-trial matching, expanded-access / cross-border navigation, hypothesis generation, drug repurposing, public-dataset re-analysis, or a second look at a treatment plan.",
+    "developerName": "CancerDAO",
+    "category": "Research",
+    "capabilities": ["Read", "Write", "Analyze"],
+    "websiteURL": "https://github.com/CancerDAO/opl-cancer",
+    "brandColor": "#CC785C",
+    "defaultPrompt": [
+      "I have my father's medical records — run a full research analysis as my AI scientist team.",
+      "Standard treatment is exhausted; what next-line options does the evidence support?",
+      "Interpret this NGS report and find matching clinical trials.",
+      "Generate and rank research hypotheses for my N=1 case."
+    ],
+    "screenshots": []
+  }
+}

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "opl-cancer"
 version = "2.7.2"
-description = "Open-source AI scientist team skill plugin for cancer patients — installed via npx skills add CancerDAO/opl-cancer-skill"
+description = "Open-source AI scientist team skill plugin for cancer patients — installed via npx skills add CancerDAO/opl-cancer"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [{ name = "CancerDAO Contributors" }]

@@ -1,5 +1,12 @@
 """v2.7.0 ADR-0026 — delivery-integrity gate runner (the wiring that fires the gates).
 
+CLI wiring: the ``cli.py`` ``deliver`` / ``render`` / ``audit`` / ``attest`` / ``go``
+commands all route through this module's ``run_delivery_gates`` to mechanically
+*sweep* a delivery package against the G34-G43 gates and emit a verdict
+(``DELIVERY_ATTESTATION.json``). This is the *gate-sweep wiring*; it differs from the
+sibling ``delivery_runner.py``, which is the *atomic delivery transaction* that
+actually writes the briefs + Henry audit (all-or-nothing, with rollback).
+
 The root cause of session 0d1017d4 was NOT missing gates — it was that the gates
 were never on the path the agent ran. This module is the connective tissue: a
 single ``run_delivery_gates`` that the CLI ``deliver`` / ``render`` / ``audit`` /
@@ -135,7 +142,7 @@ def run_delivery_gates(
                 "PMIDs but no PubMed/PaperQA2 integrator was supplied. This is an honest "
                 "gap, not a pass; supply integrators (live path) to verify citations."
             )
-            # memory:feedback_no_offline_only — a medical brief must not ship
+            # A medical brief must not ship
             # unverified citations. With PMID-bearing claims and no integrator we
             # CANNOT verify them, so the delivery is BLOCKED (ok=False), not a
             # silent pass. Record a sentinel gate name in `blocked` so it surfaces
