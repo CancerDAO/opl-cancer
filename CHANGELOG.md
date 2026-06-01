@@ -11,6 +11,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.9.0] — 2026-06-01 — Audit-polish: SKILL.md router-split + references/packaging reconcile
+
+Closes the remaining 4-lens audit findings (PRD `docs/iteration/V2_9_AUDIT_POLISH_PRD.md`).
+
+### SKILL.md → router (P1-A/B, P0-D, P2-D)
+- SKILL.md 505 → 129 lines: a thin **router** (operating contract + execution model +
+  new consolidated **Evidence Contract** + Workflow Index + core principles + when-NOT).
+- The 11-step conversation script and the interrupt protocol moved to
+  `workflows/run-lifecycle.md` + `workflows/interrupt-protocol.md` (progressive disclosure;
+  each has Use-When / Output-Format / Guardrails).
+- Description: dropped the *how* mechanism, added a generic `Do NOT` clause (no other-skill names).
+- Fixed: duplicate principle numbering, deprecated `render` → `deliver --finalize`, ADR range.
+
+### References / counts (P0-A, P1-C/D, P2-C)
+- Reconciled to canonical **20 experts / 42 gates (G1–G43, G38 reserved) / 29 integrators**;
+  flattened `references/v2/*` → `references/v2-*.md`; relocated stray ADRs to `docs/adr/`;
+  added Contents TOCs + v2-superseded banners.
+
+### Packaging / OSS docs (P0-B/C, P1-E/I/J, P2-A/B)
+- Added `.claude-plugin/` + `.codex-plugin/` + `.cursor-plugin/` manifests.
+- Install slug `opl-cancer-skill` → `opl-cancer` (README + pyproject + SKILL.md).
+- README EN/ZH synced (BibTeX version, test counts, ZH section parity).
+- DISCLAIMER contradiction resolved (patient = sole decision authority) + scope v1.x → v2.x.
+- CoC contact + MAINTAINERS rows; CHANGELOG → Keep-a-Changelog with pre-v2 archived.
+- Scrubbed all `memory:*` private anchors from public files; `gates_registry.yaml` header
+  33 → 42; `delivery_runner` / `delivery_gate_runner` disambiguating docstrings.
+
+Lint: 0 errors (17 → 5 warnings, all click-CLI argparse false-positives). Suite: 1748 passed / 8 skipped.
+Deferred (manual, outward): `v2.9.0` git tag, repo/mirror rename, `opl-cancer-evolution` extraction.
+
 ## [2.8.0] — 2026-06-01 — Harness-split: dual-brain decoupling (prompt-only reasoning)
 
 Paradigm change (PRD `docs/iteration/HARNESS_SPLIT_PRD.md`). Patient reasoning

@@ -35,16 +35,21 @@ def test_shim_fails_with_actionable_message_not_traceback() -> None:
 
 
 def test_skill_md_has_no_hardcoded_claude_command_paths() -> None:
-    text = (REPO / "SKILL.md").read_text(encoding="utf-8")
-    assert "python ~/.claude/skills/opl-cancer/scripts/cli.py" not in text, (
-        "SKILL.md must not hardcode the ~/.claude path — breaks every step on non-CC agents"
-    )
+    # v2.9 router-split: Step 0 (install/preflight) moved to workflows/run-lifecycle.md.
+    # The no-hardcoded-path rule applies to the router AND every workflow.
+    skill = (REPO / "SKILL.md").read_text(encoding="utf-8")
+    lifecycle = (REPO / "workflows" / "run-lifecycle.md").read_text(encoding="utf-8")
+    for name, text in (("SKILL.md", skill), ("run-lifecycle.md", lifecycle)):
+        assert "python ~/.claude/skills/opl-cancer/scripts/cli.py" not in text, (
+            f"{name} must not hardcode the ~/.claude path — breaks every step on non-CC agents"
+        )
     # Commands must go through the portable console entry point.
-    assert "opl-cancer preflight" in text
+    assert "opl-cancer preflight" in lifecycle
 
 
 def test_skill_md_points_to_agent_portability_reference() -> None:
-    text = (REPO / "SKILL.md").read_text(encoding="utf-8")
+    # v2.9: portability guidance lives in the run-lifecycle workflow (Step 0).
+    text = (REPO / "workflows" / "run-lifecycle.md").read_text(encoding="utf-8")
     assert "agent-portability.md" in text
 
 

@@ -15,7 +15,9 @@ from __future__ import annotations
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SKILL_MD = REPO_ROOT / "SKILL.md"
+# v2.9 router-split: the interrupt protocol moved out of SKILL.md into its own
+# workflow file. These tests assert the protocol content wherever it now lives.
+SKILL_MD = REPO_ROOT / "workflows" / "interrupt-protocol.md"
 INTERRUPT_PROMPT = REPO_ROOT / "prompts" / "tasks" / "interrupt_handling.md"
 
 
