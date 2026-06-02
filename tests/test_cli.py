@@ -19,9 +19,10 @@ def test_cli_status_runs() -> None:
     #   - SKILL.md Step 4: TNBC + LM planner row
     #   - cli.py acknowledge --batch ack-batch UX + ack_consolidation_card
     assert "OPL for Cancer" in r.output
-    # Version is now derived from the package single-source-of-truth (no drift);
-    # assert the current minor so the test moves with the bump intentionally.
-    assert "v2.7.2" in r.output
+    # Version is derived from the package single-source-of-truth (no drift);
+    # assert dynamically so the test moves with every bump automatically.
+    from opl_cancer import __version__
+    assert f"v{__version__}" in r.output
     # v2.0.0 (ADR-0010): roster expanded 18 → 20 with Maya + Julius
     assert "Experts active: 20" in r.output
     # v2.3 (ADR-0023): G29-G33 added (Wave 6 manuscript invariants). 28 → 33.
