@@ -1,7 +1,7 @@
 """EBI ArrayExpress / BioStudies integrator. Spec §2.5 F6, P3-T2.
 
 Accession formats: E-MTAB-XXXX / E-GEOD-XXXX / E-PROT-XXXX.
-Uses BioStudies REST API. memory:feedback_no_offline_only — raise on failure.
+Uses BioStudies REST API. no-silent-fallback policy — raise on failure.
 """
 from __future__ import annotations
 

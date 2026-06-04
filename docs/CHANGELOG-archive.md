@@ -22,7 +22,7 @@ A wave is `ok` only when the artifacts real execution leaves on disk are
 actually present. Empty → exit non-zero + `requires_main_thread_dispatch:
 true` + LLM-readable action so the orchestrator dispatches the real path.
 
-Per `memory:feedback_default_prompt_over_script`, the planner / Henry /
+Per `no-hardcoded-keyword-list policy`, the planner / Henry /
 patient-brief fixes are prompt-layer, not Python keyword tables — LLM
 generalisation across patient varieties beats hardcoded if-elif trees.
 
@@ -116,7 +116,7 @@ and work as spec'd).
 
 1. **`integrators/base.py`** — `models.yaml` parse/IO failure now raises
    `IntegratorError` instead of silently returning `{}` and falling back to
-   class-default TTLs. Violates G11 / `memory:feedback_no_offline_only`.
+   class-default TTLs. Violates G11 / `no-silent-fallback policy`.
 2. **NCBI integrators (`pubmed`, `clinvar`, `geo`, `sra`)** — every call to
    `eutils.ncbi.nlm.nih.gov` now sends `tool=opl-cancer` + `email=` (overridable
    via `OPL_NCBI_EMAIL` / `OPL_NCBI_TOOL` env; `NCBI_API_KEY` raises the rate
@@ -221,7 +221,7 @@ User follow-up after v1.5.1: three explicit "didn't finish" items needed to land
 
 - `LLMBackedExpert._compose_system_prompt()` (new) loads + class-level-caches the canonical persona prefix (`prompts/experts/_shared/persona_prefix.md`, v1.5 P1-A) and prepends it to every expert's `persona.md` before passing as `system=` to the LLM. All 18 personas inherit G7 voice + 3-tier rubric + patient-anchor checklist + traceability footer + privacy hygiene WITHOUT manual backfill of 18 .md files.
 - New keyword-only `skip_persona_prefix=True` escape hatch for unit tests in isolation.
-- Missing prefix file raises `FileNotFoundError` (loud — no silent degradation per `memory:feedback_no_offline_only`).
+- Missing prefix file raises `FileNotFoundError` (loud — no silent degradation per `no-silent-fallback policy`).
 - `tests/test_persona_prefix_auto.py` (7 cases) — prefix present, compose includes prefix for bert, escape hatch, missing-prefix raises, prefix inlined for all roster experts with persona.md, cache avoids repeated disk reads.
 - `tests/test_experts/test_common.py` fixture updated to stub a minimal `_shared/persona_prefix.md` and reset the class-level cache per test.
 
@@ -790,7 +790,7 @@ mypy --strict on touched files + ruff clean across all 20 iters.
 - Metrics tracked: `token_cost`, `wall_time_seconds`, `claims_produced`,
   `claims_withdrawn`, `reviewer_fail_rate`, `mechanical_gate_blocks`.
 - Runs with missing keys surface in `skipped[]` with reason
-  (memory:feedback_no_false_completion — transparent accounting).
+  (honest-failure policy — transparent accounting).
 
 ### Tests
 - **`tests/test_tools/test_observe.py`** — 3 tests (sum+mean aggregation,
@@ -830,7 +830,7 @@ mypy --strict on touched files + ruff clean across all 20 iters.
   GBM, gross-total resection, Stupp planning. Full canonical set.
 - **`anon_ped_all_001`** — 8yo F Philadelphia+ B-ALL, induction failure Day33
   MRD 8%, T315I emergence. Declares guardian_consent + pediatric depth
-  preferences (memory:feedback_no_false_completion — pediatric safeguards).
+  preferences (honest-failure policy — pediatric safeguards).
 - **`anon_myeloma_001`** — 64yo M high-risk MM, t(4;14)+del(17p), R-ISS III,
   early biochemical relapse post-VRd/auto-HSCT/maintenance.
 
@@ -847,7 +847,7 @@ mypy --strict on touched files + ruff clean across all 20 iters.
   marker.
 - **`tests/test_e2e/test_wave1_e2e.py`** — extended parametrize to all
   **8 patients** (HCC/NSCLC/CRC/BRCA + pancreatic/GBM/ped-ALL/myeloma) with
-  canned LLM responses. memory:feedback_multi_case_validation satisfied:
+  canned LLM responses. multi-case validation policy satisfied:
   ≥2 cancer types, ≥2 patients per axis, 4 new histologies.
 
 ### Tests total
@@ -858,8 +858,8 @@ mypy --strict on touched files + ruff clean across all 20 iters.
 ### Added
 - **`tools/run_quad_evaluation.py`** — generates 4 evaluator prompts
   (architecture / safety / code_quality / ux) + JSON result schema for parallel
-  third-party subagent dispatch (memory:feedback_review_via_parallel_subagents,
-  memory:feedback_third_party_lens). CLI: `--out evaluator_workspace/`
+  third-party subagent dispatch (parallel-subagent review policy,
+  third-party-lens review policy). CLI: `--out evaluator_workspace/`
   optionally `--dimension <one>`.
 - **`tools/aggregate_evaluator_verdicts.py`** — validates 4 JSON verdicts,
   computes overall verdict (any-fail-dominates, missing-counts-as-conditional)
@@ -887,21 +887,24 @@ mypy --strict on touched files + ruff clean across all 20 iters.
   - LLMResponse parses cleanly (Pydantic)
   - `response_format={"type": "json_object"}` honoured
   - errcode 2056 surfaces as typed `LLMQuotaError`
-  - max_tokens=96000 ceiling accepted (per memory:reference_minimax_llm)
+  - max_tokens=96000 ceiling accepted (per MiniMax LLM configuration policy)
 - **`tests/test_integration/test_minimax_live_meta.py`** — meta-tests (run
   unconditionally) verifying live test module imports, `live` marker
   registered in pyproject, verify script syntactically valid, skipif
   scaffolding correct.
 - **`scripts/verify_minimax_setup.py`** — manual CLI checks: env present,
   endpoint reachable, json_object completion + parse. Exit codes
-  (0/1/2/3/4) for env/transport/parse/quota outcomes.
+  (0/1/2/3/4) for env/transport/parse/quota outcomes. _(Removed in v2.10.0:
+  this script imported the since-deleted `opl_cancer.llm` module and no longer
+  runs — it is not a current live tool.)_
 - **`pyproject.toml`** — declared `live` pytest marker.
 
 ### Deferred
 - **E2E live variant** (`tests/test_e2e/test_wave1_minimax_live.py`) running
   full Wave1Runner with MiniMax as Reviewer — deferred. Requires real
-  MiniMax key + paid budget; not safe to enable by default. Manual operator
-  run via `scripts/verify_minimax_setup.py` covers the per-call validation.
+  MiniMax key + paid budget; not safe to enable by default. At the time, a
+  manual operator script covered the per-call validation; that script was
+  removed in v2.10.0 (it imported the deleted `opl_cancer.llm` module).
 
 ### Tests
 - 710 passed, 3 skipped (live, env-gated). Full suite green.
@@ -917,7 +920,7 @@ mypy --strict on touched files + ruff clean across all 20 iters.
   async, env-gated, accepts any `LLMClient`; returns
   `{"axes": [...], "summary": "..."}`. Defensive against malformed LLM output
   (non-list axes coerced to `[]`). `response_format={"type": "json_object"}`
-  honoured per memory:reference_minimax_llm. memory:feedback_no_offline_only —
+  honoured per MiniMax LLM configuration policy. no-silent-fallback policy —
   raises on network failure, no silent rule-based fallback when caller invokes
   LLM path.
 - **`ProjectMemoryStore.acknowledge_insight()`** —
@@ -948,7 +951,7 @@ mypy --strict on touched files + ruff clean across all 20 iters.
   - All LLM + integrator calls mocked; each patient produces
     `patient_brief.html` + `provenance.jsonl` with sha256 hashes + three-tier
     label + no command-form leakage
-  - Satisfies `memory:feedback_multi_case_validation` — ≥2 cancer types
+  - Satisfies `multi-case validation policy` — ≥2 cancer types
     cross-sample validation matrix
 - **`NOTICE`** (root) — Apache-2.0 attribution + third-party model card
   acknowledgements (Claude/Anthropic, MiniMax) + public data source citations
@@ -1084,9 +1087,9 @@ mypy --strict on touched files + ruff clean across all 20 iters.
 - 661 tests passing (target ≥600 exceeded by 61).
 - `ruff check src tests tools` clean.
 - All 4 P5 task buckets (T1-T9) shipped to production-grade.
-- memory:feedback_no_offline_only — Henry refuses to construct without serious-
+- no-silent-fallback policy — Henry refuses to construct without serious-
   risks catalogue (fail-loud on missing knowledge).
-- memory:feedback_no_false_completion — deferred items above explicitly listed.
+- honest-failure policy — deferred items above explicitly listed.
 
 ## [v0.4.5-p4.5] — 2026-05-24
 
@@ -1160,7 +1163,7 @@ mypy --strict on touched files + ruff clean across all 20 iters.
   - `oncology_nutrition.md` — PG-SGA / kcal-protein target / supplement-DDI cross-ref / ROS window caveat
 
 - **PI intent_parser LLM upgrade** (`PISession.classify_intent_llm`):
-  - Replaces P0 `classify_intent_stub` for live deployments (memory:feedback_default_prompt_over_script)
+  - Replaces P0 `classify_intent_stub` for live deployments (no-hardcoded-keyword-list policy)
   - Loads `prompts/pi/intent_parser.md` via `PromptTemplate`
   - Raises `LLMResponseParseError` on bad JSON / unknown intent / missing key (G11 contract — no silent degradation)
   - `IntentClass` enum extended with `HYPOTHESIS_REQUEST` (routes to Wave 2 tournament per intent_parser.md)
@@ -1170,7 +1173,7 @@ mypy --strict on touched files + ruff clean across all 20 iters.
   - `tests/test_experts/test_batch_d.py` — 21 tests (portfolio + persona discipline + task template invariants + per-expert anchors)
   - `tests/test_orchestrator/test_pi_session_llm.py` — 8 tests (LLM happy paths for 3 intents + 3 failure modes + enum extension + stub fallback)
 
-### Deferred to P4.5 (honest scope limit per memory:feedback_no_false_completion)
+### Deferred to P4.5 (honest scope limit per honest-failure policy)
 
 - KierenExpert (Infectious Disease — neutropenic fever)
 - MarkExpert (Endocrinologist — ICI irAE endocrine)
@@ -1198,7 +1201,7 @@ mypy --strict on touched files + ruff clean across all 20 iters.
   - `SRAIntegrator` (F6) — NCBI SRA runinfo via eutils for SRR/SRP/SRX/SRS
   - `DepMapIntegrator` (F7) — Broad DepMap portal CRISPR gene effect + dependency probability (30-day TTL)
   - `CCLEIntegrator` (F7) — DepMap portal CCLE expression (TPM) by gene × DepMap_ID
-  - All raise `IntegratorError` on transport / HTTP / empty result (memory:feedback_no_offline_only)
+  - All raise `IntegratorError` on transport / HTTP / empty result (no-silent-fallback policy)
 
 - **bixbench Docker compute runtime (`compute/`):**
   - `compute/bixbench.Dockerfile` — lifted from `robin/finch/src/fhda/Dockerfile.pinned` (miniconda3 + R 4.3.3 + bioconda DESeq2 / EnhancedVolcano / clusterProfiler / gseapy / FastQC / scanpy stack)

@@ -1,7 +1,7 @@
 """NCBI SRA (Sequence Read Archive) integrator. Spec §2.5 F6, P3-T3.
 
 Accession prefixes SRR/SRP/SRX/SRS. Uses eutils db=sra.
-memory:feedback_no_offline_only — raise on failure.
+no-silent-fallback policy — raise on failure.
 """
 from __future__ import annotations
 

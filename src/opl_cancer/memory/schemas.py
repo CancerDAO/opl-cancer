@@ -124,7 +124,7 @@ def _utc_now_iso() -> str:
 class Hypothesis(BaseModel):
     """A speculative directional claim produced by the hypothesis-generation loop.
 
-    Founder-mode philosophy (memory:user_motivation_architecture): hypotheses
+    Founder-mode philosophy (founder-mode design intent): hypotheses
     are by definition exploratory; default ``claim_layer="speculative"`` and
     uncertainty must be surfaced.
     """

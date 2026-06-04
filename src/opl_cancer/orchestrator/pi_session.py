@@ -1,6 +1,6 @@
 """PI (Sid) session state machine — single conversational surface. Spec §4 + §6.1.
 
-P4: classify_intent_llm replaces P0 keyword stub (memory:feedback_default_prompt_over_script).
+P4: classify_intent_llm replaces P0 keyword stub (no-hardcoded-keyword-list policy).
 """
 from __future__ import annotations
 
@@ -96,7 +96,7 @@ class PISession:
         """LLM-backed intent classification (P4 — replaces stub for live deployments).
 
         Raises on bad JSON / unknown intent (no silent degradation —
-        memory:feedback_no_offline_only + feedback_default_prompt_over_script).
+        no-silent-fallback policy + feedback_default_prompt_over_script).
         """
         from opl_cancer._llm_contract import LLMRequest, LLMResponseParseError  # transitional shim
         from opl_cancer.prompts_loader import PromptTemplate, find_prompts_root

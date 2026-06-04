@@ -10,14 +10,14 @@ real PMID slips straight through an existence check.
 
 G36 closes that hole. For each cited PMID it fetches the live PubMed record
 (title + abstract + journal — never the model's memory, per
-memory:feedback_no_offline_only) and verifies that at least one of the claim's
+no-silent-fallback policy) and verifies that at least one of the claim's
 **structured topical entities** (gene / variant / drug / cancer-type, supplied
 by the claim producer as ``claim['entities']``) actually appears in the fetched
 record. Zero overlap ⇒ the PMID is off-topic ⇒ FAIL + BLOCK, surfacing the real
 paper title so the reviewer sees *what the wrong PMID actually points to*.
 
 Entities come from upstream (the expert/claim layer), never a hardcoded disease
-keyword list (memory:feedback_default_prompt_over_script). If a claim carries
+keyword list (no-hardcoded-keyword-list policy). If a claim carries
 PMIDs but no upstream-supplied ``entities``, the gate FAILs CLOSED rather than
 silently skipping: it first attempts a *narrow, deterministic* fallback
 derivation of structured tokens (HGNC-style gene symbols, protein-change /
@@ -26,11 +26,11 @@ carry in ``drugs`` / ``cancer_type``) from the claim's own text and fields. The
 fallback is a last-resort relevance anchor, NOT a substitute for upstream
 entity attachment. If neither upstream entities nor any derivable token exist,
 the citation cannot be relevance-judged and is BLOCKED — an unjudgeable
-citation must not ship (SKILL.md core principle #4 / memory:feedback_no_offline_only).
+citation must not ship (SKILL.md core principle #4 / no-silent-fallback policy).
 
 Network-unreachable ⇒ the per-PMID check errors *closed* (treated as a relevance
 failure for that PMID), never silently skipped — a medical agent must not ship a
-citation it could not verify (SKILL.md core principle #4 / memory:feedback_no_offline_only).
+citation it could not verify (SKILL.md core principle #4 / no-silent-fallback policy).
 
 Async, like G1/G2: call ``check_async``; the sync ``check`` raises.
 """
@@ -67,7 +67,7 @@ def _entity_present(entity: str, haystack: str) -> bool:
 #     uppercase letters with optional trailing digits, the HGNC shape.
 #   * protein-change / variant notations (e.g. G12C, V600E, exon 20).
 # We deliberately do NOT keyword-match disease names here (that would be the
-# hardcoded list memory:feedback_default_prompt_over_script forbids); explicit
+# hardcoded list no-hardcoded-keyword-list policy forbids); explicit
 # drug / cancer-type strings, if present, come from the claim's own structured
 # fields, not an inferred dictionary.
 _GENE_SHAPE_RE = re.compile(r"\b([A-Z]{2,6}[0-9]{0,3}[A-Z]?)\b")

@@ -96,7 +96,7 @@ checks each action must pass.
 1. Acknowledge ≤ 5 s.
 2. Never silently change scope.
 3. Skip is gate-aware (Henry G25 enforcement).
-4. Cancel always preserves artifacts (memory:feedback_no_false_completion).
+4. Cancel always preserves artifacts (honest-failure policy).
 5. Replan re-runs comorbid expansion (P0-6 `plan/comorbid_planner.py`).
 
 ## Failure modes

@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -48,9 +49,149 @@ from opl_cancer.validators.gates import (
     G42TierDisciplineGate,
     G43EpistemicSymmetryGate,
 )
+from opl_cancer.validators.fakery_sniffer import (
+    scan_artifact,
+    scan_brief_artifact,
+)
 from opl_cancer.validators.mechanical_gates import Gate, GateResult, GateStatus
 
 ATTESTATION_FILE = "DELIVERY_ATTESTATION.json"
+
+# Brief filename shapes the renderer emits (md + html). Used by every
+# brief-scanning helper so they stay in lockstep.
+_BRIEF_GLOBS = ("*brief.md", "*brief.html", "patient_brief.html")
+# PMID / treatment-content signals in brief PROSE (not structured side-files).
+_PMID_PROSE_RE = re.compile(r"\[?PMID\s*:?\s*(\d{4,9})\]?", re.IGNORECASE)
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+# Drug / treatment-content signals: a dose unit, an efficacy %, or an explicit
+# recommendation verb next to a drug-shaped token. Conservative — we only need
+# to know the brief carries *clinical/treatment* content (so it MUST be gated).
+_DOSE_UNIT_RE = re.compile(
+    r"\b\d+(?:\.\d+)?\s*(?:mg|µg|ug|mcg|g|mL|ml|IU|U)(?:\s*/\s*(?:m2|m²|kg|day|d))?",
+    re.IGNORECASE,
+)
+_EFFICACY_PCT_RE = re.compile(
+    r"\b(?:ORR|DCR|PFS|OS|缓解率|有效率|客观缓解率?|无进展生存|总生存)\b[^\n]{0,24}?\d"
+    r"|\d{1,3}(?:\.\d+)?\s*%[^\n]{0,12}?(?:response|缓解|生存|survival|control|控制)",
+    re.IGNORECASE,
+)
+
+
+def _iter_brief_files(out_dir: Path) -> list[Path]:
+    """All delivered brief files (md + html) under ``out_dir`` (deduped)."""
+    if not out_dir.is_dir():
+        return []
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for pat in _BRIEF_GLOBS:
+        for p in sorted(out_dir.glob(pat)):
+            rp = p.resolve()
+            if rp not in seen and p.is_file():
+                seen.add(rp)
+                out.append(p)
+    return out
+
+
+def _delivery_has_brief(out_dir: Path) -> bool:
+    return bool(_iter_brief_files(out_dir))
+
+
+def _run_fakery_gate(out_dir: Path, *, claims: list[dict[str, Any]]) -> GateResult:
+    """P0.3b — fakery sniffer over the FINAL rendered briefs.
+
+    Placeholder language (TODO / 待填充 / <insert PMID>) is a HARD block — a
+    delivered brief that still admits it is unfinished must never ship.
+    Confident-but-unanchored efficacy %/drug+dose signals are recorded as
+    WARN (flag-for-review) here; they only hard-block via P0.3c when the brief
+    has no gated claims at all (avoids false positives on properly-gated prose).
+    """
+    briefs = _iter_brief_files(out_dir)
+    if not briefs:
+        return GateResult(
+            gate="fakery_sniffer_delivery",
+            status=GateStatus.SKIP,
+            message="fakery_sniffer_delivery SKIP — no delivered brief to scan.",
+        )
+    gated_pmids = {
+        str(e.get("id"))
+        for c in claims
+        for e in c.get("evidence", []) if e.get("type") == "pmid" and e.get("id")
+    }
+    placeholder_hits: list[dict[str, Any]] = []
+    unanchored_hits: list[dict[str, Any]] = []
+    for bp in briefs:
+        for f in scan_artifact(bp):
+            placeholder_hits.append({"file": bp.name, "line": f.line_number,
+                                     "pattern": f.pattern, "excerpt": f.excerpt[:160]})
+        for f in scan_brief_artifact(bp, gated_pmids=gated_pmids):
+            unanchored_hits.append({"file": bp.name, "line": f.line_number,
+                                    "kind": f.pattern, "excerpt": f.excerpt[:160]})
+
+    if placeholder_hits:
+        return GateResult(
+            gate="fakery_sniffer_delivery",
+            status=GateStatus.FAIL,
+            block=True,
+            message=(
+                f"fakery_sniffer_delivery FAIL — {len(placeholder_hits)} placeholder / "
+                "unfinished-scaffold marker(s) in the delivered brief; a brief that "
+                "still contains TODO / 待填充 / <insert PMID> must not ship."
+            ),
+            evidence={"placeholder_hits": placeholder_hits[:20],
+                      "unanchored_signals": unanchored_hits[:20]},
+        )
+    if unanchored_hits:
+        return GateResult(
+            gate="fakery_sniffer_delivery",
+            status=GateStatus.FAIL,
+            block=False,  # WARN — flag for review (conservative, avoid false +)
+            message=(
+                f"fakery_sniffer_delivery WARN — {len(unanchored_hits)} confident-but-"
+                "unanchored clinical signal(s) (efficacy %/drug+dose) in the brief that "
+                "carry no [[src:]]/[PMID:]/tier anchor. Flagged for review (non-blocking "
+                "here; hard-blocks via P0.3c when the brief has no gated claims)."
+            ),
+            evidence={"unanchored_signals": unanchored_hits[:20]},
+        )
+    return GateResult(
+        gate="fakery_sniffer_delivery",
+        status=GateStatus.PASS,
+        message=f"fakery_sniffer_delivery OK — {len(briefs)} brief(s) clean.",
+    )
+
+
+def _scan_brief_clinical_content(out_dir: Path) -> dict[str, Any]:
+    """P0.3c — does the rendered brief carry clinical/treatment content?
+
+    Returns a dict with ``has_content`` (drug+dose, efficacy numbers, or PMIDs
+    in prose found), the candidate ``brief_pmids`` extracted from prose, and the
+    first clinical line (for surfacing). Empty/absent brief ⇒ has_content False.
+    """
+    briefs = _iter_brief_files(out_dir)
+    brief_pmids: set[str] = set()
+    has_content = False
+    first_clinical_line = ""
+    files_scanned: list[str] = []
+    for bp in briefs:
+        files_scanned.append(bp.name)
+        raw = bp.read_text(encoding="utf-8", errors="replace")
+        if bp.suffix.lower() in (".html", ".htm"):
+            raw = _HTML_TAG_RE.sub(" ", raw)
+        brief_pmids.update(_PMID_PROSE_RE.findall(raw))
+        for line in raw.splitlines():
+            s = line.strip()
+            if not s or s.startswith("[BACKGROUND]"):
+                continue
+            if _DOSE_UNIT_RE.search(s) or _EFFICACY_PCT_RE.search(s) or _PMID_PROSE_RE.search(s):
+                has_content = True
+                if not first_clinical_line:
+                    first_clinical_line = s[:200]
+    return {
+        "has_content": has_content,
+        "brief_pmids": sorted(brief_pmids),
+        "first_clinical_line": first_clinical_line,
+        "files_scanned": files_scanned,
+    }
 
 
 def _patient_dir_for(run_root: Path) -> Path | None:
@@ -112,23 +253,78 @@ def run_delivery_gates(
     blocked: list[str] = []
     notes: list[str] = []
 
+    # Load claims early — the fakery gate (P0.3b) and the brief-vs-claims
+    # cross-check (P0.3c) both need to know whether any gated claim exists.
+    if claims is None:
+        claims = _load_claims(run_root, out_dir)
+
     # ── structural gates (sync, no network) ──
     _record(results, blocked, G34DeliveryAttestationGate().check({
         "run_root": str(run_root), "out_dir": str(out_dir), "brief_path": brief_path,
     }))
     _record(results, blocked, G37ServiceCompletenessGate().check({"run_root": str(run_root)}))
 
-    # G35 only when there is a case_text to scan (else SKIP is implicit).
-    if patient_dir is not None and (patient_dir / "case_text.md").is_file():
-        _record(results, blocked, G35ClinicalFactProvenanceGate().check({
-            "patient_dir": str(patient_dir),
-        }))
+    # G35 — scan case_text.md AND (v2.10 P0.3a) the delivered briefs. A
+    # fabricated clinical value can live ONLY in the patient-facing brief with no
+    # case_text behind it, so G35 must see the delivery dir even when there is no
+    # case_text.md at this layer.
+    g35_in: dict[str, Any] = {"delivery_dir": str(out_dir)}
+    if patient_dir is not None:
+        g35_in["patient_dir"] = str(patient_dir)
+    has_case_text = patient_dir is not None and (patient_dir / "case_text.md").is_file()
+    has_brief = _delivery_has_brief(out_dir)
+    if has_case_text or has_brief:
+        _record(results, blocked, G35ClinicalFactProvenanceGate().check(g35_in))
     else:
-        notes.append("G35 clinical_fact_provenance: no case_text.md to scan at this layer.")
+        notes.append(
+            "G35 clinical_fact_provenance: no case_text.md and no delivered brief "
+            "to scan at this layer."
+        )
+
+    # ── v2.10 P0.3b — run the fakery sniffer on the FINAL rendered briefs ──
+    # The wave runners sniff their own intermediate artifacts; nothing sniffed
+    # the delivered package. A fabricated brief (placeholder OR confident-but-
+    # unanchored efficacy %/drug+dose) must be caught here. Placeholder language
+    # (TODO / 待填充 / <insert PMID>) is a HARD block; unanchored efficacy/dose
+    # signals are flag-for-review unless the brief has no gated claims at all (in
+    # which case P0.3c below already hard-blocks the whole delivery).
+    _record(results, blocked, _run_fakery_gate(out_dir, claims=claims))
+
+    # ── v2.10 P0.3c — brief-has-content-but-no-gated-claims hard block ──
+    # The red-team hole: when claims.json is empty/missing the citation gates
+    # below were skipped entirely, so a brief that recommends a drug + dose +
+    # invented efficacy with NO claims.json shipped ok=True. Close it: if the
+    # rendered brief carries clinical / treatment content (drug names, efficacy
+    # numbers, PMIDs in prose) but there are no gated claims to back it, BLOCK.
+    # Where the brief exposes candidate PMIDs in prose, surface them so they can
+    # be run through the citation gates rather than silently passing.
+    brief_content = _scan_brief_clinical_content(out_dir)
+    if brief_content["has_content"] and not claims:
+        _record(results, blocked, GateResult(
+            gate="brief_has_claims_but_no_gated_claims",
+            status=GateStatus.FAIL,
+            block=True,
+            message=(
+                "delivery BLOCKED — the rendered brief asserts clinical/treatment "
+                "content (drug names / efficacy numbers / PMIDs in prose) but there "
+                "is NO gated claims.json behind it. Every clinical claim in the "
+                "brief must originate from a gated, provenance-anchored claim; a "
+                "brief with no claims record is unverifiable and may be fabricated."
+            ),
+            evidence=brief_content,
+        ))
+        # Promote any candidate PMIDs found in the brief into synthetic claims so
+        # the citation gates below at least attempt to verify what the brief
+        # cites (when an integrator is supplied).
+        for pmid in sorted(brief_content.get("brief_pmids", [])):
+            claims.append({
+                "claim_id": f"brief_pmid:{pmid}",
+                "claim_text": brief_content.get("first_clinical_line", ""),
+                "evidence": [{"type": "pmid", "id": pmid}],
+                "_source": "brief_text_extracted",
+            })
 
     # ── citation gates (async, need live integrators) ──
-    if claims is None:
-        claims = _load_claims(run_root, out_dir)
     pmid_claims = [c for c in claims if any(
         e.get("type") == "pmid" for e in c.get("evidence", [])
     )]

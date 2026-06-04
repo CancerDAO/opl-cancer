@@ -175,7 +175,7 @@ def _scan_crisis(
     """Run the mechanical G24 crisis gate over the raw patient question.
 
     Returns the gate's evidence dict on a crisis hit, else None. Kept mechanical
-    by design (memory:feedback_no_offline_only — fires even with no network/LLM;
+    by design (no-silent-fallback policy — fires even with no network/LLM;
     the upstream LLM crisis_detection prompt is a *front* layer, this is the
     non-suppressible floor behind it)."""
     from opl_cancer.validators.gates.g24_crisis_detection import (

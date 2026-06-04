@@ -58,7 +58,7 @@ class StubMethodWarning(UserWarning):
 class ExpertArtifactError(RuntimeError):
     """Raised when a host-written expert artifact is malformed.
 
-    Fail-loud per memory:feedback_no_false_completion — a report that does not
+    Fail-loud per honest-failure policy — a report that does not
     parse / does not carry its provenance _meta is a defect, not something to
     silently paper over with an empty approving result.
     """
@@ -131,7 +131,7 @@ class LLMBackedExpert(Expert):
         if not path.exists():
             # Hard error: the prefix is v1.5 mandatory infrastructure.
             # Returning an empty string would silently degrade persona
-            # quality across the entire skill (memory:feedback_no_offline_only).
+            # quality across the entire skill (no-silent-fallback policy).
             raise FileNotFoundError(
                 f"persona prefix missing at {path}. v1.5+ requires this "
                 "file. If you intentionally want to skip it (tests only), "

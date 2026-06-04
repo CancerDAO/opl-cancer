@@ -7,7 +7,7 @@ where a producer pulled an evidence cache / memory snippet keyed under
 patient_A but is emitting under run_id of patient_B.
 
 CrossPatientContaminationError is raised to make the violation impossible
-to silently swallow upstream (see memory:feedback_no_silent_fallback).
+to silently swallow upstream (see no-silent-fallback policy).
 """
 from __future__ import annotations
 

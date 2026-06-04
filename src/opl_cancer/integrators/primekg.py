@@ -6,7 +6,7 @@ Repository: https://github.com/mims-harvard/PrimeKG
 
 This is a STUB — it accepts a ``stub_response`` for tests and raises
 ``NotImplementedError`` for live queries until the real HTTP/SPARQL client
-lands in ``iter/v2-followup-primekg``. Per ``memory:feedback_no_offline_only``
+lands in ``iter/v2-followup-primekg``. Per ``no-silent-fallback policy``
 this is acceptable for v2.0.0-rc1 because:
 
   (a) The stub is honest — it raises rather than silently returning empty.

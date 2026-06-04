@@ -167,7 +167,7 @@ shape (`options: [] | matches: [] | recommendations: []` per the task file) with
 - `claim_layer: "speculative"`.
 
 No regimens / trial matches / doses / hypotheses without runtime-retrieved
-backing. **Do NOT synthesize from training data** (memory:feedback_no_offline_only
+backing. **Do NOT synthesize from training data** (no-silent-fallback policy
 — medical agents query live or report the gap; the LLM never fabricates evidence).
 
 ---

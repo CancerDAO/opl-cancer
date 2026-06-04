@@ -21,7 +21,7 @@ from typing import Any
 
 from typing import TYPE_CHECKING
 
-from opl_cancer.glue._post_write import SnifferHalt, post_write_safety_check
+from opl_cancer.glue._post_write import post_write_safety_check
 from opl_cancer.memory.schemas import Hypothesis
 from opl_cancer.provenance.hasher import hash_claim
 from opl_cancer.provenance.journal import ProvenanceJournal
@@ -158,7 +158,7 @@ class Wave2Runner:
         )
 
         # v2.5.1 B3 — same fakery_sniffer + reviewer pairing discipline as
-        # wave1_runner (memory:feedback_no_false_completion). A hit raises
+        # wave1_runner (honest-failure policy). A hit raises
         # SnifferHalt which propagates so downstream waves do not consume
         # a fabricated hypothesis set.
         post_write_safety_check(out_path, run_root=run_dir)

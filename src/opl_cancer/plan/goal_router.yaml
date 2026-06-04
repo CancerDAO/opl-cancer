@@ -26,5 +26,5 @@ keywords:
   # v2.5.1 B4 — c3195b66 family. AutoML / prognostic-model questions get
   # routed to Bert (molecular), Aviv (bioinformatics), Iain (meta-analysis).
   # Real routing to `unknown_task_intake` is the intake_router's job; this
-  # entry only assembles the right team. memory:project_intake_router.
+  # entry only assembles the right team. intake-router design.
   "automl|machine learning|deep learning|XGBoost|prognostic model|机器学习|预后模型|建模预测|自动建模|AutoML|预后预测": [bert, aviv, iain]

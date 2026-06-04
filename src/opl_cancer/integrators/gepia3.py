@@ -33,7 +33,7 @@ Returns a dict::
       "as_of": "2026-05-25T12:34:56Z",
     }
 
-Per memory:feedback_no_offline_only — never silently degrades. Transport
+Per no-silent-fallback policy — never silently degrades. Transport
 or parse failures raise ``IntegratorError`` with the actionable detail.
 
 Rate-limit: the recovery run discovered HTTP 429 at burst → 12-second

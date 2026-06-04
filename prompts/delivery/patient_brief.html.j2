@@ -43,11 +43,25 @@
     font-size: 0.85em;
     margin-bottom: 0.4em;
   }
+  .actionable-paths { border: 2px solid #2e7d32; padding: 1.2em; margin: 2em 0; background: #f1f8f2; border-radius: 6px; }
+  .actionable-paths h2 { color: #2e7d32; margin-top: 0; }
+  .actionable-paths .framing { font-size: 0.95em; color: #444; margin-bottom: 1em; }
+  .actionable-paths li { margin-bottom: 1em; padding: 0.6em; background: #ffffff; border-left: 4px solid #2e7d32; }
+  .actionable-paths .this-week {
+    display: inline-block; background: #c8e6c9; color: #1b5e20;
+    padding: 2px 8px; border-radius: 3px; font-size: 0.8em; font-weight: 700; margin-right: 6px;
+  }
 </style>
 </head>
 <body>
 <h1>Patient Brief — {{ patient_code }}</h1>
 <p><em>Run {{ run_id }} · {{ created_at }}</em></p>
+
+{% if delivery_blocked_notice is defined and delivery_blocked_notice %}
+<div style="border: 3px solid #b71c1c; background: #fdecea; padding: 1em; margin: 1em 0; color: #7f0000; font-weight: 700;">
+<strong>🚫 交付已阻断 / DELIVERY BLOCKED:</strong> {{ delivery_blocked_notice }}
+</div>
+{% endif %}
 
 {% if run_incomplete_notice is defined and run_incomplete_notice %}
 <div style="border: 3px solid #d32f2f; background: #ffebee; padding: 1em; margin: 1em 0; color: #b71c1c;">
@@ -87,6 +101,55 @@
 <p><small>provenance: <code>{{ claim.provenance_hash }}</code></small></p>
 {% endfor %}
 {% endfor %}
+
+{% if has_actionable_paths is defined and has_actionable_paths %}
+<section class="actionable-paths">
+<h2>🧭 可以走的路 / Paths you could take</h2>
+<p class="framing">
+下面是团队在公开数据库里<strong>找到的真实、可执行</strong>的选择 — 临床试验、下一线方案、扩展准入 / 同情用药通道。<strong>这不是治疗建议</strong>，是给您和主治医生讨论用的真实选项清单。决策权始终在您（与您的医生）手里。
+</p>
+{% if matches and matches|length > 0 %}
+<h3>🔬 临床试验匹配 / Clinical trial matches</h3>
+<ul>
+{% for m in matches %}
+<li>
+  <span class="this-week">✅ 本周内可了解 / Actionable this week</span>
+  <strong>{{ m.get('title') or m.get('nct_id') or m.get('id') or m.get('trial_id') }}</strong>{% if m.get('nct_id') %} <code>{{ m.get('nct_id') }}</code>{% endif %}
+  {% if m.get('phase') %}<br><small>期别 / Phase: {{ m.get('phase') }}</small>{% endif %}
+  {% if m.get('status') %}<br><small>状态 / Status: {{ m.get('status') }}</small>{% endif %}
+  {% if m.get('eligibility_summary') or m.get('summary') %}<br>{{ m.get('eligibility_summary') or m.get('summary') }}{% endif %}
+  {% if m.get('locations') %}<br><small>地点 / Sites: {{ m.get('locations') if m.get('locations') is string else m.get('locations')|join(', ') }}</small>{% endif %}
+</li>
+{% endfor %}
+</ul>
+{% endif %}
+{% if studies and studies|length > 0 %}
+<h3>📈 下一线方案研究 / Next-line studies</h3>
+<ul>
+{% for s in studies %}
+<li>
+  <span class="this-week">✅ 本周内可了解 / Actionable this week</span>
+  {{ s.get('summary') or s.get('title') or s.get('text') or s.get('id') }}
+  {% if s.get('evidence') %}<ul>{% for ev in s.get('evidence') or [] %}<li>{% if ev.get('type') == "pmid" %}<a class="pmid" href="https://pubmed.ncbi.nlm.nih.gov/{{ ev.get('id') }}/">PMID:{{ ev.get('id') }}</a>{% else %}{{ ev.get('type') }}: {{ ev.get('id') }}{% endif %}{% if ev.get('quote') %} — &ldquo;{{ ev.get('quote') }}&rdquo;{% endif %}</li>{% endfor %}</ul>{% endif %}
+</li>
+{% endfor %}
+</ul>
+{% endif %}
+{% if expanded_access_routes and expanded_access_routes|length > 0 %}
+<h3>🛂 扩展准入 / 同情用药 · Expanded access / compassionate use</h3>
+<ul>
+{% for r in expanded_access_routes %}
+<li>
+  <span class="this-week">✅ 本周内可了解 / Actionable this week</span>
+  <strong>{{ r.get('program') or r.get('title') or r.get('summary') or r.get('text') or r.get('id') }}</strong>{% if r.get('jurisdiction') %} ({{ r.get('jurisdiction') }}){% endif %}
+  {% if r.get('drug') or r.get('drug_class') %}<br><small>药物 / Drug: {{ r.get('drug') or r.get('drug_class') }}</small>{% endif %}
+  {% if r.get('contact') or r.get('how_to_apply') %}<br><small>申请途径 / How to apply: {{ r.get('contact') or r.get('how_to_apply') }}</small>{% endif %}
+</li>
+{% endfor %}
+</ul>
+{% endif %}
+</section>
+{% endif %}
 
 {% if world_unknown_candidates is defined and world_unknown_candidates and world_unknown_candidates|length > 0 %}
 <section class="world-unknown">

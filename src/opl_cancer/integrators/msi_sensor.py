@@ -14,7 +14,7 @@ Real execution requires `msisensor-pro` (or legacy `msisensor`) + samtools
 on PATH plus a reference microsatellite list. The wrapper is deterministic —
 it shells out, parses the output table, and returns the canonical payload.
 
-memory:feedback_no_offline_only — when CLI is absent in live mode, raise
+no-silent-fallback policy — when CLI is absent in live mode, raise
 IntegratorError. Mock mode (`mock_mode=True`) is for unit tests only.
 """
 from __future__ import annotations
@@ -107,7 +107,7 @@ class MSIsensorIntegrator(Integrator):
                 f"MSIsensor: neither {self.binary_name!r} nor 'msisensor' is on PATH. "
                 "Install MSIsensor-pro (https://github.com/xjtu-omics/msisensor-pro) "
                 "or enable mock_mode=True for tests. No silent fallback "
-                "(memory:feedback_no_offline_only)."
+                "(no-silent-fallback policy)."
             )
 
         # Real CLI call delegated to _run_cli (kept separate so unit tests can

@@ -71,7 +71,7 @@ DO NOT:
 IF YOU CANNOT WRITE AT ALL (both Write and Bash fail):
   Return the JSON envelope with status="write_failed" and notes=<exact
   error encountered>. The orchestrator will surface this to the user
-  loudly — no silent skip per memory:feedback_no_offline_only.
+  loudly — no silent skip per no-silent-fallback policy.
 ```
 
 ---
@@ -110,7 +110,7 @@ write to disk but happens to put the same content in chat, the
 orchestrator could be fooled into thinking the artifact landed. The
 envelope's `report_bytes` + `report_sha256_short` make the claim
 falsifiable against the filesystem — the orchestrator audits in one
-hash step. This matches `memory:feedback_no_false_completion`.
+hash step. This matches `honest-failure policy`.
 
 ## Test fixture
 

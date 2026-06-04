@@ -109,7 +109,9 @@ def test_interrupt_prompt_documents_cancel_preserves_artifacts() -> None:
     content = INTERRUPT_PROMPT.read_text(encoding="utf-8")
     assert "canceled.json" in content
     assert "resumable_via" in content
-    assert "feedback_no_false_completion" in content
+    # Rationale documented inline (private memory anchor scrubbed in v2.10.0).
+    assert "preserves artifacts" in content
+    assert "honest-failure policy" in content
 
 
 def test_interrupt_prompt_references_reporter_block_method() -> None:

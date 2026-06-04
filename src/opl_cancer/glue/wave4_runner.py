@@ -12,7 +12,7 @@ Drives Aviv (leads) + Iain (meta-validator) through:
 
 Writes ``triggers/<run_id>/wave4_validation.json`` + provenance.jsonl.
 Per ADR-2026-04-22 main-thread sequential awaits.
-memory:feedback_no_offline_only — no silent network fallback; integrators raise.
+no-silent-fallback policy — no silent network fallback; integrators raise.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from opl_cancer.experts._common import LLMBackedExpert
-from opl_cancer.glue._post_write import SnifferHalt, post_write_safety_check
+from opl_cancer.glue._post_write import post_write_safety_check
 # NOTE (harness-split): orchestrator.* is the self-improvement engine being
 # extracted to a standalone repo. Imported lazily (in-function) so this runner
 # stays importable when orchestrator/ is absent. ``run_reviewer_pairing`` stays

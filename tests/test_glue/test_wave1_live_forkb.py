@@ -12,7 +12,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from opl_cancer.glue.wave1_live import build_default_expert_factory, run_wave1_scaffold
+from opl_cancer.glue.wave1_live import (
+    build_default_expert_factory,
+    build_integrator_registry,
+    run_wave1_scaffold,
+)
 
 
 def _patient(tmp_path: Path) -> Path:
@@ -66,6 +70,51 @@ def test_default_factory_builds_any_roster_expert() -> None:
         assert factory(n, "e", "r").profile.name == n
 
 
+# --- P0.2: integrator registry returns REAL client types keyed by family ---
+
+
+def test_integrator_registry_returns_real_client_types() -> None:
+    """P0.2: build_integrator_registry instantiates concrete Integrator
+    subclasses keyed by their family= attr (not an empty map)."""
+    from opl_cancer.integrators.base import Integrator
+
+    registry = build_integrator_registry()
+    assert registry, "registry must not be empty"
+    # Every value is a real Integrator instance whose .family matches its key.
+    for family, client in registry.items():
+        assert isinstance(client, Integrator)
+        assert client.family == family
+    # Core families are present (key-free / constructible offline).
+    for fam in ("F1", "F2", "F3", "F4", "F8"):
+        assert fam in registry, f"family {fam} missing from registry"
+
+
+def test_integrator_registry_f8_resolves_to_eap_client() -> None:
+    """P0.1/P0.2: F8 (expanded-access) resolves to a real EAP integrator."""
+    from opl_cancer.integrators.ema_eap import EMAEAPIntegrator
+    from opl_cancer.integrators.fda_eap import FDAEAPIntegrator
+    from opl_cancer.integrators.nmpa_eap import NMPAEAPIntegrator
+
+    registry = build_integrator_registry()
+    assert "F8" in registry
+    assert isinstance(
+        registry["F8"], (EMAEAPIntegrator, FDAEAPIntegrator, NMPAEAPIntegrator)
+    )
+    assert registry["F8"].family == "F8"
+
+
+def test_default_factory_wires_real_registry_by_default() -> None:
+    """P0.2: with no integrators arg, the factory wires the real registry so
+    engine-path experts perform live integrate() (no empty-map orphaning)."""
+    factory = build_default_expert_factory()  # integrators=None → real registry
+    bert = factory("bert", "e", "r")
+    assert bert.integrators, "expert must receive a non-empty integrator map"
+    assert "F4" in bert.integrators
+    # Explicit {} preserves the host-state-reader path.
+    bert_host = build_default_expert_factory(integrators={})("bert", "e", "r")
+    assert bert_host.integrators == {}
+
+
 def test_wave1_scaffold_with_host_artifacts_assembles_brief(tmp_path: Path) -> None:
     """run_wave1_scaffold with host-written artifacts drives the real Wave1Runner
     and leaves the artifacts audit/deliver/attest look for — fully offline."""
@@ -74,9 +123,13 @@ def test_wave1_scaffold_with_host_artifacts_assembles_brief(tmp_path: Path) -> N
     run_root.mkdir(parents=True)
     (run_root / "plan.json").write_text(json.dumps(_PLAN), encoding="utf-8")
 
+    # integrators={} → Claude-Code main-thread / state-reader path: the HOST
+    # agent does retrieval, the runner does not fetch live. Keeps this test fully
+    # offline AND preserves the host-dispatch posture (P0.2b).
     result = run_wave1_scaffold(
         patient_root=patient, run_root=run_root,
         host_artifacts=_HOST_ARTIFACTS,
+        integrators={},
     )
     assert result["status"] == "ok", result
     assert result["scaffolded_experts"] == []
@@ -97,7 +150,10 @@ def test_wave1_scaffold_without_artifacts_is_incomplete(tmp_path: Path) -> None:
     run_root.mkdir(parents=True)
     (run_root / "plan.json").write_text(json.dumps(_PLAN), encoding="utf-8")
 
-    result = run_wave1_scaffold(patient_root=patient, run_root=run_root)
+    # State-reader path (integrators={}) → host does retrieval, no live fetch.
+    result = run_wave1_scaffold(
+        patient_root=patient, run_root=run_root, integrators={},
+    )
     assert result["status"] == "incomplete", result
     assert "bert" in result["scaffolded_experts"]
     # The per-expert scaffold report is still written (carries the prompt to run).

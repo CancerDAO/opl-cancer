@@ -39,7 +39,11 @@ Caller passes one of:
   * ``clinical_text`` — raw markdown / text to scan (e.g. case_text.md), OR
   * ``case_text_path`` — path to a file to read, OR
   * ``profile`` — a profile.json dict (clinical fields scanned), OR
-  * ``patient_dir`` — resolves ``case_text.md`` + ``profile.json`` under it.
+  * ``patient_dir`` — resolves ``case_text.md`` + ``profile.json`` under it, OR
+  * ``delivery_dir`` / ``out_dir`` — v2.10 P0.3a: ALSO scans the delivered
+    briefs (``*brief.md`` / ``patient_brief.html``) under it, so a fabricated
+    clinical value (fake lab / dose / efficacy %) that lives ONLY in the
+    patient-facing brief — with no case_text behind it — is still caught.
 
 ``patient_dir`` is required to resolve anchor targets; if absent we still flag
 unanchored values (the more dangerous case) but cannot verify target existence.
@@ -178,7 +182,6 @@ def _value_appears_at_locator(line: str, snippet: str) -> bool:
         return all(n in hay for n in line_numbers)
     # No number on the line — require the value-bearing token (e.g. grade letter
     # for Child-Pugh A / ECOG state, or the molecular state word) to appear.
-    line_low = line.lower()
     for kind, pat in _CLINICAL_VALUE_PATTERNS:
         m = pat.search(line)
         if not m:
@@ -229,6 +232,15 @@ def _anchor_targets_exist(line: str, patient_dir: Path | None) -> tuple[bool, li
     return any_ok, unresolved
 
 
+# v2.10 P0.3a: HTML tags are stripped before scanning a patient_brief.html so a
+# clinical value living in the rendered HTML body is seen as plain text.
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _strip_html(text: str) -> str:
+    return _HTML_TAG_RE.sub(" ", text)
+
+
 def _gather_clinical_lines(claim: dict[str, Any]) -> tuple[list[tuple[str, int, str]], Path | None]:
     """Collect (origin, line_no, text) lines that may assert clinical facts."""
     patient_dir: Path | None = None
@@ -251,6 +263,36 @@ def _gather_clinical_lines(claim: dict[str, Any]) -> tuple[list[tuple[str, int, 
         ct = patient_dir / "case_text.md"
         if ct.is_file() and not claim.get("case_text_path"):
             _add_text(str(ct), ct.read_text(encoding="utf-8"))
+
+    # v2.10 P0.3a — ALSO scan the delivered briefs. The red-team hole: a
+    # fabricated clinical value (a fake lab, dose, efficacy %) can live ONLY in
+    # the patient-facing brief, with no case_text.md / profile.json behind it.
+    # Any *.brief.md / *_brief.md / patient_brief.html under the delivery dir is
+    # scanned exactly like case_text: a clinical value line with no resolvable
+    # [[src:]] anchor FAILs. Anchor targets resolve relative to patient_dir when
+    # known, else relative to the delivery dir.
+    seen_brief: set[Path] = set()
+    delivery_dirs: list[Path] = []
+    if claim.get("delivery_dir"):
+        delivery_dirs.append(Path(claim["delivery_dir"]))
+    if claim.get("out_dir"):
+        delivery_dirs.append(Path(claim["out_dir"]))
+    for ddir in delivery_dirs:
+        if not ddir.is_dir():
+            continue
+        briefs: list[Path] = []
+        briefs += sorted(ddir.glob("*brief.md"))
+        briefs += sorted(ddir.glob("patient_brief.html"))
+        briefs += sorted(ddir.glob("*brief.html"))
+        for bp in briefs:
+            rp = bp.resolve()
+            if rp in seen_brief or not bp.is_file():
+                continue
+            seen_brief.add(rp)
+            raw = bp.read_text(encoding="utf-8", errors="replace")
+            if bp.suffix.lower() in (".html", ".htm"):
+                raw = _strip_html(raw)
+            _add_text(f"delivery:{bp.name}", raw)
 
     # profile.json clinical fields → flatten to "field: value" lines.
     profile = claim.get("profile")

@@ -29,7 +29,7 @@ gate **SKIPs** (block=False) — it cannot judge.
 
 The reference JSON is curated ESTABLISHED FDA-label fact (drug→contraindication
 class), not LLM judgment and not a clinical keyword classifier
-(memory:feedback_default_prompt_over_script). ``match_comorbidities`` are plain
+(no-hardcoded-keyword-list policy). ``match_comorbidities`` are plain
 substrings used only to decide *which* comorbidity a drug must be reconciled
 against; the reconciliation itself is the LLM's job.
 

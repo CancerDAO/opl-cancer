@@ -1,9 +1,9 @@
 # OPL v2 Vision RFC: From Enumerated Catalog to Compositional Engine
 
 **Date**: 2026-05-28
-**Author**: zwbao (CancerDAO founder)
+**Author**: CancerDAO Contributors
 **Status**: RFC v0.1 — to be committed to repo as `docs/rfc/0001-compositional-paradigm.md`
-**Origin session**: `c3195b66-929f-4721-b56b-ddc0169c8a74` (2026-05-28). User asked whether OPL would auto-download public databases + ML-model their prognosis; OPL responded "no, we don't do AutoML on N=1 because…" — correct on the merits but a symptom of a deeper limit: any method/cancer-type/data-source outside the hardcoded catalog can only be refused or jammed into a near-match. v2 paradigm fixes this at five layers.
+**Origin**: A user asked whether OPL would auto-download public databases + ML-model their prognosis; OPL responded "no, we don't do AutoML on N=1 because…" — correct on the merits but a symptom of a deeper limit: any method/cancer-type/data-source outside the hardcoded catalog can only be refused or jammed into a near-match. v2 paradigm fixes this at five layers.
 **Borrows from**: SakanaAI/AI-Scientist-v2 (best-first tree search, FunctionSpec typed contracts, distributed validation after execution — adapted with closed-world medical guardrails).
 
 ---
@@ -20,7 +20,7 @@ OPL today is **enumeration-based** at five layers:
 | Integrator | 44 hand-written API clients | New DB (ChinaMAP, WCH-Cohort, JP NCC-Oncopanel) → requires PR before useable |
 | Gate | 33 hardcoded validators G1-G33 | New method → new gate hand-written, or no validation at all |
 
-The session-c3195b66 incident is the canonical symptom: a legitimate question ("AutoML on my profile") hits a refusal because there's no compositional path through the planner. The fix is not adding an `automl_prognostic_modeling.md` task package — that's the same enumeration trap, one row larger. The fix is **composition**.
+The AutoML-on-N=1 incident is the canonical symptom: a legitimate question ("AutoML on my profile") hits a refusal because there's no compositional path through the planner. The fix is not adding an `automl_prognostic_modeling.md` task package — that's the same enumeration trap, one row larger. The fix is **composition**.
 
 ---
 
@@ -161,7 +161,7 @@ The hardest design problem. Sketch (refined in v2.6):
 
 ---
 
-## §7. Decision points for founder (zwbao)
+## §7. Decision points for maintainers
 
 Below items require founder decision before milestone close:
 
@@ -187,10 +187,10 @@ Below items require founder decision before milestone close:
 5. **CancerContextGenerator** — CLI `opl generate-cancer-context --icdo3 <code>` writes stub `cancer_context.json` (real KG queries in M6; v2.5 ships scaffold + 2 seed cancers HCC + NSCLC)
 6. **IntegratorABC + entry-point discovery** — ABC + 5 existing integrators (pubmed, opentargets, clinicaltrials, cbioportal, oncokb) declared as entry points; 39 others tagged for M3
 7. **UniversalAdapter sandbox** — `from_openapi(schema_url, dry_run=True)` only; live mode raises until M3
-8. **Compositional unknown-task intake (the c3195b66 bug fix)** — new `prompts/tasks/unknown_task_intake.md` + `src/opl_cancer/plan/intake_router.py`. Any patient question that doesn't match an existing task package no longer refuses — routes to TaskComposer (stubbed in v2.5; real in M5) which emits a method DAG plus an explicit L4-disclosure card explaining what's being composed
+8. **Compositional unknown-task intake (the AutoML-on-N=1 bug fix)** — new `prompts/tasks/unknown_task_intake.md` + `src/opl_cancer/plan/intake_router.py`. Any patient question that doesn't match an existing task package no longer refuses — routes to TaskComposer (stubbed in v2.5; real in M5) which emits a method DAG plus an explicit L4-disclosure card explaining what's being composed
 9. **ADR-0025** — Architecture decision record memorializing the v2 paradigm
 10. **README + SKILL.md** — bump to v2.5.0; "Recent changes" section explains the compositional shift; trigger tags add `compositional`, `method primitive`, `role taxonomy`
-11. **Tests** — at least 1 test per new module; backward-compat test that every v2.4 task package still resolves; the session-c3195b66 regression test (AutoML question routes via intake_router instead of refusing)
+11. **Tests** — at least 1 test per new module; backward-compat test that every v2.4 task package still resolves; the AutoML-on-N=1 regression test (AutoML question routes via intake_router instead of refusing)
 12. **Borrow from SakanaAI**: best-first ranking helper at `src/opl_cancer/orchestrator/best_first_journal.py` (used by Wave 2 hypothesis tournament). Pattern adapted: rank by `evidence_strength` + `citation_count`; log pruned branches to `journal.jsonl` for audit. **Not the runtime: we keep closed-world; the journal pattern is what we adopt.**
 
 Backward compat strictly maintained: all 33 v2.4 gates keep running; all 63 task packages still resolve; all 44 integrators still callable; 20 experts still in roster.py. The new compositional layer SITS ABOVE them.
@@ -213,4 +213,4 @@ Backward compat strictly maintained: all 33 v2.4 gates keep running; all 63 task
 ## §10. Acknowledgements
 
 - SakanaAI/AI-Scientist-v2 (Cong Lu et al., ICLR 2025 workshop) — best-first journal pattern + typed-output FunctionSpec inspiration
-- The c3195b66 session for surfacing the failure mode in concrete form
+- The AutoML-on-N=1 case for surfacing the failure mode in concrete form

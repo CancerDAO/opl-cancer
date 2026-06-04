@@ -16,7 +16,7 @@ TODO(decouple-phase): the next phase fully decouples orchestrator/evolution from
 the patient package. When that lands, this shim (and the orchestrator/evolution
 imports of it) should be moved into the evolution engine's own module tree and
 this file deleted from the patient package. Do NOT add a provider client here —
-the patient path must never call an LLM internally (memory:feedback_no_offline_only,
+the patient path must never call an LLM internally (no-silent-fallback policy,
 HARNESS_SPLIT_PRD red line).
 """
 from __future__ import annotations

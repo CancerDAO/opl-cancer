@@ -34,7 +34,7 @@ def require_lifelines(*, strict: bool = True) -> bool:
             raise IntegratorError(
                 "lifelines not installed. Install via the `[bio]` extras group: "
                 "`pip install opl-cancer[bio]` or `pip install lifelines`. "
-                "No silent fallback (memory:feedback_no_offline_only)."
+                "No silent fallback (no-silent-fallback policy)."
             )
         return False
 

@@ -7,7 +7,7 @@ disclosure card BEFORE it reaches the patient brief body. The card encodes:
   - what alternative paths exist
   - what the patient must confirm before we proceed
 
-memory:feedback_no_false_completion — no silent omission of L3/L4 risks.
+honest-failure policy — no silent omission of L3/L4 risks.
 """
 from __future__ import annotations
 

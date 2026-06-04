@@ -11,9 +11,9 @@ The 4 layers (spec §8):
   L3 — Known-serious-risk checklist forced from per-drug catalogue.
   L4 — Patient acknowledgment loop (pending acks queue under outstanding/).
 
-memory:feedback_no_offline_only — Henry MUST fail loudly if the serious-risks
+no-silent-fallback policy — Henry MUST fail loudly if the serious-risks
 catalogue is missing in production. Tests inject a stub catalogue.
-memory:feedback_no_false_completion — no silent skipping of L3/L4 claims.
+honest-failure policy — no silent skipping of L3/L4 claims.
 
 Harness-split (HARNESS_SPLIT_PRD): the optional L2 axis-naming LLM call was
 removed. L2 keeps its rule-based verbatim passthrough
@@ -73,7 +73,7 @@ class HenryAuditor:
         if not serious_risks_path.exists():
             raise HenryAuditError(
                 f"serious_risks catalogue missing at {serious_risks_path}; "
-                "production refuses to fall back silently (memory:feedback_no_offline_only)."
+                "production refuses to fall back silently (no-silent-fallback policy)."
             )
         self.serious_risks_path = serious_risks_path
         self.outstanding_dir = outstanding_dir

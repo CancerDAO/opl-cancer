@@ -4,9 +4,9 @@
 
 ### One Person Lab — 属于一位癌症患者的私人 AI 科研团队
 
-[![Version](https://img.shields.io/badge/version-2.9.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.10.0-blue)](CHANGELOG.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1828%20passing-brightgreen)](#贡献)
+[![Tests](https://img.shields.io/badge/tests-1748%20passing-brightgreen)](#贡献)
 [![Status](https://img.shields.io/badge/status-research%20preview-orange)](#这是什么--不是什么)
 [![Not a medical device](https://img.shields.io/badge/medical%20advice-no-red)](DISCLAIMER.md)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)]()
@@ -277,7 +277,7 @@ git clone https://github.com/CancerDAO/opl-cancer
 cd opl-cancer
 python -m venv .venv && source .venv/bin/activate
 pip install -e .[dev,bio]
-pytest tests/ -q -m "not live"   # 截至 v2.7.1：洁净环境 1828 passing
+pytest tests/ -q -m "not live"   # 截至 v2.10.0：洁净环境 1748 passing
 ```
 
 路线图是 [`docs/rfc/0001-compositional-paradigm.md`](docs/rfc/0001-compositional-paradigm.md) 里的 M1–M6 六里程碑计划。所有 PR 必须保持测试全绿。
@@ -315,7 +315,7 @@ OPL 构建于 **founder mode against cancer（以创始人模式对抗癌症）*
   author       = {{CancerDAO Contributors}},
   title        = {{OPL for Cancer: One Person Lab — your own AI scientist team for one cancer patient}},
   year         = {2026},
-  version      = {2.9.0},
+  version      = {2.10.0},
   url          = {https://github.com/CancerDAO/opl-cancer},
   license      = {Apache-2.0}
 }

@@ -156,7 +156,7 @@ class CosmicSigProfilerIntegrator(Integrator):
                 "SigProfiler: SigProfilerAssignment not installed. "
                 "Install via `pip install SigProfilerAssignment` (heavy dep — "
                 "downloads ~1.5 GB reference). Or pass mock_mode=True for tests. "
-                "No silent fallback (memory:feedback_no_offline_only)."
+                "No silent fallback (no-silent-fallback policy)."
             ) from e
         # Also handle the monkeypatched None case
         if spa is None:

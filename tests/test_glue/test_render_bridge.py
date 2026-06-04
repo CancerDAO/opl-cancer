@@ -126,7 +126,12 @@ def test_drug_specifics_redacted_from_text(tmp_path: Path):
 
 
 def test_actionability_tier_classified(tmp_path: Path):
-    """Patient + family reviewers wanted priority ranking."""
+    """Patient + family reviewers wanted priority ranking.
+
+    P0.4: even a speculative item with a same-week-assay testability_path may
+    NEVER be tier 'actionable_this_week' — the earliest a [S] item earns is
+    'weeks'. So the previously-'actionable_this_week' item now ranks as 'weeks'.
+    """
     run_dir = _write_wave2(tmp_path / "r7", [
         {
             "id": "a",
@@ -152,13 +157,51 @@ def test_actionability_tier_classified(tmp_path: Path):
     ])
     out = load_world_unknown_candidates(run_dir)
     tiers = [c["actionability_tier"] for c in out]
-    # actionable_this_week ranked first (sort-by-tier)
-    assert tiers[0] == "actionable_this_week"
+    # P0.4: speculative items NEVER carry actionable_this_week.
+    assert "actionable_this_week" not in tiers
+    # The quick-assay speculative item is floored to 'weeks' and ranks first.
+    assert tiers[0] == "weeks"
     # research_only ranked last
     assert tiers[-1] in ("research_only", "months_or_more")
 
 
+def test_speculative_item_never_actionable_this_week(tmp_path: Path):
+    """P0.4 regression: no speculative [S] candidate may be 'actionable_this_week'."""
+    run_dir = _write_wave2(tmp_path / "r_spec", [
+        {
+            "id": f"h{i}",
+            "claim_layer": "speculative",
+            "generation_strategy": "target_synergy_emergent",
+            "text": "spec",
+            # Deliberately seed an 'actionable_this_week' keyword (ctDNA / 燃石).
+            "testability_path": f"燃石 ctDNA NGS panel standard 三甲 lab order, variant {i}",
+        }
+        for i in range(3)
+    ])
+    out = load_world_unknown_candidates(run_dir)
+    assert out, "candidates should be present"
+    for c in out:
+        assert c["claim_layer"] == "speculative"
+        assert c["actionability_tier"] != "actionable_this_week"
+        assert "本周" not in c["actionability_label_zh"]
+
+
+def test_classify_actionability_tier_suppression_flag():
+    """Direct unit: allow_actionable_this_week=False floors quick-assay paths."""
+    from opl_cancer.glue.render_bridge import classify_actionability_tier
+
+    quick = "燃石 NGS panel 三甲 lab"
+    # Default (real actionable options, e.g. trials/next-line) may be this week.
+    assert classify_actionability_tier(quick) == "actionable_this_week"
+    # Speculative path may not.
+    assert (
+        classify_actionability_tier(quick, allow_actionable_this_week=False)
+        == "weeks"
+    )
+
+
 def test_actionability_label_chinese(tmp_path: Path):
+    """P0.4: a quick-assay speculative item is floored to 'weeks' (数周), not 本周."""
     run_dir = _write_wave2(tmp_path / "r8", [
         {
             "id": "a",
@@ -169,4 +212,6 @@ def test_actionability_label_chinese(tmp_path: Path):
         },
     ])
     out = load_world_unknown_candidates(run_dir)
-    assert "本周" in out[0]["actionability_label_zh"]
+    assert out[0]["actionability_tier"] == "weeks"
+    assert "数周" in out[0]["actionability_label_zh"]
+    assert "本周" not in out[0]["actionability_label_zh"]

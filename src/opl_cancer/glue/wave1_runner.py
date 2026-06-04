@@ -39,7 +39,6 @@ from opl_cancer.glue.case_loader import PatientCaseLoader
 from opl_cancer.glue.progress_reporter import ProgressReporter
 from opl_cancer.glue.renderer import PatientBriefRenderer
 from opl_cancer.glue._post_write import (
-    SnifferHalt,
     post_write_safety_check as _post_write_safety_check,
 )
 # NOTE (harness-split): orchestrator.* is the self-improvement engine being
@@ -85,8 +84,11 @@ _TASK_INTEGRATOR_DEPS: dict[str, list[tuple[str, str, str]]] = {
     "trial_matching": [
         ("ctgov_results", "F3", "profile_diagnosis"),
         ("chictr_results", "F3", "profile_diagnosis"),
-        ("fda_eap_results", "F3", "profile_diagnosis"),
-        ("nmpa_eap_results", "F3", "profile_diagnosis"),
+        # P0.1 fix: fda_eap.py / nmpa_eap.py declare family="F8" (expanded-access
+        # program family), NOT F3. Declaring F3 here meant the EAP integrators
+        # were never resolvable by family and EAP context was silently empty.
+        ("fda_eap_results", "F8", "profile_diagnosis"),
+        ("nmpa_eap_results", "F8", "profile_diagnosis"),
     ],
 }
 
@@ -195,6 +197,9 @@ class Wave1Runner:
         # v1.5.2: optional plain-language progress reporter. When None,
         # silently no-op (back-compat with v1.4 / v1.5 callers).
         self.reporter = reporter
+        # P0.2c: engine-path families that were required but not wired. A
+        # non-empty list BLOCKS delivery (no memory substitution).
+        self._retrieval_unavailable: list[dict[str, Any]] = []
 
     # ---- pipeline -------------------------------------------------------
 
@@ -260,6 +265,13 @@ class Wave1Runner:
                 force=True,
             )
 
+        # P0.2c: required live retrieval was unavailable (engine path) → do NOT
+        # dispatch experts on missing data, and do NOT ship a brief that looks
+        # complete. Render an explicit BLOCKED notice and stop (Evidence
+        # Contract: live, never memory — fallback = block, never substitute).
+        if self._retrieval_unavailable:
+            return self._finalize_blocked_delivery(plan=plan, ctx=ctx)
+
         # 4. Dispatch wave 1 concurrently
         from opl_cancer.orchestrator.dispatch import dispatch_wave
         outputs = await dispatch_wave(plan, 1, handlers, context=ctx)
@@ -299,6 +311,29 @@ class Wave1Runner:
         # section actually populates in real runs (was dead template before).
         from opl_cancer.glue.render_bridge import load_world_unknown_candidates
 
+        # P0.2c: a wired-but-not-fully-provisioned engine run BLOCKS delivery.
+        # Append explicit Level-3 risk cards so the brief shows the block loudly
+        # and never silently fills retrieval gaps from model memory.
+        for entry in self._retrieval_unavailable:
+            risk_cards.append({
+                "level": 3,
+                "message": (
+                    f"RETRIEVAL UNAVAILABLE — integrator family {entry['family']} "
+                    f"not wired for expert {entry['expert']!r} (context "
+                    f"{entry['context_key']}). Delivery BLOCKED: OPL refuses to "
+                    "substitute live evidence with model memory (SKILL.md "
+                    "Evidence Contract)."
+                ),
+                "requires_ack": True,
+            })
+
+        # P0.4: actionable real-world options Wave 1 produced — trial matches,
+        # next-line studies, expanded-access routes — promoted to top-level
+        # render_ctx so the brief's "Paths you could take / 可以走的路" section
+        # (rendered ABOVE the speculative World-Unknown block) shows real,
+        # actionable affordances distinct from the speculative ones.
+        actionable = self._collect_actionable_options(plan=plan, outputs=outputs)
+
         renderer = PatientBriefRenderer()
         render_ctx: dict[str, Any] = {
             "patient_code": ctx["patient_code"],
@@ -308,8 +343,22 @@ class Wave1Runner:
             "sid_summary": "Team analysis complete; see findings below.",
             "risk_cards": risk_cards,
             "experts": rendered_experts,
+            "matches": actionable["matches"],
+            "studies": actionable["studies"],
+            "expanded_access_routes": actionable["expanded_access_routes"],
+            "has_actionable_paths": actionable["has_any"],
             "world_unknown_candidates": load_world_unknown_candidates(run_dir),
         }
+        if self._retrieval_unavailable:
+            render_ctx["delivery_blocked_notice"] = (
+                "DELIVERY BLOCKED — required live retrieval was unavailable for: "
+                + ", ".join(
+                    f"{e['family']} ({e['context_key']})"
+                    for e in self._retrieval_unavailable
+                )
+                + ". OPL will not substitute model memory for live evidence. "
+                "Wire the integrator(s) and re-run before treating this brief as valid."
+            )
         if scaffolded_tasks:
             render_ctx["run_incomplete_notice"] = (
                 "INCOMPLETE RUN — the following experts have not written back a "
@@ -365,12 +414,67 @@ class Wave1Runner:
                 ),
             )
 
-        status = "incomplete" if scaffolded_tasks else "ok"
+        # P0.2c: a not-wired required family blocks delivery — this dominates
+        # "incomplete" / "ok" (the brief is not trustworthy without live evidence).
+        if self._retrieval_unavailable:
+            status = "blocked"
+        elif scaffolded_tasks:
+            status = "incomplete"
+        else:
+            status = "ok"
         return {
             "status": status,
             "run_id": plan.run_id,
             "out_dir": str(run_dir),
             "scaffolded_experts": sorted(set(scaffolded_tasks)),
+            "retrieval_unavailable": list(self._retrieval_unavailable),
+        }
+
+    def _finalize_blocked_delivery(
+        self, *, plan: Plan, ctx: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Render a BLOCKED patient brief (no experts dispatched) → status=blocked.
+
+        P0.2c: invoked when required live retrieval was unavailable in the engine
+        path. We never run experts on missing data nor ship a brief that looks
+        complete; the brief carries an explicit DELIVERY BLOCKED notice naming
+        every unavailable family, and OPL substitutes NO model memory.
+        """
+        run_dir = self.out_dir
+        renderer = PatientBriefRenderer()
+        notice = (
+            "DELIVERY BLOCKED — required live retrieval was unavailable for: "
+            + ", ".join(
+                f"{e['family']} ({e['context_key']})"
+                for e in self._retrieval_unavailable
+            )
+            + ". OPL will not substitute model memory for live evidence. "
+            "Wire the integrator(s) and re-run before treating this brief as valid."
+        )
+        render_ctx: dict[str, Any] = {
+            "patient_code": ctx["patient_code"],
+            "run_id": plan.run_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "language": ctx.get("profile", {}).get("preferences", {}).get("language", "zh-CN"),
+            "sid_summary": "Delivery blocked — required live retrieval unavailable.",
+            "risk_cards": [],
+            "experts": [],
+            "matches": [],
+            "studies": [],
+            "expanded_access_routes": [],
+            "has_actionable_paths": False,
+            "world_unknown_candidates": [],
+            "delivery_blocked_notice": notice,
+        }
+        delivery_dir = run_dir / "delivery"
+        renderer.render_html(render_ctx, delivery_dir / "patient_brief.html")
+        renderer.render_md(render_ctx, delivery_dir / "patient_brief.md")
+        return {
+            "status": "blocked",
+            "run_id": plan.run_id,
+            "out_dir": str(run_dir),
+            "scaffolded_experts": [],
+            "retrieval_unavailable": list(self._retrieval_unavailable),
         }
 
     # ---- pipeline stages ------------------------------------------------
@@ -540,9 +644,34 @@ class Wave1Runner:
         For each task, look up its package in _TASK_INTEGRATOR_DEPS and call
         expert.integrate(family, fetch_key) once. Also promote extra-context
         aliases (e.g. molecular_summary <- ngs_report).
+
+        P0.2 honesty contract — two distinct paths:
+
+        * Claude-Code main-thread / state-reader path: the expert is wired with
+          NO integrators (empty map). Retrieval is the HOST agent's job, not the
+          runner's. We do NOT fetch and do NOT block — the host fills these keys
+          with real live results before writing the report back. (2b)
+        * Engine / single-model path: the expert IS wired with integrator
+          clients. A required family that is genuinely not in that wired map is a
+          retrieval failure. We MUST NOT substitute ``{"results": []}`` (the LLM
+          would then fill it from memory — Evidence Contract violation). We
+          record an explicit ``retrieval_unavailable`` / ``not_wired`` status and
+          register it so the run BLOCKS delivery. (2c)
         """
+        from opl_cancer.integrators.base import IntegratorError
+
         for task in plan.tasks:
             expert = expert_instances[task.expert]
+            # Host-dispatch path: retrieval is the host agent's job (NOT the
+            # runner's) when EITHER (a) the host already executed this expert and
+            # supplied its output via host_artifacts — the evidence is in that
+            # report, gated downstream by G35/G36/fakery on the brief — OR (b) the
+            # expert is wired with no integrators at all (state-reader). In both
+            # cases a missing Python integrator marks PENDING, never blocks. The
+            # engine/single-model path (wired expert, required family genuinely
+            # absent) is the only case that BLOCKS delivery (Evidence Contract).
+            host_supplied = task.task_package in self.host_artifacts
+            host_does_retrieval = host_supplied or not getattr(expert, "integrators", None)
             for ctx_key, family, key_source in _TASK_INTEGRATOR_DEPS.get(task.task_package, []):
                 if ctx_key in ctx:
                     continue
@@ -550,12 +679,124 @@ class Wave1Runner:
                 try:
                     result = await expert.integrate(family, key)
                 except KeyError:
-                    result = {"results": [], "note": f"integrator {family} not wired"}
+                    # Family genuinely not wired.
+                    if host_does_retrieval:
+                        # State-reader path: the HOST agent performs retrieval and
+                        # writes live results back before finalizing the report.
+                        # We set an explicit PENDING marker (not an empty-results
+                        # substitution) so the scaffold template renders AND the
+                        # host sees this slot must be filled with live data — never
+                        # an empty list the LLM may fill from memory.
+                        ctx[ctx_key] = json.dumps(
+                            {
+                                "status": "pending_host_retrieval",
+                                "family": family,
+                                "note": (
+                                    f"Host agent must run live {family} retrieval "
+                                    f"for {ctx_key} and write results back; OPL does "
+                                    "NOT substitute model memory."
+                                ),
+                            },
+                            ensure_ascii=False,
+                        )
+                        continue
+                    # Engine path: a wired expert is missing a REQUIRED family.
+                    # Fail toward humility — block delivery, never substitute.
+                    self._record_retrieval_unavailable(
+                        task=task, ctx_key=ctx_key, family=family,
+                        reason="not_wired",
+                    )
+                    result = self._retrieval_unavailable_payload(family, "not_wired")
+                except IntegratorError as exc:
+                    # Family IS wired but live retrieval failed (network down /
+                    # bad key / source error). memory:feedback_no_offline_only —
+                    # report + block, NEVER silently fall back to memory.
+                    self._record_retrieval_unavailable(
+                        task=task, ctx_key=ctx_key, family=family,
+                        reason=f"fetch_failed: {exc}",
+                    )
+                    result = self._retrieval_unavailable_payload(
+                        family, f"fetch_failed: {exc}"
+                    )
                 ctx[ctx_key] = json.dumps(result, ensure_ascii=False)
             for alias, source in _TASK_EXTRA_CONTEXT.get(task.task_package, []):
                 if alias in ctx:
                     continue
                 ctx[alias] = ctx.get(source, "")
+
+    def _record_retrieval_unavailable(
+        self, *, task: Task, ctx_key: str, family: str, reason: str = "not_wired",
+    ) -> None:
+        """Register an unavailable retrieval so the run blocks delivery (P0.2c).
+
+        Appends to ``self._retrieval_unavailable`` — surfaced as a Level-3
+        risk_card + ``status="blocked"`` in :meth:`run`. Never silently dropped.
+        ``reason`` ∈ {"not_wired", "fetch_failed: …"}.
+        """
+        self._retrieval_unavailable.append({
+            "task_id": task.id,
+            "expert": task.expert,
+            "context_key": ctx_key,
+            "family": family,
+            "reason": reason,
+        })
+
+    @staticmethod
+    def _retrieval_unavailable_payload(family: str, reason: str) -> dict[str, Any]:
+        """Explicit not-available payload routed into the expert context.
+
+        Carries ``blocks_delivery=True`` + ``status="retrieval_unavailable"`` so
+        the expert/LLM sees the gap is a HARD block, not an empty result it may
+        fill from memory (Evidence Contract: live, never memory).
+        """
+        return {
+            "results": [],
+            "status": "retrieval_unavailable",
+            "family": family,
+            "reason": reason,
+            "blocks_delivery": True,
+            "note": (
+                f"integrator family {family} unavailable ({reason}); live "
+                "retrieval unavailable — delivery BLOCKED (no memory substitution)."
+            ),
+        }
+
+    @staticmethod
+    def _collect_actionable_options(
+        *, plan: Plan, outputs: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        """P0.4: gather REAL actionable options Wave 1 produced.
+
+        Returns ``{matches, studies, expanded_access_routes, has_any}``. These
+        are concrete, real-world affordances (open trials, next-line studies,
+        compassionate-use / expanded-access routes) — distinct from the
+        speculative World-Unknown candidates. The brief surfaces them in a
+        dedicated "Paths you could take / 可以走的路" section ABOVE the
+        speculative block. Scaffold placeholders contribute nothing.
+        """
+        matches: list[dict[str, Any]] = []
+        studies: list[dict[str, Any]] = []
+        eap_routes: list[dict[str, Any]] = []
+        for task in plan.tasks:
+            exec_out = (outputs.get(task.id) or {}).get("output", {})
+            if not isinstance(exec_out, dict):
+                continue
+            if exec_out.get("produced_by") == "scaffold":
+                continue
+            for src, dst in (
+                ("matches", matches),
+                ("studies", studies),
+                ("expanded_access_routes", eap_routes),
+            ):
+                value = exec_out.get(src)
+                if isinstance(value, list):
+                    dst.extend(item for item in value if isinstance(item, dict))
+        return {
+            "matches": matches,
+            "studies": studies,
+            "expanded_access_routes": eap_routes,
+            "has_any": bool(matches or studies or eap_routes),
+        }
 
     @staticmethod
     def _derive_key(key_source: str, ctx: dict[str, Any]) -> str:
@@ -591,8 +832,27 @@ class Wave1Runner:
             self._assert_patient_isolation(exec_out, current_patient_code, task.id)
             claims: list[dict[str, Any]] = []
             for raw_claim in self._iter_claim_records(exec_out):
+                # P1.6: fail toward humility. A claim with NO declared
+                # claim_layer defaults to "speculative" (the most-cautious tier),
+                # NOT "exploratory", and emits a risk_card so the missing tier is
+                # surfaced rather than silently up-leveled.
+                raw_layer = raw_claim.get("claim_layer")
+                if raw_layer in ("established", "exploratory", "speculative"):
+                    layer = raw_layer
+                else:
+                    layer = "speculative"
+                    risk_cards.append({
+                        "level": 2,
+                        "message": (
+                            f"task {task.id}: a claim was returned with no/invalid "
+                            f"claim_layer ({raw_layer!r}); defaulted to "
+                            "'speculative' (fail toward humility). Re-label with an "
+                            "explicit evidence tier before relying on it."
+                        ),
+                        "requires_ack": False,
+                    })
                 claim: dict[str, Any] = {
-                    "layer": raw_claim.get("claim_layer", "exploratory"),
+                    "layer": layer,
                     "text": self._claim_text(raw_claim),
                     "evidence": raw_claim.get("evidence", []),
                     "reviewer_challenges": review.get("challenges", []),

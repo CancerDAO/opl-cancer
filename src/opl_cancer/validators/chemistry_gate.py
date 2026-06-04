@@ -17,7 +17,7 @@ If RDKit is NOT installed:
 
 Design choice: this gate is intentionally NOT optional silent-pass — when
 RDKit absent we explicitly mark the field rather than trust the LLM. See
-``memory:feedback_no_offline_only``.
+``no-silent-fallback policy``.
 """
 from __future__ import annotations
 

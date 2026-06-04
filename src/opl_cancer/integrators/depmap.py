@@ -4,7 +4,7 @@ Key format: ``<GENE>:<CELL_LINE_DEPMAP_ID>`` (e.g. ``TP53:ACH-000001``).
 Returns CRISPR gene effect + dependency probability.
 
 NB: DepMap portal API endpoints can change with quarterly releases — on schema
-drift we raise IntegratorError (memory:feedback_no_offline_only).
+drift we raise IntegratorError (no-silent-fallback policy).
 """
 from __future__ import annotations
 

@@ -27,7 +27,7 @@ Introduced for v1.3.2 round-2 EVAL panel feedback (Patient #17 — ECOG-3
 bedbound + "想结束这一切 / end it all" fell through to EMOTION → trial dump).
 
 Why keyword-scan, not LLM:
-  * No silent fallback (memory:feedback_no_offline_only).
+  * No silent fallback (no-silent-fallback policy).
   * No model dependency: if the network or LLM is down, this gate still fires.
   * The bilingual banks are explicit; an LLM cannot suppress a verbatim
     keyword hit.

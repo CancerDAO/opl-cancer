@@ -114,6 +114,42 @@ def test_g42_warn_speculative_headline_adjacent() -> None:
     assert any(w["rule"] == "adjacency" for w in r.evidence["warnings"])
 
 
+# ── (d) ESCALATION-MISLABEL — v2.10 P1.5 (dangerous direction only) ─────────
+def test_g42_block_speculative_relabelled_established() -> None:
+    """A tier relabel speculative→established mislabels a guess as established → BLOCK."""
+    gate = G42TierDisciplineGate()
+    claim = {
+        "claim_id": "c_relabel",
+        "claim_text": "ATRi synergy.",
+        "tier_relabel": {"from": "speculative", "to": "established"},
+    }
+    r = gate.check(claim)
+    assert r.status == GateStatus.FAIL
+    assert r.block is True
+    assert "escalation_mislabel" in r.message
+    assert any(v["rule"] == "escalation_mislabel" for v in r.evidence["blocking_violations"])
+
+
+def test_g42_block_exploratory_relabelled_established() -> None:
+    gate = G42TierDisciplineGate()
+    r = gate.check({"claim_id": "c", "tier_relabel": {"from": "exploratory", "to": "established"}})
+    assert r.status == GateStatus.FAIL and r.block is True
+
+
+def test_g42_deescalation_relabel_does_not_block() -> None:
+    """Honest down-grading established→speculative is fine — never blocks."""
+    gate = G42TierDisciplineGate()
+    r = gate.check({"claim_id": "c", "tier_relabel": {"from": "established", "to": "speculative"}})
+    assert r.block is False
+    assert r.status in (GateStatus.PASS, GateStatus.SKIP)
+
+
+def test_g42_same_tier_relabel_does_not_block() -> None:
+    gate = G42TierDisciplineGate()
+    r = gate.check({"claim_id": "c", "tier_relabel": {"from": "exploratory", "to": "exploratory"}})
+    assert r.block is False
+
+
 # ── PASS — clean claim ──────────────────────────────────────────────────────
 def test_g42_pass_clean_claim() -> None:
     """Established headline backed by established evidence; biallelic from sequencing."""

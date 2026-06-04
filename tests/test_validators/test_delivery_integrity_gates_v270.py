@@ -67,6 +67,48 @@ def test_g35_unknown_value_is_honest_and_passes(tmp_path: Path) -> None:
     assert res.status in (GateStatus.PASS, GateStatus.SKIP), res.message
 
 
+# ─── G35 scans the DELIVERED BRIEF (v2.10 P0.3a) ────────────────────────────
+
+def test_g35_catches_fake_lab_living_only_in_brief(tmp_path: Path) -> None:
+    """P0.3a: a fabricated lab value that lives ONLY in the patient-facing brief
+    — with no case_text.md / profile.json behind it — must still FAIL + BLOCK."""
+    delivery = tmp_path / "delivery"
+    delivery.mkdir()
+    (delivery / "patient_pi_brief.md").write_text(
+        "你的肌酐 88（正常范围），肝功能 Child-Pugh A。\n", encoding="utf-8"
+    )
+    res = G35ClinicalFactProvenanceGate().check({"delivery_dir": str(delivery)})
+    assert res.status is GateStatus.FAIL and res.block, res.message
+    assert any("brief" in v["origin"] for v in res.evidence["violations"])
+
+
+def test_g35_brief_with_anchor_passes(tmp_path: Path) -> None:
+    """An anchored clinical value in the brief is fine."""
+    pdir = tmp_path / "patient"
+    (pdir / "ocr").mkdir(parents=True)
+    (pdir / "ocr" / "labs.txt").write_text("肌酐 88 umol/L\n", encoding="utf-8")
+    delivery = tmp_path / "delivery"
+    delivery.mkdir()
+    (delivery / "patient_pi_brief.md").write_text(
+        "肌酐 88 [[src:ocr/labs.txt#L1]]\n", encoding="utf-8"
+    )
+    res = G35ClinicalFactProvenanceGate().check(
+        {"delivery_dir": str(delivery), "patient_dir": str(pdir)}
+    )
+    assert res.status is GateStatus.PASS, res.message
+
+
+def test_g35_catches_fake_lab_in_html_brief(tmp_path: Path) -> None:
+    """A fabricated value in patient_brief.html (after HTML strip) is caught."""
+    delivery = tmp_path / "delivery"
+    delivery.mkdir()
+    (delivery / "patient_brief.html").write_text(
+        "<html><body><p>ECOG 1，肌酐 88。</p></body></html>\n", encoding="utf-8"
+    )
+    res = G35ClinicalFactProvenanceGate().check({"delivery_dir": str(delivery)})
+    assert res.status is GateStatus.FAIL and res.block, res.message
+
+
 # ─── G36 PMID topical relevance (the wrong-paper-PMID fix) ──────────────────
 
 class _FakePubMed:

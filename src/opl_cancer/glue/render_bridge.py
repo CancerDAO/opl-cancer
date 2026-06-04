@@ -58,7 +58,7 @@ _DRUG_TO_CLASS_REDACTION: dict[str, str] = {
 }
 
 
-import re as _re
+import re as _re  # noqa: E402 — intentional: placed after the curated redaction dict
 
 # v2.6.0 fail-closed backstop. The curated dict above is mCRC-biased and finite;
 # the review found it fails OPEN (a novel speculative drug renders verbatim in the
@@ -159,15 +159,40 @@ _TIER_KEYWORDS: dict[str, tuple[str, ...]] = {
 }
 
 
-def classify_actionability_tier(testability_path: str) -> str:
-    """Return the most-actionable tier whose keywords appear in the path."""
+def classify_actionability_tier(
+    testability_path: str, *, allow_actionable_this_week: bool = True,
+) -> str:
+    """Return the most-actionable tier whose keywords appear in the path.
+
+    P0.4 safety: ``allow_actionable_this_week=False`` forbids the
+    "✅ Actionable this week" tier. SPECULATIVE [S] items are always classified
+    with this flag off — a speculative research direction must NEVER carry a
+    "this week" badge (it would mislead a patient into thinking an unproven
+    hypothesis is an immediate clinical action). The earliest a speculative item
+    can be labelled is "weeks" (a lab/assay turnaround), never "this week".
+    """
     if not testability_path:
         return "research_only"
     lower = testability_path.lower()
-    for tier in ("actionable_this_week", "weeks", "months_or_more", "research_only"):
+    tiers = ("actionable_this_week", "weeks", "months_or_more", "research_only")
+    for tier in tiers:
+        if tier == "actionable_this_week" and not allow_actionable_this_week:
+            continue
         for kw in _TIER_KEYWORDS[tier]:
             if kw in lower:
+                # A speculative path whose only match is an "actionable_this_week"
+                # keyword (e.g. a standard NGS panel) is demoted to "weeks": the
+                # ASSAY may be quick, but acting on a speculative hypothesis is not
+                # a this-week clinical decision.
+                if not allow_actionable_this_week and tier != "actionable_this_week":
+                    return tier
                 return tier
+    # Nothing matched the allowed tiers. If we suppressed actionable_this_week,
+    # check whether the path would otherwise have qualified and floor it to "weeks".
+    if not allow_actionable_this_week:
+        for kw in _TIER_KEYWORDS["actionable_this_week"]:
+            if kw in lower:
+                return "weeks"
     return "research_only"
 
 
@@ -224,8 +249,13 @@ def load_world_unknown_candidates(run_dir: Path) -> list[dict[str, Any]]:
         tpath_redacted, drugs_redacted_path = _redact_drug_specifics(tpath)
         all_redacted = sorted(set(drugs_redacted_text + drugs_redacted_path))
 
-        # Actionability tier — derived from testability_path keywords
-        tier = classify_actionability_tier(tpath_redacted)
+        # Actionability tier — derived from testability_path keywords.
+        # P0.4: these are ALL speculative [S] items → forbid the
+        # "actionable_this_week" badge (a speculative direction is never an
+        # immediate clinical action). Earliest tier is "weeks".
+        tier = classify_actionability_tier(
+            tpath_redacted, allow_actionable_this_week=False,
+        )
 
         # Carry a minimal subset to the template; renderer Jinja handles missing.
         out.append(

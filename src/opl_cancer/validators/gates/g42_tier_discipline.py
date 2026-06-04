@@ -49,6 +49,13 @@ is absent, so a field being optional means "gate cannot judge", not "safe":
       (recorded in attestation; does not fail delivery) per Fork A: SAFETY gates
       hard-block, QUALITY/presentation gates warn.
 
+  (d) ESCALATION-MISLABEL  [BLOCK, dangerous direction only] (v2.10 P1.5)
+      If the claim records a tier RELABEL (``claim.tier_relabel = {"from":...,
+      "to":...}``) that escalates UP the rank ladder — e.g.
+      ``speculative -> established`` — it BLOCKs: mislabelling a guess as
+      established is patient-harm. Only this direction blocks; an honest
+      DE-escalation (``established -> speculative``) never blocks.
+
 This is a QUALITY gate; sub-rules (a) and (b) are the safety-floor invariants
 that BLOCK, (c) is the presentation WARN.
 """
@@ -172,6 +179,37 @@ class G42TierDisciplineGate(Gate):
                 else:
                     sub_results.append({"rule": "functional_evidence", "status": "pass",
                                         "claim_type": claim_type, "modality": modality or None})
+
+        # ── (d) ESCALATION MISLABEL (BLOCK, dangerous direction only) ───────
+        # v2.10 P1.5: a tier RELABEL that escalates a guess into an established
+        # fact is patient-harm — a reader trusts an [established] label far more
+        # than a [speculative] one. We BLOCK only the dangerous direction
+        # (rank goes UP, e.g. speculative→established / exploratory→established /
+        # speculative→exploratory). A DE-escalation (established→speculative,
+        # honest down-grading) is fine and never blocks. The relabel is recorded
+        # by the producer as claim.tier_relabel = {"from": ..., "to": ...}.
+        relabel = claim.get("tier_relabel")
+        if isinstance(relabel, dict):
+            from_tier = _norm(relabel.get("from") or relabel.get("from_tier") or relabel.get("original"))
+            to_tier = _norm(relabel.get("to") or relabel.get("to_tier") or relabel.get("declared"))
+            if from_tier in _TIER_RANK and to_tier in _TIER_RANK:
+                any_judged = True
+                if _TIER_RANK[to_tier] > _TIER_RANK[from_tier]:
+                    blocking.append({
+                        "rule": "escalation_mislabel",
+                        "from_tier": from_tier,
+                        "to_tier": to_tier,
+                        "reason": (
+                            f"tier relabelled UP from '{from_tier}' to '{to_tier}': "
+                            "escalating a weaker assessment into a stronger label "
+                            "mislabels a guess as established — a reader trusts the "
+                            "stronger label and may act on a fabricated certainty. "
+                            "Only de-escalation (honest down-grading) is permitted."
+                        ),
+                    })
+                else:
+                    sub_results.append({"rule": "escalation_mislabel", "status": "pass",
+                                        "from_tier": from_tier, "to_tier": to_tier})
 
         # ── (c) ADJACENCY (WARN) ────────────────────────────────────────────
         regimen = claim.get("regimen")

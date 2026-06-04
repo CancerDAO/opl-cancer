@@ -4,7 +4,7 @@ description: "OPL for Cancer (CancerDAO) — a cancer patient's own AI scientist
 license: Apache-2.0
 metadata:
   author: CancerDAO Contributors
-  version: "2.9.0"
+  version: "2.10.0"
   tags: oncology precision-medicine ai-scientist-team founder-mode hypothesis-generation co-scientist robin bixbench meta-analysis clinical-trials evidence-grounded world-unknown-candidates kg-synergy undrugged-target-design trace-digest-evolution equipped-experts bio-skills msi tmb hrd acmg cpic survival-analysis wave6 manuscript n1a preprint n1arxiv submission preprint-platform pr-assembly cross-repo-submission compositional method-primitive role-taxonomy n=1 automl prognosis
 ---
 
@@ -126,4 +126,4 @@ After triggering, load exactly one workflow — the procedure is NOT inlined her
 
 ## License
 
-Apache-2.0. See `LICENSE` + `NOTICE`. Substrate attribution: Co-Scientist (Nature 2026, `10.1038/s41586-026-10644-y`), Robin (Nature 2026, `10.1038/s41586-026-10652-y`), CancerDAO vmtb-skill / mtb-core (lift modules).
+Apache-2.0. See `LICENSE` + `NOTICE`. Substrate attribution: Co-Scientist (Nature 2026, `10.1038/s41586-026-10644-y`), Robin (Nature 2026, `10.1038/s41586-026-10652-y`), CancerDAO medical-record intake modules.

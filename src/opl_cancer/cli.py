@@ -461,7 +461,7 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
 
 # ─── Step 5-8: Waves ──────────────────────────────────────────────────────
 #
-# v1.5.7 honest-failure rewrite (memory:feedback_no_false_completion + run
+# v1.5.7 honest-failure rewrite (honest-failure policy + run
 # retrospective AP-1 / AP-2 / AP-5):
 #
 # Through v1.5.6 these commands ran `mkdir -p` and returned `{"ok": true}`
@@ -616,7 +616,7 @@ def wave4(patient_dir: str, run_id: str, json_mode: bool) -> None:
 
 # ─── v2.1 P0-#1+#2: opl run — real executor wrapping wave runners ─────────
 #
-# memory:feedback_no_false_completion + ADR-0021. Through v2.0.x the only
+# honest-failure policy + ADR-0021. Through v2.0.x the only
 # CLI surface that *looked* like a wave executor (`opl wave1`, etc.) was
 # really a state reader — it returned ok=true if artifacts existed and
 # requires_main_thread_dispatch otherwise. v2.1 introduces a separate
@@ -669,7 +669,7 @@ def _executor_llm_available() -> dict[str, Any]:
     reproducible). Requires BOTH an executor key AND a G13-distinct reviewer key
     (reviewer family != executor family). On Claude Code there is no API key for
     the host model, so this returns ok=False and the caller hands off to the
-    main-thread dispatcher — never a silent fallback (memory:feedback_no_offline_only).
+    main-thread dispatcher — never a silent fallback (no-silent-fallback policy).
     """
     provider = (os.environ.get("OPL_EXECUTOR_PROVIDER") or "anthropic").lower()
     has_anthropic = bool(os.environ.get("ANTHROPIC_API_KEY"))

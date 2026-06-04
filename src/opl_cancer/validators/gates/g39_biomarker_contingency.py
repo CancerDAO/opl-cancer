@@ -40,7 +40,7 @@ from ..mechanical_gates import Gate, GateResult, GateStatus
 
 # Tokens (case-insensitive, trimmed) that mean "the patient's state for this
 # biomarker is NOT known". These describe the ABSENCE of a measurement — not a
-# clinical keyword list (memory:feedback_default_prompt_over_script): the LLM
+# clinical keyword list (no-hardcoded-keyword-list policy): the LLM
 # decides and records patient_state; G39 only recognises the canonical
 # "not-measured" sentinels the schema documents (null / 'unknown' / 'untested'
 # / empty). Anything else is treated as a KNOWN state and compared structurally

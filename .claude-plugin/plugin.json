@@ -1,6 +1,6 @@
 {
   "name": "opl-cancer",
-  "version": "2.9.0",
+  "version": "2.10.0",
   "description": "OPL for Cancer (CancerDAO) — a patient's own AI scientist team (PI Sid + 20 expert archetypes + IRB-substitute auditor Henry) producing a PMID-anchored, three-tier-labelled research brief — not treatment advice; the patient is sole decision authority. Use when a cancer patient or caregiver has records (PDF/images/folder/zip) and wants research-grade analysis: next-line options, NGS interpretation, clinical-trial matching, expanded-access / cross-border navigation, hypothesis generation, drug repurposing, public-dataset re-analysis, or a second look at a treatment plan.",
   "author": { "name": "CancerDAO" },
   "homepage": "https://github.com/CancerDAO/opl-cancer",

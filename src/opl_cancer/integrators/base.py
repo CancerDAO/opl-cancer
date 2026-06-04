@@ -1,4 +1,4 @@
-"""Integrator abstract base. Spec §2.5 + memory:feedback_no_offline_only.
+"""Integrator abstract base. Spec §2.5 + no-silent-fallback policy.
 
 Iter 15 (v1.0.7) — configurable TTL.
 Subclasses may declare `default_ttl_seconds_overrides: dict[str, int]` to
@@ -65,7 +65,7 @@ class Integrator(ABC):
                     raise IntegratorError(
                         f"models.yaml at {candidate} is unreadable or malformed: {exc!r}. "
                         "Refusing to silently fall back to class-default TTLs "
-                        "(memory:feedback_no_offline_only / G11 no_silent_fallback). "
+                        "(no-silent-fallback policy / G11 no_silent_fallback). "
                         "Fix the file or remove it from the discovery path."
                     ) from exc
                 ttls = data.get("integrator_ttl_seconds", {}) if isinstance(data, dict) else {}

@@ -2,6 +2,10 @@
 
 > Run {{ run_id }} · {{ created_at }}
 
+{% if delivery_blocked_notice is defined and delivery_blocked_notice %}
+> 🚫 **交付已阻断 / DELIVERY BLOCKED**: {{ delivery_blocked_notice }}
+{% endif %}
+
 {% if run_incomplete_notice is defined and run_incomplete_notice %}
 > ⚠️ **本次 RUN 不完整 / INCOMPLETE RUN**: {{ run_incomplete_notice }}
 {% endif %}
@@ -28,6 +32,39 @@
 {% endfor %}
 {% endfor %}
 
+{% if has_actionable_paths is defined and has_actionable_paths %}
+## 🧭 可以走的路 / Paths you could take
+
+> 下面是团队在公开数据库里**找到的真实、可执行**的选择 — 临床试验、下一线方案、扩展准入 / 同情用药通道。**这不是治疗建议**，是给您和主治医生讨论用的真实选项清单。决策权始终在您（与您的医生）手里。
+
+{% if matches and matches|length > 0 %}
+### 🔬 临床试验匹配 / Clinical trial matches
+{% for m in matches %}
+- ✅ **本周内可了解 (Actionable this week)** — **{{ m.get('title') or m.get('nct_id') or m.get('id') or m.get('trial_id') }}**{% if m.get('nct_id') %} (`{{ m.get('nct_id') }}`){% endif %}
+{% if m.get('phase') %}  - 期别 / Phase: {{ m.get('phase') }}{% endif %}
+{% if m.get('status') %}  - 状态 / Status: {{ m.get('status') }}{% endif %}
+{% if m.get('eligibility_summary') or m.get('summary') %}  - {{ m.get('eligibility_summary') or m.get('summary') }}{% endif %}
+{% if m.get('locations') %}  - 地点 / Sites: {{ m.get('locations') if m.get('locations') is string else m.get('locations')|join(', ') }}{% endif %}
+{% endfor %}
+{% endif %}
+{% if studies and studies|length > 0 %}
+### 📈 下一线方案研究 / Next-line studies
+{% for s in studies %}
+- ✅ **本周内可了解 (Actionable this week)** — {{ s.get('summary') or s.get('title') or s.get('text') or s.get('id') }}
+{% for ev in s.get('evidence') or [] %}  - {% if ev.get('type') == "pmid" %}[PMID:{{ ev.get('id') }}](https://pubmed.ncbi.nlm.nih.gov/{{ ev.get('id') }}/){% else %}{{ ev.get('type') }}:{{ ev.get('id') }}{% endif %}{% if ev.get('quote') %} — "{{ ev.get('quote') }}"{% endif %}
+{% endfor %}
+{% endfor %}
+{% endif %}
+{% if expanded_access_routes and expanded_access_routes|length > 0 %}
+### 🛂 扩展准入 / 同情用药 · Expanded access / compassionate use
+{% for r in expanded_access_routes %}
+- ✅ **本周内可了解 (Actionable this week)** — {{ r.get('program') or r.get('title') or r.get('summary') or r.get('text') or r.get('id') }}{% if r.get('jurisdiction') %} ({{ r.get('jurisdiction') }}){% endif %}
+{% if r.get('drug') or r.get('drug_class') %}  - 药物 / Drug: {{ r.get('drug') or r.get('drug_class') }}{% endif %}
+{% if r.get('contact') or r.get('how_to_apply') %}  - 申请途径 / How to apply: {{ r.get('contact') or r.get('how_to_apply') }}{% endif %}
+{% endfor %}
+{% endif %}
+
+{% endif %}
 {% if world_unknown_candidates is defined and world_unknown_candidates and world_unknown_candidates|length > 0 %}
 ## ⚡ World-Unknown / Speculative Candidates — Research Directions (研究方向)
 

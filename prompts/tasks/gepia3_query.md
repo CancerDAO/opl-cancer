@@ -73,7 +73,7 @@ an empty list and explain in `notes`.
 - **No fabrication.** If the upstream service returns a non-JSON or
   malformed payload, raise `IntegratorError`. Do **not** synthesize a
   plausible-looking log2fc / q-value. Per
-  `memory:feedback_no_offline_only` + Henry G19 (deferred-evidence =
+  `no-silent-fallback policy` + Henry G19 (deferred-evidence =
   BLOCK), fabricated transcriptome numbers would be a critical safety
   failure for any patient downstream.
 - **Imperative voice forbidden.** When writing the findings narrative,

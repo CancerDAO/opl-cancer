@@ -1,7 +1,7 @@
 """NCBI GEO (Gene Expression Omnibus) integrator. Spec §2.5 F6, P3-T1.
 
 Accession prefixes (GSE/GDS/GPL/GSM) or ``search:<term>`` for ESearch.
-Uses NCBI eutils db=gds. memory:feedback_no_offline_only — raise on transport failure.
+Uses NCBI eutils db=gds. no-silent-fallback policy — raise on transport failure.
 """
 from __future__ import annotations
 

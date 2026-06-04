@@ -12,7 +12,7 @@ to a single ``run_notebook`` entrypoint that maps:
 Without the flag, ``run_notebook`` returns a dry-run dict describing what would
 be executed (used for CI + Wave 3 E2E tests).
 
-This matches memory:feedback_no_offline_only — live mode raises on docker
+This matches no-silent-fallback policy — live mode raises on docker
 errors (no silent degradation). Dry-run is explicit metadata only, never
 masquerading as a real run.
 """
@@ -49,7 +49,7 @@ class BixbenchRunResult:
 
 
 class BixbenchRunnerError(RuntimeError):
-    """Raised when live docker invocation fails (memory:feedback_no_offline_only)."""
+    """Raised when live docker invocation fails (no-silent-fallback policy)."""
 
 
 class BixbenchRunner:

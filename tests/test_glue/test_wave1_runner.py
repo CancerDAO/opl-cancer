@@ -48,11 +48,18 @@ def _setup_patient(tmp_path: Path) -> Path:
 
 def _bert_factory(name: str, ex_id: str, rv_id: str) -> Any:
     # Harness-split factory signature: (name, executor_model_id, reviewer_model_id).
+    # molecular_ngs_interpretation requires F4 (oncokb/civic/clinvar/gnomad) AND
+    # F1 (pubmed). A fully-provisioned engine path wires BOTH; P0.2 now blocks
+    # delivery if a wired expert is missing a required family.
     return BertExpert(
         profile=get_expert_profile("bert"),
         executor_model_id=ex_id,
         reviewer_model_id=rv_id,
-        integrators={"F4": _FakeIntegrator(), "F5": _FakeIntegrator()},
+        integrators={
+            "F1": _FakeIntegrator(),
+            "F4": _FakeIntegrator(),
+            "F5": _FakeIntegrator(),
+        },
     )
 
 
@@ -181,3 +188,166 @@ async def test_wave1_runner_incomplete_without_host_artifacts(tmp_path: Path) ->
     result = await runner.run(patient_text="ngs?")
     assert result["status"] == "incomplete"
     assert "bert" in result["scaffolded_experts"]
+
+
+# --- P0.1: F8 family resolves for EAP integrators ---
+
+
+def test_eap_deps_declare_F8_not_F3() -> None:
+    """P0.1: fda_eap.py / nmpa_eap.py declare family='F8'; the trial_matching
+    deps table must request F8 for the EAP context keys, not F3."""
+    from opl_cancer.glue.wave1_runner import _TASK_INTEGRATOR_DEPS
+
+    deps = dict((k, f) for k, f, _ in _TASK_INTEGRATOR_DEPS["trial_matching"])
+    assert deps["fda_eap_results"] == "F8"
+    assert deps["nmpa_eap_results"] == "F8"
+    # And the declared family on the integrators is indeed F8.
+    from opl_cancer.integrators.fda_eap import FDAEAPIntegrator
+    from opl_cancer.integrators.nmpa_eap import NMPAEAPIntegrator
+
+    assert FDAEAPIntegrator.family == "F8"
+    assert NMPAEAPIntegrator.family == "F8"
+
+
+# --- P0.2c: a wired-but-missing-required-family run BLOCKS, never empties ---
+
+
+class _TrialFakeIntegrator:
+    """Fake F3 client returning one match; used for the actionable-options test."""
+
+    family = "F3"
+    ttl_seconds = 60
+    cache = None
+
+    async def cached_fetch(self, key: str):
+        return {"results": [{"nct_id": "NCT00000000"}], "key": key}
+
+
+def _trial_factory_missing_f8(name, ex_id, rv_id):
+    """rick wired with F3 only — F8 (EAP) deliberately NOT wired → must block."""
+    from opl_cancer.experts.rick import RickExpert
+
+    return RickExpert(
+        profile=get_expert_profile("rick"),
+        executor_model_id=ex_id,
+        reviewer_model_id=rv_id,
+        integrators={"F3": _TrialFakeIntegrator()},  # NO F8
+    )
+
+
+_TRIAL_PLAN = {
+    "experts": ["rick"],
+    "tasks": [{
+        "id": "t1", "expert": "rick",
+        "task_package": "trial_matching", "sub_goal": "match trials",
+    }],
+}
+
+_TRIAL_HOST_ARTIFACTS = {
+    "trial_matching": {
+        "matches": [{
+            "nct_id": "NCT12345678", "title": "Phase II osimertinib in EGFR+ NSCLC",
+            "phase": "II", "status": "Recruiting",
+            "claim_layer": "established",
+            "summary": "osimertinib trial", "evidence": [],
+        }],
+        "expanded_access_routes": [{
+            "program": "FDA Expanded Access — osimertinib", "jurisdiction": "US",
+            "claim_layer": "established", "summary": "EAP route",
+        }],
+        "summary": "actionable trial + EAP",
+    }
+}
+
+
+async def test_not_wired_required_family_blocks_delivery(tmp_path: Path) -> None:
+    """P0.2c: ENGINE path — a wired expert that must retrieve via Python but is
+    missing a REQUIRED family (F8) blocks delivery rather than substituting
+    {'results': []} the LLM fills from memory. (No host_artifacts: this is the
+    single-model/engine path where retrieval IS the runner's job; when the host
+    supplies the artifact, retrieval is the host's job and a missing Python
+    integrator does NOT block — see test_wave1_e2e + test_render_ctx_carries_*.)"""
+    patient_root = _setup_patient(tmp_path)
+    runner = Wave1Runner(
+        patient_root=patient_root,
+        out_dir=tmp_path / "out",
+        executor_model_id="claude-opus-4-7",
+        reviewer_model_id="minimax-m2-7",
+        expert_factory=_trial_factory_missing_f8,
+        gates=[],
+        plan_dict=_TRIAL_PLAN,
+        intent="NEW_GOAL",
+    )
+    result = await runner.run(patient_text="find me trials")
+    assert result["status"] == "blocked", result
+    fams = {e["family"] for e in result["retrieval_unavailable"]}
+    assert "F8" in fams
+    # The brief carries the explicit BLOCKED notice (no silent empty substitution).
+    html = (tmp_path / "out" / "delivery" / "patient_brief.html").read_text(encoding="utf-8")
+    assert "DELIVERY BLOCKED" in html
+    assert "F8" in html
+
+
+async def test_render_ctx_carries_actionable_options(tmp_path: Path) -> None:
+    """P0.4: matches / studies / expanded_access_routes surface as a real
+    actionable 'Paths you could take' section ABOVE the speculative block."""
+    patient_root = _setup_patient(tmp_path)
+    # Wire BOTH F3 and F8 so the run is NOT blocked and actionable options render.
+    def _factory(name, ex_id, rv_id):
+        from opl_cancer.experts.rick import RickExpert
+
+        class _F8(_TrialFakeIntegrator):
+            family = "F8"
+
+        return RickExpert(
+            profile=get_expert_profile("rick"),
+            executor_model_id=ex_id,
+            reviewer_model_id=rv_id,
+            integrators={"F3": _TrialFakeIntegrator(), "F8": _F8()},
+        )
+
+    runner = Wave1Runner(
+        patient_root=patient_root,
+        out_dir=tmp_path / "out",
+        executor_model_id="x", reviewer_model_id="y",
+        expert_factory=_factory, gates=[],
+        plan_dict=_TRIAL_PLAN, host_artifacts=_TRIAL_HOST_ARTIFACTS,
+        intent="NEW_GOAL",
+    )
+    result = await runner.run(patient_text="find me trials")
+    assert result["status"] == "ok", result
+    html = (tmp_path / "out" / "delivery" / "patient_brief.html").read_text(encoding="utf-8")
+    md = (tmp_path / "out" / "delivery" / "patient_brief.md").read_text(encoding="utf-8")
+    # Actionable section present in both renders.
+    assert "Paths you could take" in html
+    assert "可以走的路" in md
+    assert "NCT12345678" in html
+    assert "FDA Expanded Access" in html
+    # The actionable section appears ABOVE the speculative World-Unknown section.
+    assert html.index("Paths you could take") < (
+        html.index("World-Unknown") if "World-Unknown" in html else len(html)
+    )
+
+
+async def test_missing_claim_layer_defaults_speculative(tmp_path: Path) -> None:
+    """P1.6: a claim with no claim_layer defaults to 'speculative' (fail toward
+    humility), NOT 'exploratory', and emits a risk_card."""
+    host_artifacts = {
+        "molecular_ngs_interpretation": {
+            "variants": [{
+                "gene": "EGFR", "protein_change": "L858R",
+                # NO claim_layer field on purpose.
+                "evidence": [],
+                "summary": "EGFR L858R variant of interest",
+            }],
+            "summary": "no tier declared",
+        }
+    }
+    runner = _runner(tmp_path, host_artifacts=host_artifacts)
+    await runner.run(patient_text="ngs?")
+    html = (tmp_path / "out" / "delivery" / "patient_brief.html").read_text(encoding="utf-8")
+    # The variant claim is tagged speculative, not exploratory.
+    assert "tier speculative" in html
+    assert "tier exploratory" not in html
+    # A risk_card warns the tier was missing.
+    assert "no/invalid claim_layer" in html or "claim_layer" in html

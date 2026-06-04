@@ -14,7 +14,7 @@ Execution modes:
   * ``"native-dry-run"`` — when ``OPL_NATIVE_LIVE != 1`` OR ``jupyter`` is not
     available. Returns metadata only (matches Bixbench dry-run semantics).
 
-Per memory:feedback_no_offline_only — live mode raises on errors (no silent
+Per no-silent-fallback policy — live mode raises on errors (no silent
 degradation). Per docs/ANTI_PATTERNS_v1.4.md AP-1 — Wave 3 is critical-path
 and must not silently skip. The orchestration layer chooses between
 ``NativeAnalysisRunner`` and ``BixbenchRunner`` once at construction; if both
@@ -35,7 +35,7 @@ NATIVE_IMAGE_TAG = "opl-cancer/native:v1.5"
 
 
 class NativeAnalysisRunnerError(RuntimeError):
-    """Raised when live native invocation fails (memory:feedback_no_offline_only)."""
+    """Raised when live native invocation fails (no-silent-fallback policy)."""
 
 
 class NativeAnalysisRunner:

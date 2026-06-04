@@ -102,7 +102,7 @@ class PaperqaFullTextIntegrator(Integrator):
         except (httpx.HTTPError, ConnectionError, OSError) as e:
             raise IntegratorError(
                 f"PaperqaFullText: ID-converter transport for PMID {pmid}: {e}. "
-                "No silent fallback (memory:feedback_no_offline_only)."
+                "No silent fallback (no-silent-fallback policy)."
             ) from e
         records = body.get("records") or []
         if not records:

@@ -50,10 +50,9 @@ authoring happens in the same session main thread.
 from __future__ import annotations
 
 import json
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from opl_cancer.delivery.n1a_bundle_writer import (
     BundleWriteError,
@@ -73,7 +72,6 @@ from opl_cancer.validators.gates import (
     G32DataAvailabilityDeclaredGate,
     G33N1DesignTransparentGate,
 )
-from opl_cancer.validators.mechanical_gates import GateStatus
 
 # v2.5.1 B3 — Wave 6 primary expert: Iain owns the manuscript per the
 # CONTRIBUTORS table; reviewer pairing routes to (vince | bert) per the

@@ -189,7 +189,7 @@ Each gate has 5-15 test cases under `tests/test_validators/`.
 
 ## 6 · The 30 integrators
 
-Concrete classes in `src/opl_cancer/integrators/*.py`. Each subclasses `Integrator` (the abstract base) and provides `family` (F1-F10 per spec §2.5), `ttl_seconds`, and an async `fetch(key) -> dict` that **must raise `IntegratorError` on failure — never silently return mock data** (`memory:feedback_no_offline_only`).
+Concrete classes in `src/opl_cancer/integrators/*.py`. Each subclasses `Integrator` (the abstract base) and provides `family` (F1-F10 per spec §2.5), `ttl_seconds`, and an async `fetch(key) -> dict` that **must raise `IntegratorError` on failure — never silently return mock data** (no-silent-fallback policy; see ADR-0026).
 
 **By family**:
 

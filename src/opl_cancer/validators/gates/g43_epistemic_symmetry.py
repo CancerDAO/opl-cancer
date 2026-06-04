@@ -13,7 +13,7 @@ MSS-mCRC cross-model review). Two findings drive this gate:
   presented as a clean signal across agents that are not clinically equivalent;
   the low statistical I² hid clinical heterogeneity that was never flagged.
 
-CONTRACT (memory:feedback_default_prompt_over_script): the LLM (via the
+CONTRACT (no-hardcoded-keyword-list policy): the LLM (via the
 claim_audit prompt) makes the clinical/epistemic call — which refs it dismissed
 vs. relied on, on what ground, and whether the same bar was applied symmetrically.
 G43 is **MECHANICAL**: it only checks that the producer SELF-RECORDED its

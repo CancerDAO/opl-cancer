@@ -57,7 +57,8 @@ def test_contract_json_envelope_required_fields() -> None:
 def test_contract_forbids_silent_skip() -> None:
     content = CONTRACT_PATH.read_text(encoding="utf-8")
     assert "silent skip" in content.lower() or "no silent skip" in content.lower()
-    assert "feedback_no_offline_only" in content
+    # Rationale documented inline (private memory anchor scrubbed in v2.10.0).
+    assert "no-silent-fallback policy" in content
 
 
 def test_contract_forbids_inline_full_report() -> None:

@@ -11,6 +11,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+## [2.10.0] - 2026-06-04 — Patient-fidelity hardening + hygiene
+
+Fixes from a 9-agent patient-safety review. All changes keep the patient as
+sole decision authority and the brief PMID-anchored, never treatment advice.
+
+### Fixed
+- **Integrator wiring** — corrected the integrator dispatch path so evidence
+  fetched from live sources actually reaches the brief instead of being
+  computed-but-disconnected.
+- **Gate checks the brief** — the delivery gate now validates the rendered
+  patient brief itself, closing a path where the gate inspected upstream
+  artifacts but not the final deliverable.
+- **Actionable-first ordering** — patient-facing output leads with actionable,
+  decision-relevant content rather than burying it under exploratory material.
+- **Expanded-access (EAP) family** — corrected the expanded-access /
+  compassionate-use navigation family so cross-border and EAP options are
+  surfaced consistently.
+- **Tier default** — corrected the default evidence-tier handling so claims
+  are conservatively tiered when a tier is not explicitly assigned.
+
+### Changed
+- **Hygiene / packaging** — removed dead operator scripts
+  (`scripts/verify_minimax_setup.py`, `scripts/live_v2_e2e_minimax.py`) that
+  imported the deleted `opl_cancer.llm` module and crashed on run; corrected
+  README EN/ZH test counts to **1748 passing / 8 skipped (as of v2.10.0)**;
+  neutralized public-doc references to internal record-intake modules in
+  `SKILL.md`; de-identified the v2 RFC authorship; scrubbed remaining
+  `memory:*` private anchors from public-facing source comments, docs, and the
+  changelog; bumped version to **2.10.0** across `pyproject.toml`,
+  `src/opl_cancer/__init__.py`, plugin manifests, and README badges/BibTeX.
+
 ## [2.9.0] — 2026-06-01 — Audit-polish: SKILL.md router-split + references/packaging reconcile
 
 Closes the remaining 4-lens audit findings (PRD `docs/iteration/V2_9_AUDIT_POLISH_PRD.md`).
@@ -1082,8 +1115,8 @@ tracked as independent follow-up branches in `references/v2-roadmap.md`.
     archetype: ESMFold + DiffDock + RDKit + medchem filter lineage.
 - **PrimeKG integrator stub** at `src/opl_cancer/integrators/primekg.py`.
   Live HTTP/SPARQL client deferred to `iter/v2-followup-primekg`. Stub
-  raises `NotImplementedError` on live query (no silent fallback per
-  `memory:feedback_no_offline_only`).
+  raises `NotImplementedError` on live query (no silent fallback per the
+  no-silent-fallback policy).
 - **Patient brief "⚡ World-Unknown / Speculative Candidates" section** in
   both `prompts/delivery/patient_brief.html.j2` + `.md.j2`. Renders [S]
   hypotheses with strategy + Elo + `testability_path` + KG-edge anchors.
