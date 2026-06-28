@@ -57,6 +57,11 @@ from .g41_soc_completeness import G41SoCCompletenessGate
 from .g42_tier_discipline import G42TierDisciplineGate
 from .g43_epistemic_symmetry import G43EpistemicSymmetryGate
 
+# v2.8 research-team iteration (ADR-0027+). New gates start at G45 (G44 is
+# reserved for the in-flight feat/deterministic-retrieval-standardization
+# branch; G38 reserved). G54 lands first as part of the A1 ledger spine.
+from .g54_memory_ledger_written import G54MemoryLedgerWrittenGate
+
 __all__ = [
     "CrossPatientContaminationError",
     "G1PMIDExistenceGate",
@@ -101,6 +106,7 @@ __all__ = [
     "G41SoCCompletenessGate",
     "G42TierDisciplineGate",
     "G43EpistemicSymmetryGate",
+    "G54MemoryLedgerWrittenGate",
     "redact_text",
     "scan_text",
 ]

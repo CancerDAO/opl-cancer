@@ -432,6 +432,23 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
     plan_payload = skeleton.model_dump(mode="json")
     plan_payload["method_dag"] = list(intake_route.method_dag)
     plan_payload["intake_route"] = intake_route.to_dict()
+
+    # A1 / ADR-0027 — warm start. Ingest prior runs so this plan COMPOUNDS on
+    # what earlier runs settled instead of starting cold. Previously
+    # ingest_prior_runs() was orphaned (the audit's finding); wiring it here is
+    # what lets run N+1 know the patient better than run N. Read-only.
+    from opl_cancer.plan.prior_run_ingestion import ingest_prior_runs
+    prior_runs = ingest_prior_runs(pdir, current_run_id=run_id)
+    if prior_runs:
+        plan_payload["extends_prior_run"] = prior_runs[-1].run_id
+        plan_payload["prior_runs"] = [
+            {
+                "run_id": s.run_id,
+                "headings": s.headings[:20],
+                "cited_pmids": s.cited_pmids[:50],
+            }
+            for s in prior_runs
+        ]
     out_path.write_text(
         json.dumps(plan_payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -454,6 +471,8 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
             "tasks": len(tasks),
             "comorbid_expansion_triggers_fired": triggers_payload,
             "intake_route": intake_route.to_dict(),
+            "extends_prior_run": plan_payload.get("extends_prior_run"),
+            "prior_runs_ingested": len(prior_runs),
         },
         json_mode,
     )

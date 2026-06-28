@@ -45,6 +45,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from opl_cancer.glue.ledger_persist import persist_run_to_ledger
 from opl_cancer.validators.fakery_sniffer import scan_text
 from opl_cancer.validators.henry import HenryAuditError, HenryAuditor
 from opl_cancer.validators.permission_levels import Level
@@ -630,9 +631,7 @@ class DeliveryRunner:
 
         self.out_dir.mkdir(parents=True, exist_ok=True)
         try:
-            if self.finalize:
-                return self._run_finalize(missing)
-            return self._run_scaffold(missing)
+            result = self._run_finalize(missing) if self.finalize else self._run_scaffold(missing)
         except DeliveryArtifactsMissing:
             # Should be intercepted before write — defensive re-raise.
             self._rollback()
@@ -649,6 +648,17 @@ class DeliveryRunner:
                 f"{len(self._written)} files. The patient sees no half-shipped "
                 "delivery (v2.2 P1-#16 invariant)."
             ) from exc
+
+        # A1 / ADR-0027 — compounding spine. Persist the run's hypotheses,
+        # tournament rounds and delivered claims into the patient research
+        # ledger so the next run starts warm and never re-proposes a falsified
+        # direction. Best-effort here; G54 verifies at attest that it happened
+        # (a silent failure leaves an empty ledger, which G54 BLOCKS on).
+        try:
+            result["ledger_persisted"] = persist_run_to_ledger(self.run_root)
+        except Exception as exc:  # pragma: no cover — defensive; gate is the backstop
+            result["ledger_persisted"] = {"error": str(exc)}
+        return result
 
     def _rollback(self) -> None:
         for p in self._written:

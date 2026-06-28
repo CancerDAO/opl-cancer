@@ -94,9 +94,14 @@ def patient_value_hierarchy_weights(profile: dict[str, Any]) -> list[str]:
     Convention: the profile may carry ``patient_value_hierarchy`` (or
     legacy ``value_hierarchy``) — an ordered list of strings such as
     ``["survival_extension", "quality_of_life", "minimise_iv", ...]``.
-    The Wave 2 / Wave 3 ranking code pre-pends these weights before its
-    own ranking signal so that ties are broken in favour of the
-    patient's stated priorities.
+
+    NOT YET WIRED INTO RANKING (honesty fix, A1/ADR-0027). The original
+    docstring claimed "the Wave 2 / Wave 3 ranking code pre-pends these
+    weights" — but the function had zero callers, the canonical
+    looks-like-vs-is-like orphan the audit flagged. The actual wiring of
+    patient value into candidate ranking lands with the outcome-backward
+    planner (D1/E1, ADR-0034); until then this is a pure extractor and the
+    no-orphan CI guard (tests/test_no_orphans.py) tracks it.
 
     Returns an empty list if neither field is present.
     """

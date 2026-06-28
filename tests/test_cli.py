@@ -28,7 +28,9 @@ def test_cli_status_runs() -> None:
     # v2.3 (ADR-0023): G29-G33 added (Wave 6 manuscript invariants). 28 → 33.
     # v2.7.0 (ADR-0026): G34-G37 delivery-integrity gates. 33 → 37.
     # v2.7.1 (ADR-0026 P1): G39-G43 reasoning-quality gates (G38 reserved). 37 → 42.
-    assert "Mechanical gates: 42" in r.output
+    # v2.8 (ADR-0027): +G54 memory_ledger_written (research-team A1; G44 reserved
+    # for the in-flight retrieval-standardization branch). 42 → 43.
+    assert "Mechanical gates: 43" in r.output
     # v2.2 (ADR-0022): +7 bio-skill integrators (MSI/TMB/SigProfiler/ACMG/KM/CPIC/PaperQA-FT)
     assert "Integrators wired: 36" in r.output
     # v2.3 (ADR-0023): Wave 6 manuscript+.n1a wave runner.

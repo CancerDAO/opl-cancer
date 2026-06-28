@@ -22,11 +22,13 @@ import re
 from opl_cancer.validators.mechanical_gates import all_gate_classes
 
 
-EXPECTED_GATE_COUNT = 42  # v2.7.1: G1-G37 + G39-G43 (G38 reserved — see registry)
-# Gate numbering may have intentional gaps (G38 reserved: citation-provenance
-# completeness is covered by G1/G2/G36 via the delivery gate runner). The
-# authoritative set of registered gate numbers:
-EXPECTED_GATE_NUMBERS = set(range(1, 38)) | {39, 40, 41, 42, 43}  # 37 + 5 = 42
+EXPECTED_GATE_COUNT = 43  # v2.8: G1-G37 + G39-G43 + G54 (G38, G44 reserved)
+# Gate numbering may have intentional gaps. G38 reserved (citation-provenance
+# completeness covered by G1/G2/G36 via the delivery gate runner). G44 reserved
+# for the in-flight feat/deterministic-retrieval-standardization branch. G54 is
+# the A1 research-ledger-spine gate (research-team iteration, ADR-0027); its
+# G45-G53/G55 siblings land with their own items. The authoritative set:
+EXPECTED_GATE_NUMBERS = set(range(1, 38)) | {39, 40, 41, 42, 43, 54}  # 37 + 6 = 43
 
 
 def test_registry_returns_all_gates() -> None:
@@ -122,6 +124,18 @@ def test_g39_through_g43_reasoning_present() -> None:
         assert cls in names, f"{cls} not registered"
     # G38 is intentionally NOT present (reserved).
     assert not any(re.match(r"^G38\D", n) for n in names), "G38 is reserved — should be absent"
-    # G39-G43 come after G37, and G43 is the new tail.
+    # G44 is reserved for the in-flight retrieval-standardization branch.
+    assert not any(re.match(r"^G44\D", n) for n in names), "G44 reserved on this branch"
+    # G39-G43 come after G37 (G43 is no longer the tail — G54 follows in v2.8).
     assert names.index("G39BiomarkerContingencyGate") > names.index("G37ServiceCompletenessGate")
-    assert names[-1] == "G43EpistemicSymmetryGate"
+    assert names.index("G43EpistemicSymmetryGate") > names.index("G39BiomarkerContingencyGate")
+
+
+def test_g54_memory_ledger_present() -> None:
+    """v2.8 research-team iteration (ADR-0027) — G54 ledger-spine gate registers
+    as the new tail and comes after G43."""
+    names = [g.__name__ for g in all_gate_classes()]
+    assert "G54MemoryLedgerWrittenGate" in names
+    assert names.index("G54MemoryLedgerWrittenGate") > names.index(
+        "G43EpistemicSymmetryGate"
+    )
