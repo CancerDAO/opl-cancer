@@ -449,6 +449,13 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
             }
             for s in prior_runs
         ]
+    # D1/E1 / ADR-0034 — feed the planner gates. planned_experts = every expert in
+    # the agenda; floor_required = the red-line, comorbidity-mandated experts the
+    # deterministic expansion fired (the safety floor G55 enforces: the LLM
+    # planner may EXPAND beyond this, never DROP it). Additive — the skeleton
+    # stays the floor, not the ceiling.
+    plan_payload["planned_experts"] = sorted({str(t.expert).lower() for t in tasks})
+    plan_payload["floor_required"] = sorted({str(t.task.expert).lower() for t in fired})
     out_path.write_text(
         json.dumps(plan_payload, ensure_ascii=False, indent=2),
         encoding="utf-8",

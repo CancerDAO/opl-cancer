@@ -54,6 +54,7 @@ from opl_cancer.validators.gates import (
     G48ResearchDeltaGate,  # A3/ADR-0028
     G52FailureLedgerGate,  # C3/ADR-0033
     G54MemoryLedgerWrittenGate,  # A1/ADR-0027
+    G55PlanFloorCoverageGate,  # D1/ADR-0034
 )
 from opl_cancer.memory.store import default_patient_memory_db
 from opl_cancer.validators.fakery_sniffer import (
@@ -283,6 +284,16 @@ def run_delivery_gates(
         "run_id": run_id, "memory_db": memory_db,
     }))  # A3 — FLAG a null-research run vs the prior run
     _record(results, blocked, G52FailureLedgerGate().check({"run_root": str(run_root)}))  # C3
+    # D1/G55 — the plan must cover the red-line safety floor. SKIPs when the plan
+    # declares no floor (no comorbid red-line), so it is safe to fire on every run.
+    try:
+        _plan_for_floor = json.loads((run_root / "plan.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        _plan_for_floor = {}
+    _record(results, blocked, G55PlanFloorCoverageGate().check({
+        "planned_experts": _plan_for_floor.get("planned_experts", []),
+        "floor_required": _plan_for_floor.get("floor_required", []),
+    }))
     # C1 G50/G51 are registered + tested but NOT yet live-wired here: their
     # producers (the tournament emitting killed_candidates.jsonl, and the renderer
     # flagging when a leaderboard is actually shown) live in the orchestrator that
