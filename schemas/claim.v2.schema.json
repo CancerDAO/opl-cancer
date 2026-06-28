@@ -59,6 +59,11 @@
             "type": "string",
             "enum": ["established", "exploratory", "speculative"],
             "description": "The evidence strength of THIS link (RCT/meta/FDA-label ⇒ established; single cohort/case ⇒ exploratory; mechanistic/preclinical ⇒ speculative). G42 takes the strongest link tier as the ceiling for the claim's `tier`."
+          },
+          "source_section": {
+            "type": "string",
+            "enum": ["abstract", "full_text", "supplementary", "subgroup_table", "limitations"],
+            "description": "B2/ADR-0030 — how DEEP this source was read. G47 caps an 'established' patient-facing claim whose PMID evidence is all abstract-only: the subgroup forest plot (supplementary/subgroup_table) and the trial's own limitations are what decide whether a cited trial applies to THIS N=1 patient. Absent ⇒ treated as unread-depth (fails closed)."
           }
         }
       }
