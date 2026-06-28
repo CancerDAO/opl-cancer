@@ -32,8 +32,9 @@ def test_cli_status_runs() -> None:
     # false-hope firewall, ADR-0029) +G48 (A3 research-delta, ADR-0028) +G52 (C3
     # failure-ledger, ADR-0033) +G47 (B2 read-deep, ADR-0030) +G49 (C2 forecast
     # pre-registration, ADR-0032) +G50/G51 (C1 honest tournament, ADR-0031). G44
-    # reserved for the in-flight retrieval-standardization branch. 42 → 51.
-    assert "Mechanical gates: 51" in r.output
+    # reserved for the in-flight retrieval-standardization branch. +G53/G55 (D1
+    # outcome-backward planner, ADR-0034). 42 → 53.
+    assert "Mechanical gates: 53" in r.output
     # v2.2 (ADR-0022): +7 bio-skill integrators (MSI/TMB/SigProfiler/ACMG/KM/CPIC/PaperQA-FT)
     assert "Integrators wired: 36" in r.output
     # v2.3 (ADR-0023): Wave 6 manuscript+.n1a wave runner.

@@ -68,7 +68,9 @@ from .g49_forecast_pre_registration import G49ForecastPreRegistrationGate  # C2/
 from .g50_tournament_kill_recorded import G50TournamentKillRecordedGate  # C1/ADR-0031
 from .g51_unfalsified_ranking import G51UnfalsifiedRankingGate  # C1/ADR-0031
 from .g52_failure_ledger import G52FailureLedgerGate  # C3/ADR-0033
+from .g53_novel_candidate_presence import G53NovelCandidatePresenceGate  # D1/ADR-0034
 from .g54_memory_ledger_written import G54MemoryLedgerWrittenGate  # A1/ADR-0027
+from .g55_plan_floor_coverage import G55PlanFloorCoverageGate  # D1/ADR-0034
 
 __all__ = [
     "CrossPatientContaminationError",
@@ -122,7 +124,9 @@ __all__ = [
     "G50TournamentKillRecordedGate",
     "G51UnfalsifiedRankingGate",
     "G52FailureLedgerGate",
+    "G53NovelCandidatePresenceGate",
     "G54MemoryLedgerWrittenGate",
+    "G55PlanFloorCoverageGate",
     "redact_text",
     "scan_text",
 ]

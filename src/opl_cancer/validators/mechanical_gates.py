@@ -136,7 +136,9 @@ def all_gate_classes() -> list[type[Gate]]:
         G50TournamentKillRecordedGate,  # C1/ADR-0031
         G51UnfalsifiedRankingGate,  # C1/ADR-0031
         G52FailureLedgerGate,  # C3/ADR-0033
+        G53NovelCandidatePresenceGate,  # D1/ADR-0034
         G54MemoryLedgerWrittenGate,  # A1/ADR-0027
+        G55PlanFloorCoverageGate,  # D1/ADR-0034
     )
 
     return [
@@ -190,5 +192,7 @@ def all_gate_classes() -> list[type[Gate]]:
         G50TournamentKillRecordedGate,
         G51UnfalsifiedRankingGate,
         G52FailureLedgerGate,
+        G53NovelCandidatePresenceGate,
         G54MemoryLedgerWrittenGate,
+        G55PlanFloorCoverageGate,
     ]
