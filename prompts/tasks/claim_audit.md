@@ -129,6 +129,13 @@ In addition to the audit object above, when you re-emit (or normalise) the execu
 - **G11 NoSilentFallback** — if `pubmed_results` / `paperqa_results` are empty, the reviewer must fail closed (see empty-integrator).
 - **G13 ReviewerModelDistinct** — `reviewer_model` distinct from executor's model.
 - **G19 PI-imperative-detector** — `summary_for_henry` non-directive.
+- **Attribution/ablation WARN (B3 / ADR-0030)** — for every `established`/L3 claim,
+  check it carries an `attribution` object naming the single load-bearing
+  component and `survives_without_primary`. If absent, or if a conclusion that
+  does NOT survive removing its primary carrier is still presented as
+  `established`, raise a warning (not a hard block — the field is self-asserted):
+  a recommendation resting on one fragile single-arm study must be floored to the
+  carrier's tier and said plainly.
 
 ### Reviewer focus (meta-reviewer of this reviewer)
 

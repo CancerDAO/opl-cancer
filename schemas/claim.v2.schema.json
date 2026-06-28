@@ -193,6 +193,17 @@
         "human_efficacy_data_for_candidate": {"type": "string", "enum": ["none", "preclinical", "case_report", "early_phase"], "description": "How much HUMAN efficacy data the candidate itself has — 'none' for a pure in-silico / undrugged-target design."}
       }
     },
+    "attribution": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "B3/ADR-0030 — ablation/attribution: which SINGLE component actually carries this recommendation (usually one, usually not the headline)? Reviewer/Henry WARN (self-asserted, so NOT a hard gate): if survives_without_primary is false, the claim's tier is floored to the carrier's tier. Protects the patient from acting on a conclusion that one removed study would collapse.",
+      "properties": {
+        "primary_carrier_expert": {"type": "string", "description": "The single expert whose analysis load-bears this claim."},
+        "primary_carrier_evidence_ref": {"type": "string", "description": "The single evidence item (PMID/NCT/dataset) the claim rests on most."},
+        "survives_without_primary": {"type": "boolean", "description": "Does the conclusion still hold if the primary carrier is removed? If false, tier is floored."},
+        "rationale": {"type": "string"}
+      }
+    },
     "skepticism": {
       "type": "object",
       "additionalProperties": true,

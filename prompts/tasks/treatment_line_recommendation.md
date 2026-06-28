@@ -126,6 +126,22 @@ tuned baseline adds false confidence, not value.
 ```
 
 
+## Attribution / ablation (B3 / ADR-0030)
+
+For every L2/L3 option, emit an `attribution` object naming the SINGLE component
+that load-bears it: `primary_carrier_expert`, `primary_carrier_evidence_ref`
+(the one PMID/NCT/dataset it rests on most), and `survives_without_primary`
+(does the conclusion still hold if you remove that one item?). If
+`survives_without_primary` is false, the option's `claim_layer` is floored to the
+carrier's tier — a recommendation resting on one fragile single-arm study is not
+`established`. Render it plainly: "rests primarily on [PMID X]; remove it and
+this weakens to exploratory." Reviewer/Henry WARN on a missing/empty attribution
+on an `established`/L3 option (self-asserted field — surfaced, not hard-blocked).
+
+```json
+"attribution": {"primary_carrier_expert": "<name>", "primary_carrier_evidence_ref": "<PMID/NCT>", "survives_without_primary": false, "rationale": "<1 sentence>"}
+```
+
 ## Empty-integrator rule (v1.2.0)
 
 If ALL relevant live integrator inputs (e.g. `pubmed_results`, `nccn_excerpts`, `ctgov_results`, `chictr_results`, `fda_eap_results`, `nmpa_eap_results`) for this task are empty, the only legal output is a JSON object with:
