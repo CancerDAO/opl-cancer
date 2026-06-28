@@ -15,6 +15,8 @@ Classify intent. Return JSON:
   "hope_impact": "<low|moderate|high>",
   "crisis_grade": "<none|passive_SI|active_SI|active_plan>",
   "delivery_tone_hint": "<blunt|warm|clinical|unspecified>",
+  "desired_endpoint": "<live_longer_with_function|cure_intent|minimize_toxicity|specific_event_to_avoid|unspecified>",
+  "decision_juncture": "<choosing_next_line|trial_vs_soc|post_progression_reframe|second_opinion|unspecified>",
   "rationale": "...one sentence..."
 }
 ```
