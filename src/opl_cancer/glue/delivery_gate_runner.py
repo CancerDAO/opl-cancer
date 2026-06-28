@@ -48,7 +48,14 @@ from opl_cancer.validators.gates import (
     G41SoCCompletenessGate,
     G42TierDisciplineGate,
     G43EpistemicSymmetryGate,
+    G45WorldUnknownComparatorGate,  # B1/ADR-0029
+    G46SoCBaselineQuantifiedGate,  # B1/ADR-0029
+    G47SourceSectionDepthGate,  # B2/ADR-0030
+    G48ResearchDeltaGate,  # A3/ADR-0028
+    G52FailureLedgerGate,  # C3/ADR-0033
+    G54MemoryLedgerWrittenGate,  # A1/ADR-0027
 )
+from opl_cancer.memory.store import default_patient_memory_db
 from opl_cancer.validators.fakery_sniffer import (
     scan_artifact,
     scan_brief_artifact,
@@ -264,6 +271,19 @@ def run_delivery_gates(
     }))
     _record(results, blocked, G37ServiceCompletenessGate().check({"run_root": str(run_root)}))
 
+    # ── research-team run-level gates (v2.8) — fire with run context so the
+    #    compounding spine + research-delta + failure-ledger actually bind at
+    #    attest (top-down trace: registered AND invoked, not orphaned). ──
+    run_id = run_root.name
+    memory_db = str(default_patient_memory_db(run_root))
+    _record(results, blocked, G54MemoryLedgerWrittenGate().check({
+        "run_root": str(run_root), "run_id": run_id, "memory_db": memory_db,
+    }))  # A1 — run must have compounded into the ledger
+    _record(results, blocked, G48ResearchDeltaGate().check({
+        "run_id": run_id, "memory_db": memory_db,
+    }))  # A3 — FLAG a null-research run vs the prior run
+    _record(results, blocked, G52FailureLedgerGate().check({"run_root": str(run_root)}))  # C3
+
     # G35 — scan case_text.md AND (v2.10 P0.3a) the delivered briefs. A
     # fabricated clinical value can live ONLY in the patient-facing brief with no
     # case_text behind it, so G35 must see the delivery dir even when there is no
@@ -354,6 +374,10 @@ def run_delivery_gates(
         G41SoCCompletenessGate(),
         G42TierDisciplineGate(),
         G43EpistemicSymmetryGate(),
+        # research-team claim-level gates (v2.8): false-hope firewall + read-deep.
+        G45WorldUnknownComparatorGate(),  # B1/ADR-0029
+        G46SoCBaselineQuantifiedGate(),  # B1/ADR-0029
+        G47SourceSectionDepthGate(),  # B2/ADR-0030
     ]
     warned: list[str] = []
     for c in claims:

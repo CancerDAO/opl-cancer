@@ -147,6 +147,11 @@ def _build_complete_run(root: Path, *, experts: list[str], pmid: str, gene: str,
         json.dumps({"henry_real_audit": True, "claims_audited": 1, "status": "pass"}),
         encoding="utf-8",
     )
+    # A1/ADR-0027: a complete run compounds into the research ledger. In the real
+    # flow `deliver` persists before `attest` runs G54; mirror that here so the
+    # run-level memory-ledger gate sees the run did compound.
+    from opl_cancer.glue.ledger_persist import persist_run_to_ledger
+    persist_run_to_ledger(run_root)
     return run_root
 
 

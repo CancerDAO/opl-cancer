@@ -36,7 +36,9 @@ def test_v24_task_packages_still_resolve() -> None:
     from opl_cancer.plan.task_validator import list_packages, validate_task_packages
 
     packages = list_packages()
-    assert len(packages) == 64, f"expected 64 task packages (63 v2.4 + 1 v2.5), got {len(packages)}"
+    # v2.8 research-team iteration adds 4 task packages (outcome_reconciliation,
+    # error_analysis, n1_applicability_audit, actionability_tier_classification).
+    assert len(packages) == 68, f"expected 68 task packages (64 + 4 v2.8), got {len(packages)}"
     # Every package can be validated as a known reference
     tasks = [{"task_package": p} for p in packages]
     validate_task_packages(tasks)  # raises on unknown

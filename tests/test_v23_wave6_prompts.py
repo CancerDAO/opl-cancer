@@ -91,8 +91,10 @@ def test_wave6_package_length_minimum(filename: str) -> None:
 def test_total_task_package_count_is_62() -> None:
     """v2.2 had 54 task packages. v2.3 adds 8 = 62. v2.4 adds 1
     (`n1arxiv_pr_assembly.md`) = 63. v2.5 adds 1
-    (`unknown_task_intake.md` — RFC 0001 §8 item 8, the c3195b66 bug fix) = 64."""
+    (`unknown_task_intake.md` — RFC 0001 §8 item 8, the c3195b66 bug fix) = 64.
+    v2.8 research-team iteration adds 4 (outcome_reconciliation, error_analysis,
+    n1_applicability_audit, actionability_tier_classification) = 68."""
     count = sum(
         1 for _ in TASK_PACKAGES_DIR.iterdir() if _.suffix == ".md"
     )
-    assert count == 64, f"expected 64 task packages, got {count}"
+    assert count == 68, f"expected 68 task packages, got {count}"
