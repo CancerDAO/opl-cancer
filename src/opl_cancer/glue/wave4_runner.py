@@ -23,6 +23,7 @@ from typing import Any
 
 from opl_cancer.experts._common import LLMBackedExpert
 from opl_cancer.glue._post_write import post_write_safety_check
+from opl_cancer.glue.surprise_replan import spawn_surprise_replan
 # NOTE (harness-split): orchestrator.* is the self-improvement engine being
 # extracted to a standalone repo. Imported lazily (in-function) so this runner
 # stays importable when orchestrator/ is absent. ``run_reviewer_pairing`` stays
@@ -37,6 +38,28 @@ def __getattr__(name: str):  # PEP 562 — lazy orchestrator re-export
         from opl_cancer.orchestrator.reviewer_hook import run_reviewer_pairing
         return run_reviewer_pairing
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _read_surprise_signal(
+    hyp: dict[str, Any], aviv_verdict: dict[str, Any]
+) -> tuple[bool, bool, str | None]:
+    """D3/ADR-0036 — read Aviv's LLM surprise judgment (no Python keyword judgment).
+
+    A forecast can only be *contradicted* if the hypothesis carried a locked
+    forecast (prior_expectation). Aviv signals it directly (``contradicts_forecast``)
+    or via ``updated_belief.surprise == 'strong'``; a strange-tail anomaly is its
+    own flag. The testability_path (how to chase it) is Aviv's too.
+    """
+    ub = aviv_verdict.get("updated_belief")
+    ub = ub if isinstance(ub, dict) else {}
+    has_forecast = bool(isinstance(hyp.get("prior_expectation"), dict) and hyp.get("prior_expectation"))
+    contradicted = has_forecast and (
+        bool(aviv_verdict.get("contradicts_forecast"))
+        or str(ub.get("surprise", "")).lower() == "strong"
+    )
+    anomaly = bool(aviv_verdict.get("strange_tail_anomaly"))
+    tp = aviv_verdict.get("surprise_testability_path") or ub.get("testability_path")
+    return contradicted, anomaly, (str(tp) if tp else None)
 
 
 def _classify(aviv_verdict: dict[str, Any], iain_verdict: dict[str, Any]) -> str:
@@ -97,6 +120,7 @@ class Wave4Runner:
         }
 
         results: list[dict[str, Any]] = []
+        replans: list[dict[str, Any]] = []
         for hid in top_k_ids:
             hyp = next((h for h in hypotheses if h.get("id") == hid), None)
             if hyp is None:
@@ -170,6 +194,23 @@ class Wave4Runner:
                 }
             )
 
+            # D3/ADR-0036 — follow the surprise: a Wave-3 result that contradicts
+            # the locked forecast (or is a strange-tail anomaly) becomes a promoted
+            # replan task, not just a failure-ledger line. Detection is Aviv's LLM
+            # judgment; spawn_surprise_replan enforces the testability_path guard.
+            contradicted, anomaly, tp = _read_surprise_signal(hyp, aviv_verdict)
+            if contradicted or anomaly:
+                replans.append(spawn_surprise_replan(
+                    self.out_dir,
+                    hypothesis_id=hid,
+                    contradicted=contradicted,
+                    anomaly=anomaly,
+                    testability_path=tp,
+                    trigger_detail=str(
+                        (aviv_verdict.get("updated_belief") or {}).get("what_changed", "")
+                    ),
+                ))
+
         payload: dict[str, Any] = {
             "run_id": run_id,
             "patient_text": patient_text,
@@ -179,6 +220,8 @@ class Wave4Runner:
             "n_inconclusive": sum(
                 1 for r in results if r["survival_status"] == "inconclusive"
             ),
+            # D3/ADR-0036 — replan tasks spawned for chased surprises (empty when none).
+            "replans": replans,
         }
         out_path = run_dir / "wave4_validation.json"
         out_path.write_text(

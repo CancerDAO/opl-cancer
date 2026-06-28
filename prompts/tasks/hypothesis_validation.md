@@ -14,6 +14,8 @@ Required:
 3. Cite specific data hits (cluster id / DEG / pathway hit) as evidence
 4. Propose ONE smallest informative wet-lab experiment if support_score ≥ 0.3
 5. Decide claim_layer label transition (speculative → exploratory only when support_score > 0.5)
+6. Score the data against the hypothesis's LOCKED forecast (`prior_expectation` in the
+   hypothesis JSON, recorded at Wave 2 before any data): did the Wave-3 result match it?
 
 Return strict JSON:
 {
@@ -29,8 +31,30 @@ Return strict JSON:
     "expected_outcome_positive": "<>",
     "expected_outcome_negative": "<>"
   } | null,
-  "remaining_uncertainty": "<2-3 sentences>"
+  "remaining_uncertainty": "<2-3 sentences>",
+  "updated_belief": {
+    "posterior_confidence": <0..1>,
+    "surprise": "none | mild | strong",
+    "what_changed": "<1-2 sentences: how the data moved your belief vs the locked forecast>"
+  },
+  "contradicts_forecast": <true if the Wave-3 data contradicts the direction of the locked prior_expectation; false otherwise; false when the hypothesis carried no forecast>,
+  "surprise_testability_path": "<if surprise is strong OR a strange-tail anomaly appeared: the smallest concrete test to chase it (e.g. a DepMap query, a ctDNA timepoint, a targeted re-analysis); else null>",
+  "strange_tail_anomaly": <true if the data surfaced an unexpected off-target signal worth chasing in its own right; else false>
 }
+
+## Follow the surprise (D3 / predict-before-you-look correction)
+
+The locked `prior_expectation` is what the team predicted BEFORE seeing the data —
+it is a labelled training example for taste. Compare it honestly to the Wave-3
+result:
+- If the data **contradicts** the forecast direction, set `contradicts_forecast: true`
+  and `updated_belief.surprise: "strong"`.
+- A genuine surprise (contradicted forecast OR `strange_tail_anomaly`) is the team's
+  biggest opportunity — but it is only worth chasing if it is **testable**: supply a
+  concrete `surprise_testability_path`. If you cannot name a real test, leave it
+  null (the runtime will record the surprise but NOT manufacture a chase).
+- Never fabricate a surprise to look interesting; `surprise: "none"` is the honest
+  default when the data matched the forecast.
 
 
 ## Empty-integrator rule (v1.2.0)

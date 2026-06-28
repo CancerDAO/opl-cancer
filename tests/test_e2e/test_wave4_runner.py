@@ -107,6 +107,49 @@ async def test_wave4_inconclusive_when_iain_flags(tmp_path: Path) -> None:
     assert payload["n_inconclusive"] == 1
 
 
+async def test_wave4_spawns_replan_on_contradicted_forecast(tmp_path: Path) -> None:
+    """D3/ADR-0036: when Aviv judges the Wave-3 data contradicts the hypothesis's
+    locked forecast and supplies a testability_path, Wave 4 spawns a replan task
+    that chases the surprise (not just a failure-ledger line)."""
+    aviv_resp = json.dumps({
+        "verdict": "falsified", "support_score": -0.6, "claim_layer_summary": "exploratory",
+        "updated_belief": {"posterior_confidence": 0.2, "surprise": "strong",
+                           "what_changed": "forecast said cluster X up; data shows it down"},
+        "contradicts_forecast": True,
+        "surprise_testability_path": "ctDNA dual-target dynamics at 4 weeks",
+    })
+    iain_resp = json.dumps({"meta_verdict": "pass"})
+    runner = Wave4Runner(out_dir=tmp_path / "out", aviv=_make_aviv(), iain=_make_iain())
+    wave2 = {
+        "hypotheses": [{"id": "h1", "text": "EGFR C797S → 4th-gen TKI",
+                        "prior_expectation": {"predicted_wave3_result": "cluster X up", "confidence_0_1": 0.7}}],
+        "top_k": [("h1", 1500.0)],
+    }
+    wave3 = {"validations": [], "analysis_runs": []}
+    payload = await runner.run("test", _artifacts(aviv_resp, iain_resp), wave2, wave3)
+
+    assert payload["replans"], "a contradicted forecast with a testability_path must spawn a replan"
+    replan = payload["replans"][0]
+    assert replan["spawned"] is True and replan["hypothesis_id"] == "h1"
+    assert Path(replan["replan_task_path"]).is_file()
+    assert (tmp_path / "out" / "replan").is_dir()
+
+
+async def test_wave4_no_replan_without_surprise(tmp_path: Path) -> None:
+    """A validated hypothesis with no surprise signal spawns no replan."""
+    aviv_resp = json.dumps({"verdict": "supported", "support_score": 0.8,
+                            "claim_layer_summary": "established"})
+    iain_resp = json.dumps({"meta_verdict": "pass"})
+    runner = Wave4Runner(out_dir=tmp_path / "out", aviv=_make_aviv(), iain=_make_iain())
+    wave2 = {"hypotheses": [{"id": "h1", "text": "x",
+                            "prior_expectation": {"predicted_wave3_result": "up", "confidence_0_1": 0.6}}],
+             "top_k": [("h1", 1500.0)]}
+    wave3 = {"validations": [], "analysis_runs": []}
+    payload = await runner.run("test", _artifacts(aviv_resp, iain_resp), wave2, wave3)
+    assert payload["replans"] == []
+    assert not (tmp_path / "out" / "replan").exists()
+
+
 async def test_wave4_writes_artifacts(tmp_path: Path) -> None:
     aviv_resp = json.dumps({"verdict": "supported", "support_score": 0.9, "claim_layer_summary": "established"})
     iain_resp = json.dumps({"meta_verdict": "pass"})
