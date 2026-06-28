@@ -52,6 +52,7 @@ from opl_cancer.validators.gates import (
     G46SoCBaselineQuantifiedGate,  # B1/ADR-0029
     G47SourceSectionDepthGate,  # B2/ADR-0030
     G48ResearchDeltaGate,  # A3/ADR-0028
+    G49ForecastPreRegistrationGate,  # C2/ADR-0032
     G50TournamentKillRecordedGate,  # C1/ADR-0031
     G51UnfalsifiedRankingGate,  # C1/ADR-0031
     G52FailureLedgerGate,  # C3/ADR-0033
@@ -211,6 +212,33 @@ def _patient_dir_for(run_root: Path) -> Path | None:
     return None
 
 
+def _earliest_wave3_data_at(run_root: Path) -> str | None:
+    """C2/ADR-0032 — the earliest Wave-3 data artifact mtime (ISO, UTC), or None.
+
+    G49 verifies each forecast was locked BEFORE this. Use the earliest mtime
+    across the run's wave3* artifacts so a later-written sidecar can't make a
+    hindsight forecast look pre-data. None when Wave 3 never ran (non-Docker path)
+    — G49 then skips the temporal check and a locked forecast still passes.
+    """
+    mtimes = [p.stat().st_mtime for p in run_root.glob("wave3*") if p.is_file()]
+    if not mtimes:
+        return None
+    return datetime.fromtimestamp(min(mtimes), tz=timezone.utc).isoformat()
+
+
+def _load_wave2_hypotheses(run_root: Path) -> list[dict[str, Any]]:
+    """The hypotheses recorded in wave2_hypotheses.json (empty list if absent)."""
+    p = run_root / "wave2_hypotheses.json"
+    if not p.is_file():
+        return []
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    hyps = data.get("hypotheses") if isinstance(data, dict) else data
+    return [h for h in hyps if isinstance(h, dict)] if isinstance(hyps, list) else []
+
+
 def _record(results: list[dict[str, Any]], blocked: list[str], r: GateResult) -> None:
     results.append({
         "gate": r.gate, "status": r.status.value, "block": r.block,
@@ -310,6 +338,21 @@ def run_delivery_gates(
     _record(results, blocked, G51UnfalsifiedRankingGate().check({
         "run_root": str(run_root),
     }))  # C1 — a rendered leaderboard must be Wave-4-scored or 'unfalsified'-badged
+
+    # C2/ADR-0032 — predict-before-you-look: each top-k hypothesis carrying a
+    # pre-data forecast must have locked it before the earliest Wave-3 artifact and
+    # not rewritten it (G49). A hypothesis with no forecast SKIPs; when Wave 3 never
+    # ran wave3_data_at is None and a locked forecast still passes.
+    _wave3_data_at = _earliest_wave3_data_at(run_root)
+    _g49 = G49ForecastPreRegistrationGate()
+    for _h in _load_wave2_hypotheses(run_root):
+        _record(results, blocked, _g49.check({
+            "hypothesis_id": _h.get("id"),
+            "prior_expectation": _h.get("prior_expectation"),
+            "forecast_locked_at": _h.get("forecast_locked_at"),
+            "forecast_hash": _h.get("forecast_hash"),
+            "wave3_data_at": _wave3_data_at,
+        }))
 
     # G35 — scan case_text.md AND (v2.10 P0.3a) the delivered briefs. A
     # fabricated clinical value can live ONLY in the patient-facing brief with no

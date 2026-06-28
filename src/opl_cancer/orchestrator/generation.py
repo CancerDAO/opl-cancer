@@ -44,11 +44,17 @@ Strategy guidance for {strategy}:
 Founder-mode philosophy: hypotheses are by definition speculative. Label uncertainty
 honestly. Do NOT pretend to be established.
 
+Predict-before-you-look (C2): state, BEFORE any data is pulled, what the Wave-3
+data analysis would show if this hypothesis is correct, plus your honest confidence.
+This forecast is locked at Wave 2 and later scored against the real data — it is the
+substrate that trains calibrated taste, so make it specific and falsifiable.
+
 Return strict JSON:
 {{
   "text": "<one-sentence hypothesis statement>",
   "rationale": "<why this hypothesis given the evidence; 2-4 sentences>",
-  "evidence_refs": [{{"type": "pmid"|"dataset"|"knowledge_base", "id": "<id>"}}, ...]
+  "evidence_refs": [{{"type": "pmid"|"dataset"|"knowledge_base", "id": "<id>"}}, ...],
+  "prior_expectation": {{"predicted_wave3_result": "<what the Wave-3 data would show if this is right — stated before any data>", "confidence_0_1": <number between 0 and 1>}}
 }}.
 """
 
@@ -119,6 +125,11 @@ class HypothesisGenerator:
             ) from exc
         evidence_refs_raw = parsed.get("evidence_refs", []) or []
         evidence_refs = [e for e in evidence_refs_raw if isinstance(e, dict)]
+        # C2/ADR-0032 — carry the LLM's pre-data forecast verbatim so the runner
+        # can lock it (timestamp + tamper hash) before Wave 3. A response that
+        # omits it leaves prior_expectation None; the runner never fabricates one.
+        prior_raw = parsed.get("prior_expectation")
+        prior_expectation = prior_raw if isinstance(prior_raw, dict) and prior_raw else None
         return Hypothesis(
             id=f"hyp_{uuid.uuid4().hex[:8]}",
             text=str(parsed.get("text", "")).strip() or "(empty)",
@@ -127,4 +138,5 @@ class HypothesisGenerator:
             generation_strategy=strategy,
             evidence_refs=evidence_refs,
             meta_critique_inherited=[meta_critique] if meta_critique else [],
+            prior_expectation=prior_expectation,
         )

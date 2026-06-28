@@ -4,13 +4,22 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from opl_cancer.glue.wave2_runner import Wave2Runner, write_tournament_audit
+from opl_cancer.glue.wave2_runner import (
+    Wave2Runner,
+    lock_top_k_forecasts,
+    write_tournament_audit,
+)
 from opl_cancer._llm_contract import LLMRequest, LLMResponse
+from opl_cancer.memory.schemas import Hypothesis
 from opl_cancer.orchestrator.debate import DebateJudge
 from opl_cancer.orchestrator.evolution import EvolutionStrategist
 from opl_cancer.orchestrator.generation import HypothesisGenerator
 from opl_cancer.orchestrator.meta_critique import MetaCritiqueAggregator
 from opl_cancer.orchestrator.reflection import Reflector
+from opl_cancer.validators.gates.g49_forecast_pre_registration import (
+    G49ForecastPreRegistrationGate,
+    forecast_payload_hash,
+)
 from opl_cancer.validators.gates.g50_tournament_kill_recorded import (
     G50TournamentKillRecordedGate,
 )
@@ -33,7 +42,8 @@ class _SeqClient:
 
 
 _GEN_JSON = (
-    '{"text":"H novel direction","rationale":"r","evidence_refs":[{"type":"pmid","id":"123"}]}'
+    '{"text":"H novel direction","rationale":"r","evidence_refs":[{"type":"pmid","id":"123"}],'
+    '"prior_expectation":{"predicted_wave3_result":"signal X up","confidence_0_1":0.6}}'
 )
 _EVOLVE_JSON = '{"text":"H evolved","rationale":"r2","evidence_refs":[]}'
 _JUDGE_JSON = '{"winner":"A","reason":"stronger"}'
@@ -168,3 +178,47 @@ def test_write_tournament_audit_small_field_is_noop(tmp_path: Path) -> None:
     write_tournament_audit(run_dir, killed_candidates=[], n_candidates=2)  # <4 → not required
     assert not (run_dir / "killed_candidates.jsonl").exists()
     assert not (run_dir / "tournament_all_survived.json").exists()
+
+
+# ── C2/ADR-0032 producer: lock the top-k forecasts before Wave 3 ──
+
+def test_lock_top_k_forecasts_locks_only_forecasted() -> None:
+    h1 = Hypothesis(
+        id="h1", text="t1",
+        prior_expectation={"predicted_wave3_result": "x", "confidence_0_1": 0.6},
+    )
+    h2 = Hypothesis(id="h2", text="t2")  # carries no pre-data forecast
+    by_id = {"h1": h1, "h2": h2}
+    n = lock_top_k_forecasts(by_id, ["h1", "h2"], locked_at="2026-06-01T00:00:00+00:00")
+    assert n == 1
+    assert h1.forecast_locked_at == "2026-06-01T00:00:00+00:00"
+    assert h1.forecast_hash == forecast_payload_hash(h1.prior_expectation)
+    # a forecast-less hypothesis is left untouched (never fabricated)
+    assert h2.forecast_locked_at is None and h2.forecast_hash is None
+
+
+def test_lock_top_k_forecasts_result_passes_g49() -> None:
+    h1 = Hypothesis(
+        id="h1", text="t1",
+        prior_expectation={"predicted_wave3_result": "x", "confidence_0_1": 0.6},
+    )
+    lock_top_k_forecasts({"h1": h1}, ["h1"], locked_at="2026-06-01T00:00:00+00:00")
+    res = G49ForecastPreRegistrationGate().check({
+        "hypothesis_id": "h1",
+        "prior_expectation": h1.prior_expectation,
+        "forecast_locked_at": h1.forecast_locked_at,
+        "forecast_hash": h1.forecast_hash,
+        "wave3_data_at": None,  # no Wave-3 data yet (non-Docker path)
+    })
+    assert res.status == GateStatus.PASS, res.message
+
+
+async def test_wave2_runner_locks_top_k_forecasts(tmp_path: Path) -> None:
+    """C2/ADR-0032: top-k hypotheses carrying a pre-data forecast are locked at
+    Wave 2 (timestamp + tamper hash) before any Wave-3 data, end to end."""
+    runner = _make_runner(tmp_path)
+    out = await runner.run("?", patient_context={})
+    locked = [h for h in out["hypotheses"] if h.get("forecast_locked_at")]
+    assert locked, "at least one top-k forecasted hypothesis must be locked"
+    for h in locked:
+        assert h["forecast_hash"] == forecast_payload_hash(h["prior_expectation"])

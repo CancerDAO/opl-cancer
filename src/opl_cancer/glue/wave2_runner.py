@@ -25,6 +25,7 @@ from opl_cancer.glue._post_write import post_write_safety_check
 from opl_cancer.memory.schemas import Hypothesis
 from opl_cancer.provenance.hasher import hash_claim
 from opl_cancer.provenance.journal import ProvenanceJournal
+from opl_cancer.validators.gates.g49_forecast_pre_registration import forecast_payload_hash
 
 # NOTE (harness-split): orchestrator.* is the self-improvement engine being
 # extracted to a standalone repo. These symbols are imported lazily (in-function
@@ -83,6 +84,31 @@ def write_tournament_audit(
             ),
             encoding="utf-8",
         )
+
+
+def lock_top_k_forecasts(
+    hyps_by_id: dict[str, Hypothesis], top_k_ids: list[str], *, locked_at: str
+) -> int:
+    """Lock each top-k hypothesis's pre-data forecast before Wave 3 (C2/ADR-0032).
+
+    Predict-before-you-look only trains taste if the forecast is recorded BEFORE
+    the data, so at Wave 2 — after ranking, before any Wave-3 pull — stamp
+    ``forecast_locked_at`` and a tamper hash on each top-k hypothesis that carries
+    a ``prior_expectation``. A hypothesis with no forecast is left untouched (the
+    runner NEVER fabricates a forecast — G49 then SKIPs it). Returns the count
+    locked. Mutates the hypothesis objects in place.
+    """
+    locked = 0
+    for hid in top_k_ids:
+        h = hyps_by_id.get(hid)
+        if h is None:
+            continue
+        exp = h.prior_expectation
+        if isinstance(exp, dict) and exp:
+            h.forecast_locked_at = locked_at
+            h.forecast_hash = forecast_payload_hash(exp)
+            locked += 1
+    return locked
 
 
 def __getattr__(name: str):  # PEP 562 — lazy orchestrator re-export
@@ -171,6 +197,15 @@ class Wave2Runner:
             basic = await self.reflector.reflect("basic", h, patient_context)
             falsif = await self.reflector.reflect("falsification", h, patient_context)
             reflections.append({"hyp_id": hid, "basic": basic, "falsification": falsif})
+
+        # C2/ADR-0032 — lock each top-k hypothesis's pre-data forecast NOW, after
+        # ranking but before any Wave-3 pull, so G49 can verify it came first and
+        # was not rewritten by hindsight.
+        lock_top_k_forecasts(
+            hyps_by_id,
+            [hid for hid, _ in tournament_result["top_k"]],
+            locked_at=datetime.now(timezone.utc).isoformat(),
+        )
 
         # Stage 5: write out + provenance
         out_payload: dict[str, Any] = {
