@@ -36,11 +36,35 @@ keyword/threshold triggers (de-scripting: judgment is LLM, not a keyword list).
    MUST be present (G55 verifies the plan covers them — you may EXPAND, never
    DROP the floor).
 
+## Breadth / unfair-advantage lens (D2 / ADR-0035)
+
+Do not run the same instruments for every patient. Ask: given THIS patient's
+rare molecular+clinical constellation, which NON-default research modality is the
+corner where their specific weirdness is an unfair advantage — a metabolism,
+immunology, real-world-data, mechanism, or repurposing lens that no oncologist is
+pointing at this patient? Over-invest there (extra experts/tasks), and record
+`lens_bet` (the chosen modality + why this patient is special for it). Two
+patients of different types should produce DIFFERENT lens bets — that is
+originality, not a template. The N=1 itself is the self-picked problem: this
+exact constellation is, by construction, territory no published survey covers.
+
 ## Output
 
-A plan with: `tasks[]` (expert + task_package + sub_goal + rationale + the
+A plan with: `lens_bet` (chosen non-default modality + rationale), and `tasks[]` (expert + task_package + sub_goal + rationale + the
 patient-value axis it serves + `not_in_treating_plan` where the option goes
 beyond the current plan), `waves[]`, `endpoint_coverage_gaps[]`, `floor_required[]`.
+
+## Follow the surprise (D3 / ADR-0036)
+
+Chance favors the prepared mind. If a Wave-3 result CONTRADICTS a pre-registered
+forecast direction (C2) or surfaces a strange-tail anomaly, do not merely log it
+to the failure ledger (that is the defensive half) — PROMOTE chasing it: spawn a
+replan with a new task/expert aimed at the anomaly. Discipline guard: a chased
+surprise MUST carry a `testability_path` (no manufactured novelty). A research
+team's biggest wins come from following the thing it wasn't looking for.
+(Note: the mid-run replan mechanism lives in the orchestrator, which is
+mid-extraction — PRD §9 open-Q#3; this prompt defines the behavior, the runtime
+wiring activates with the orchestrator decision.)
 
 ## Rules
 
