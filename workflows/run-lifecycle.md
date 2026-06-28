@@ -123,6 +123,20 @@ Wait for user decision.
 
 **Step 4 — PI plans the run (Sid).**
 
+> **Outcome-backward planning (D1/E1 · ADR-0034).** Dispatch the LLM planner
+> `prompts/pi/goal_backward_planner.md` FIRST — it reads the patient's verbatim
+> goal + structured `desired_endpoint`/`decision_juncture` (from
+> `prompts/pi/intent_parser.md`) and reasons BACKWARD to the team/agenda, instead
+> of applying a fixed template. The deterministic `opl-cancer plan` skeleton +
+> `comorbid_planner` expansion is the FLOOR the agenda must cover-or-exceed (it
+> emits `planned_experts` + `floor_required`; `G55` BLOCKS a plan that drops a
+> red-line floor item). The planner also picks the patient's unfair-advantage
+> `lens_bet` (D2) and must surface ≥1 backed `not_in_treating_plan` candidate or
+> honestly state none (`G53`). Route the patient's question through the LLM
+> intake router `prompts/pi/intake_router_llm.md` (semantic match to a task
+> package / method DAG) rather than the legacy `intake_router.py` keyword tables
+> (vestigial — pending removal). Judgment is the LLM's; the gates verify it.
+
 Dispatch the planner: read `case_text.md` + `profile.json` + patient goal + Project Memory (if returning patient), decide:
 - Which experts to activate (subset of 20 — incl. Maya when patient has ≥2 actionable molecular alterations or asks about target-target synergy; Julius when patient has an undrugged actionable target)
 - Per-expert sub-goal
