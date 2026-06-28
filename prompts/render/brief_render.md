@@ -102,6 +102,14 @@ Produce both, writing to the run's `delivery/` directory:
      without its comparator — an Elo number alone reads as validated strength.
    - Open the section with a one-line summary: "你这种情况目前最好的已知选择是 <X>。
      下面是未验证的研究方向,不是它的替代品。"
+7. **What the team could not confirm (C3 / ADR-0033)** — if
+   `triggers/<run_id>/failure_ledger.json` exists and has a non-empty
+   `biggest_pile` or `conclusions_at_risk`, render a "团队尚无法确认的部分 / What
+   the team could not confirm" section with the CONTENT (not just counts) of the
+   biggest failure pile and every `at_risk` conclusion, with the SAME prominence
+   as the top-3. False-hope safety is symmetric: the patient must see what is
+   weak and unconfirmed as clearly as the recommendations. A clean run
+   (`piles: []`) renders a one-line "本次分析未发现系统性证据短板。"
 
 ### Fidelity rules
 

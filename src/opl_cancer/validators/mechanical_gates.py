@@ -131,6 +131,7 @@ def all_gate_classes() -> list[type[Gate]]:
         G45WorldUnknownComparatorGate,  # B1/ADR-0029
         G46SoCBaselineQuantifiedGate,  # B1/ADR-0029
         G48ResearchDeltaGate,  # A3/ADR-0028
+        G52FailureLedgerGate,  # C3/ADR-0033
         G54MemoryLedgerWrittenGate,  # A1/ADR-0027
     )
 
@@ -180,5 +181,6 @@ def all_gate_classes() -> list[type[Gate]]:
         G45WorldUnknownComparatorGate,
         G46SoCBaselineQuantifiedGate,
         G48ResearchDeltaGate,
+        G52FailureLedgerGate,
         G54MemoryLedgerWrittenGate,
     ]
