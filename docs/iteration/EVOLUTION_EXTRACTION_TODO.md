@@ -1,5 +1,13 @@
 # EVOLUTION EXTRACTION TODO — `opl-cancer-evolution` standalone repo
 
+> ⛔ **SUPERSEDED (research-team iteration, founder decision A — 搬回病人路径).**
+> The founder chose to KEEP the tournament + evolution engine IN the patient
+> product and reverse this extraction. Do NOT continue extracting `evolution/`
+> /`orchestrator/`; instead re-aim the evolution loop at the disease frontier
+> (D4, `memory/disease_frontier.py`) and wire the C1/C2/D3 runtime producers.
+> See `docs/iteration/IMPLEMENTATION_STATUS.md` → "FOUNDER DECISION: A". This
+> file is retained for history only.
+
 Status: **decoupling DONE in `feat/harness-split`** (this branch). The patient
 CLI now imports and runs with **zero** module-load dependency on
 `src/opl_cancer/orchestrator/*` or `src/opl_cancer/evolution/*`. This file is the

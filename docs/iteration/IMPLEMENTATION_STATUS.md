@@ -63,3 +63,49 @@ Fully wired + firing at attest: **A1, A2, A3, B1, B2, B3, C3** (+ their gates).
    continue the extraction. This gates the PARTIAL + two NOT-STARTED items.
 
 To run the suite: `PYTHONPATH=src PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q --ignore=tests/test_glue/test_sniffer_halt.py`
+
+---
+
+## UPDATE — all 15 item cores landed + FOUNDER DECISION MADE
+
+20 commits; full suite **1865 passed, 8 skipped** (exit 0). Every one of the 15
+items now has a committed, tested implementation core:
+- Live + firing: A1 A2 A3 B1 B2 B3 C3 (+G55).
+- Live via host dispatch (Step 4 → LLM prompts): D1/E1, D2, E2.
+- Core + gate/policy committed, runtime producer pending wiring: C1 (G50/G51),
+  C2 (G49), D3 (`surprise_followup.decide_surprise_followup`), D4
+  (`memory/disease_frontier.build_disease_frontier_digest`).
+
+**FOUNDER DECISION: A — 搬回病人路径** (keep the tournament + evolution engine IN
+the patient product; reverse the extraction). This SUPERSEDES
+`EVOLUTION_EXTRACTION_TODO.md`.
+
+**Verified feasibility:** `orchestrator/tournament_loop`, `best_first_journal`,
+`glue/wave2_runner`, `evolution/collector`, `evolution/analyzer` all IMPORT
+CLEANLY today — only their *tests* are parked (conftest) because the test files
+import the deleted `opl_cancer.llm`. So the remaining work is straight wiring on
+importable modules, not import repair.
+
+### Remaining A-path wiring (fresh-context session — invasive, on importable but test-parked modules)
+
+1. **C1 producer** — call `best_first_journal.prune_below` in
+   `orchestrator/tournament_loop.run_tournament`; mark losers `status='pruned'`;
+   write `killed_candidates.jsonl`. Then live-wire G50/G51 into
+   `run_delivery_gates`. (New tests must not import `opl_cancer.llm`.)
+2. **C2 producer** — in `glue/wave2_runner`, stamp `forecast_locked_at` +
+   `forecast_hash` (`g49…forecast_payload_hash`) on each top-k hypothesis BEFORE
+   Wave 3; supply `wave3_data_at`; live-wire G49 per hypothesis at attest.
+3. **D3 runtime** — on a contradicted forecast / anomaly, call
+   `decide_surprise_followup`; if `should_chase`, spawn a replan task (orchestrator).
+4. **D4** — un-gate the `evolve` command in `cli.py` (always register in the
+   patient path); re-point `evolution/analyzer` target to the disease frontier and
+   feed it `build_disease_frontier_digest`; upgrade `evolution/collector` to
+   capture the strange tail (reviewer-fail reasons, falsified verdicts, G14
+   low-match) instead of 5 keyword lines; keep no-auto-apply + human signoff.
+5. **Un-park** the now-relevant orchestrator/evolution tests (fix their
+   `opl_cancer.llm` import) so CI covers the wired producers.
+6. **Vestigial cleanup** — remove the bypassed `intake_router.py` keyword tables
+   and the `cli.py` fixed skeleton (now superseded by the LLM planner dispatch).
+
+Resume with: *"继续 OPL（决策已定 A）：做 orchestrator runtime wiring（C1/C2 producer
++ D3 runtime + D4 + un-park tests + vestigial cleanup）"*.
