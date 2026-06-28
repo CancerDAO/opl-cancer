@@ -140,6 +140,16 @@ class Hypothesis(BaseModel):
     meta_critique_inherited: list[str] = Field(default_factory=list)
     rationale: str = ""
     created_at: str = Field(default_factory=_utc_now_iso)
+    # C2 / ADR-0032 — predict-before-you-look (within-run forecast lock). The
+    # taste-training substrate: a pre-DATA forecast recorded BEFORE the Wave-3
+    # pull, so each Wave2→Wave4 cycle becomes a scoreable labelled example.
+    # forecast_locked_at + forecast_hash let G49 verify the forecast preceded the
+    # data and was not silently overwritten by hindsight. (Cross-run Brier is
+    # deliberately deferred — noise at current run volume.)
+    prior_expectation: dict[str, object] | None = None  # {predicted_wave3_result, confidence_0_1}
+    forecast_locked_at: str | None = None
+    forecast_hash: str | None = None
+    updated_belief: dict[str, object] | None = None  # {posterior_confidence_0_1, surprise, what_changed}
 
 
 class TournamentOutcome(BaseModel):
