@@ -36,6 +36,7 @@ Return strict JSON:
       "testability_path": "<concrete next-step: dataset accession, assay, trial design, or in-silico pipeline. MANDATORY for strategies 5 + 6.>",
       "evidence_refs": [{"type":"pmid|kg_edge|dataset","id":"<id>"}, ...],
       "world_unknown_candidate": "<true ONLY for strategies 5+6 world-unknown candidates>",
+      "actionability_tier": "<actionable_this_week|weeks|months_or_more|research_only — REASONED per prompts/tasks/actionability_tier_classification.md, not keyword-matched; a speculative item is auto-floored below this-week>",
       "world_known_comparator": {
         "best_world_known_option": "<strategies 5+6 MANDATORY (G45): best real SoC/trial/EAP option for the SAME setting>",
         "expected_os_months": 0.0, "hr": 0.0, "ci": "x-y", "pmid": "<from results if any>",

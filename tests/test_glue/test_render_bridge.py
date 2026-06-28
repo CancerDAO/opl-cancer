@@ -139,6 +139,7 @@ def test_actionability_tier_classified(tmp_path: Path):
             "generation_strategy": "feasibility_first",
             "text": "test",
             "testability_path": "燃石 NGS panel + 血清 25-OHD; both standard 三甲 lab orders this week",
+            "actionability_tier": "actionable_this_week",
         },
         {
             "id": "b",
@@ -146,6 +147,7 @@ def test_actionability_tier_classified(tmp_path: Path):
             "generation_strategy": "target_synergy_emergent",
             "text": "test",
             "testability_path": "DepMap CRISPR Achilles cross-essentiality computational query",
+            "actionability_tier": "research_only",
         },
         {
             "id": "c",
@@ -153,6 +155,7 @@ def test_actionability_tier_classified(tmp_path: Path):
             "generation_strategy": "undrugged_target_design",
             "text": "test",
             "testability_path": "ESMFold + DiffDock virtual screen, then IND-enabling synthesis",
+            "actionability_tier": "months_or_more",
         },
     ])
     out = load_world_unknown_candidates(run_dir)
@@ -173,8 +176,10 @@ def test_speculative_item_never_actionable_this_week(tmp_path: Path):
             "claim_layer": "speculative",
             "generation_strategy": "target_synergy_emergent",
             "text": "spec",
-            # Deliberately seed an 'actionable_this_week' keyword (ctDNA / 燃石).
+            # Deliberately have the host claim 'actionable_this_week' — the
+            # deterministic safety floor must still demote a speculative item.
             "testability_path": f"燃石 ctDNA NGS panel standard 三甲 lab order, variant {i}",
+            "actionability_tier": "actionable_this_week",
         }
         for i in range(3)
     ])
@@ -186,18 +191,22 @@ def test_speculative_item_never_actionable_this_week(tmp_path: Path):
         assert "本周" not in c["actionability_label_zh"]
 
 
-def test_classify_actionability_tier_suppression_flag():
-    """Direct unit: allow_actionable_this_week=False floors quick-assay paths."""
-    from opl_cancer.glue.render_bridge import classify_actionability_tier
+def test_normalize_actionability_tier_safety_floor():
+    """E3/ADR-0039: tier is host-provided (LLM); Python validates + floors. The
+    deterministic safety floor stays: a speculative item's 'actionable_this_week'
+    is demoted to 'weeks'. No keyword guessing."""
+    from opl_cancer.glue.render_bridge import normalize_actionability_tier
 
-    quick = "燃石 NGS panel 三甲 lab"
-    # Default (real actionable options, e.g. trials/next-line) may be this week.
-    assert classify_actionability_tier(quick) == "actionable_this_week"
-    # Speculative path may not.
+    # A real actionable option (allow=True) keeps the host's tier.
+    assert normalize_actionability_tier("actionable_this_week") == "actionable_this_week"
+    # A speculative item (allow=False) is floored.
     assert (
-        classify_actionability_tier(quick, allow_actionable_this_week=False)
+        normalize_actionability_tier("actionable_this_week", allow_actionable_this_week=False)
         == "weeks"
     )
+    # Absent / invalid → conservative research_only, never guessed from keywords.
+    assert normalize_actionability_tier(None) == "research_only"
+    assert normalize_actionability_tier("bogus") == "research_only"
 
 
 def test_actionability_label_chinese(tmp_path: Path):
@@ -209,6 +218,7 @@ def test_actionability_label_chinese(tmp_path: Path):
             "generation_strategy": "feasibility_first",
             "text": "test",
             "testability_path": "燃石 NGS panel actionable this week 三甲 lab orders",
+            "actionability_tier": "actionable_this_week",
         },
     ])
     out = load_world_unknown_candidates(run_dir)

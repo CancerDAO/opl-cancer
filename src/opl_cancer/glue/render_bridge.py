@@ -110,90 +110,33 @@ def _redact_drug_specifics(text: str) -> tuple[str, list[str]]:
     return out, redacted_list
 
 
-# v2.0.2 (round-2 review): keywords that classify a testability_path by
-# clinical actionability tier. Patient + family reviewers explicitly asked
-# for priority ranking.
-_TIER_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "actionable_this_week": (
-        "已上市",
-        "标准实验室",
-        "ngs panel",
-        "wes",
-        "血清",
-        "25-ohd",
-        "kit-based ihc",
-        "ctdna",
-        "guardant",
-        "燃石",
-        "世和",
-        "泛生子",
-    ),
-    "weeks": (
-        "patient-derived organoid",
-        "pdo",
-        "ihc 多标",
-        "回顾性",
-        "retrospective",
-        "扩展准入",
-        "expanded access",
-    ),
-    "months_or_more": (
-        "pdx",
-        "crispr",
-        "synthesis",
-        "ind-enabling",
-        "diffdock",
-        "esmfold",
-        "preclinical",
-        "type 1 trial",
-    ),
-    "research_only": (
-        "depmap",
-        "kg edge",
-        "in silico",
-        "tcga",
-        "geo:",
-        "gse",
-        "computational",
-    ),
-}
+# E3/ADR-0039 de-scripting: the _TIER_KEYWORDS substring table was REMOVED.
+# Actionability tiering is LLM judgment — it reasons about assay turnaround +
+# regulatory / data-access constraints (prompts/tasks/actionability_tier_classification.md)
+# and sets `actionability_tier` on the candidate. Python only validates the
+# provided tier + enforces the deterministic speculative SAFETY floor below.
+_VALID_TIERS = ("actionable_this_week", "weeks", "months_or_more", "research_only")
 
 
-def classify_actionability_tier(
-    testability_path: str, *, allow_actionable_this_week: bool = True,
+def normalize_actionability_tier(
+    provided_tier: str | None, *, allow_actionable_this_week: bool = True,
 ) -> str:
-    """Return the most-actionable tier whose keywords appear in the path.
+    """Validate a HOST-PROVIDED actionability tier and apply the safety floor.
 
-    P0.4 safety: ``allow_actionable_this_week=False`` forbids the
-    "✅ Actionable this week" tier. SPECULATIVE [S] items are always classified
-    with this flag off — a speculative research direction must NEVER carry a
-    "this week" badge (it would mislead a patient into thinking an unproven
-    hypothesis is an immediate clinical action). The earliest a speculative item
-    can be labelled is "weeks" (a lab/assay turnaround), never "this week".
+    E3 / ADR-0039: the CLASSIFICATION (which tier a testability path falls in) is
+    LLM judgment and is set on the candidate as ``actionability_tier``. This
+    function no longer keyword-matches; it (a) validates the provided tier against
+    the enum and (b) enforces the deterministic SAFETY floor that must stay in
+    Python: a speculative [S] item may NEVER carry the "actionable_this_week"
+    badge (it would mislead a patient into thinking an unproven hypothesis is an
+    immediate clinical action), so with ``allow_actionable_this_week=False`` that
+    tier is floored to "weeks". Absent / invalid → "research_only" (conservative,
+    never guessed from keywords).
     """
-    if not testability_path:
-        return "research_only"
-    lower = testability_path.lower()
-    tiers = ("actionable_this_week", "weeks", "months_or_more", "research_only")
-    for tier in tiers:
-        if tier == "actionable_this_week" and not allow_actionable_this_week:
-            continue
-        for kw in _TIER_KEYWORDS[tier]:
-            if kw in lower:
-                # A speculative path whose only match is an "actionable_this_week"
-                # keyword (e.g. a standard NGS panel) is demoted to "weeks": the
-                # ASSAY may be quick, but acting on a speculative hypothesis is not
-                # a this-week clinical decision.
-                if not allow_actionable_this_week and tier != "actionable_this_week":
-                    return tier
-                return tier
-    # Nothing matched the allowed tiers. If we suppressed actionable_this_week,
-    # check whether the path would otherwise have qualified and floor it to "weeks".
-    if not allow_actionable_this_week:
-        for kw in _TIER_KEYWORDS["actionable_this_week"]:
-            if kw in lower:
-                return "weeks"
-    return "research_only"
+    tier = provided_tier if provided_tier in _VALID_TIERS else "research_only"
+    if not allow_actionable_this_week and tier == "actionable_this_week":
+        return "weeks"
+    return tier
 
 
 _ACTIONABILITY_LABEL_ZH: dict[str, str] = {
@@ -249,12 +192,12 @@ def load_world_unknown_candidates(run_dir: Path) -> list[dict[str, Any]]:
         tpath_redacted, drugs_redacted_path = _redact_drug_specifics(tpath)
         all_redacted = sorted(set(drugs_redacted_text + drugs_redacted_path))
 
-        # Actionability tier — derived from testability_path keywords.
+        # Actionability tier — host-provided (LLM classifier), validated + floored.
         # P0.4: these are ALL speculative [S] items → forbid the
         # "actionable_this_week" badge (a speculative direction is never an
         # immediate clinical action). Earliest tier is "weeks".
-        tier = classify_actionability_tier(
-            tpath_redacted, allow_actionable_this_week=False,
+        tier = normalize_actionability_tier(
+            h.get("actionability_tier"), allow_actionable_this_week=False,
         )
 
         # Carry a minimal subset to the template; renderer Jinja handles missing.
