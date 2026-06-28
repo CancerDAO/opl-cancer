@@ -93,6 +93,15 @@ Produce both, writing to the run's `delivery/` directory:
    path, and anchors marked "未独立校验 / NOT independently verified". If any
    `redacted_drug_names` are present, render the redaction note instead of the
    names.
+   - **False-hope firewall (B1 / ADR-0029 / G45):** INSIDE each candidate's
+     disclaimer block, render its `world_known_comparator` line FIRST, before
+     the Elo / testability path: "你这种情况目前最好的『已知』选择是 <best_world_known_option>
+     (预期 OS/PFS …, HR …, PMID …);下面这个候选 <human_efficacy_data_for_candidate>
+     人体疗效数据 / best world-known option for your setting is X; this candidate has
+     <none|preclinical|…> human efficacy data." The candidate must never appear
+     without its comparator — an Elo number alone reads as validated strength.
+   - Open the section with a one-line summary: "你这种情况目前最好的已知选择是 <X>。
+     下面是未验证的研究方向,不是它的替代品。"
 
 ### Fidelity rules
 

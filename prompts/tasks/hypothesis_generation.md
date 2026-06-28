@@ -34,7 +34,13 @@ Return strict JSON:
       "generation_strategy": "literature_gap|cross_domain|novel_mechanism|feasibility_first|target_synergy_emergent|undrugged_target_design",
       "claim_layer": "speculative",
       "testability_path": "<concrete next-step: dataset accession, assay, trial design, or in-silico pipeline. MANDATORY for strategies 5 + 6.>",
-      "evidence_refs": [{"type":"pmid|kg_edge|dataset","id":"<id>"}, ...]
+      "evidence_refs": [{"type":"pmid|kg_edge|dataset","id":"<id>"}, ...],
+      "world_unknown_candidate": "<true ONLY for strategies 5+6 world-unknown candidates>",
+      "world_known_comparator": {
+        "best_world_known_option": "<strategies 5+6 MANDATORY (G45): best real SoC/trial/EAP option for the SAME setting>",
+        "expected_os_months": 0.0, "hr": 0.0, "ci": "x-y", "pmid": "<from results if any>",
+        "human_efficacy_data_for_candidate": "none|preclinical|case_report|early_phase"
+      }
     }
   ]
 }
@@ -53,6 +59,7 @@ For strategies `target_synergy_emergent`, `undrugged_target_design`:
 - The hypothesis MUST carry `claim_layer: "speculative"` AND a non-empty `testability_path`. Sid will surface (not block) these in the dedicated `world_unknown_candidates` section of the patient brief.
 - `evidence_refs` may include `kg_edge` type pointing to PrimeKG / Open Targets / DepMap / STRING edges instead of (or in addition to) PMIDs.
 - `[S]` for the candidate / synergy claim itself; `[E]` allowed for the methodology backing it (e.g. DiffDock is an established tool; the candidate scaffold it produces is `[S]` until wet-lab validates).
+- **False-hope firewall (B1 / ADR-0029 / G45):** every world-unknown candidate MUST set `world_unknown_candidate: true` AND carry a `world_known_comparator` naming the best real (world-known) option for the SAME setting, plus `human_efficacy_data_for_candidate`. A novel candidate is NEVER surfaced in isolation — the patient must see it next to the best real alternative, so an Elo number is not mistaken for validated strength. A world-unknown candidate with no comparator is BLOCKED from the brief.
 
 The v1.2.0 hard rule `"Do NOT synthesize from training data"` is LIFTED for v2 strategies 5 + 6 because their purpose is precisely to propose what training data cannot have seen. It remains in effect for strategies 1-4.
 

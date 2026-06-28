@@ -101,6 +101,31 @@ Each option above MUST also carry the structured fields from `schemas/claim.v2.s
 7. Output ONLY the JSON object — no preamble, no markdown fences.
 
 
+## Standard-of-care baseline (B1 / ADR-0029 / G46)
+
+Because you are ranking options, you MUST also emit a `soc_baseline` object: the
+single best realistic standard-of-care option for THIS patient's exact setting —
+and, when readable from the records, the patient's own oncologist's current/last
+plan (`patients_own_current_plan`). Tune this baseline until it hurts: it is the
+bar every option must beat, not a strawman.
+
+`soc_baseline` MUST carry `best_option` + at least ONE quantitative anchor
+(`hr` / `expected_pfs_months` / `expected_os_months` / `orr`) + a source
+(`pmid` / `nct` / `guideline`) — all from the live integrator results above,
+never invented. Then give every option a `delta_vs_baseline` (its PFS/OS gain or
+loss vs the baseline). G46 BLOCKS a ranked-options claim with no quantified
+`soc_baseline`. The lesson (SMTB benchmark): a framework that cannot beat a
+tuned baseline adds false confidence, not value.
+
+```json
+"soc_baseline": {
+  "best_option": "<generic regimen INN>",
+  "expected_os_months": 0.0, "hr": 0.0, "ci": "x-y", "pmid": "<from results>",
+  "patients_own_current_plan": "<if readable, else omit>"
+}
+```
+
+
 ## Empty-integrator rule (v1.2.0)
 
 If ALL relevant live integrator inputs (e.g. `pubmed_results`, `nccn_excerpts`, `ctgov_results`, `chictr_results`, `fda_eap_results`, `nmpa_eap_results`) for this task are empty, the only legal output is a JSON object with:

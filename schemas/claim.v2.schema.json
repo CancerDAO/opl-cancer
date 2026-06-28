@@ -154,6 +154,45 @@
         }
       }
     },
+    "options": {
+      "type": "array",
+      "description": "B1/ADR-0029 — ranked treatment options the claim presents. When present, G46 requires a quantified soc_baseline each option is measured against (delta_vs_baseline).",
+      "items": {"type": "object", "additionalProperties": true}
+    },
+    "soc_baseline": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "B1/ADR-0029 — the tuned standard-of-care baseline a treatment-line claim ranks options against. Required (G46) when the claim ranks options: the best realistic SoC option for THIS setting with a quantitative anchor (HR/CI or expected PFS/OS) + a source, so every option beats a real baseline, not a strawman. The LLM decides the baseline; G46 only verifies it is quantified.",
+      "properties": {
+        "best_option": {"type": "string", "minLength": 1, "description": "Best realistic standard-of-care option for this patient's exact setting."},
+        "expected_pfs_months": {"type": "number"},
+        "expected_os_months": {"type": "number"},
+        "orr": {"type": "number", "description": "Objective response rate."},
+        "hr": {"type": "number", "description": "Hazard ratio vs the prior line / comparator."},
+        "ci": {"type": "string", "description": "95% CI, e.g. '0.49-0.77'."},
+        "pmid": {"type": "string"},
+        "patients_own_current_plan": {"type": "string", "description": "The treating oncologist's current/last plan, when readable — the most honest baseline to beat."}
+      }
+    },
+    "world_unknown_candidate": {
+      "type": "boolean",
+      "description": "B1/ADR-0029 — marks a speculative world-unknown candidate (e.g. target-synergy / undrugged-target design). When true, G45 requires a world_known_comparator."
+    },
+    "world_known_comparator": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "B1/ADR-0029 — required (G45) on every world-unknown candidate: the best real (world-KNOWN) option for the same setting, so a novel candidate is read against a real alternative, never in isolation. The false-hope firewall.",
+      "properties": {
+        "best_world_known_option": {"type": "string", "minLength": 1, "description": "Best real option (SoC / open trial / EAP drug) for the same setting."},
+        "expected_pfs_months": {"type": "number"},
+        "expected_os_months": {"type": "number"},
+        "orr": {"type": "number"},
+        "hr": {"type": "number"},
+        "ci": {"type": "string"},
+        "pmid": {"type": "string"},
+        "human_efficacy_data_for_candidate": {"type": "string", "enum": ["none", "preclinical", "case_report", "early_phase"], "description": "How much HUMAN efficacy data the candidate itself has — 'none' for a pure in-silico / undrugged-target design."}
+      }
+    },
     "skepticism": {
       "type": "object",
       "additionalProperties": true,

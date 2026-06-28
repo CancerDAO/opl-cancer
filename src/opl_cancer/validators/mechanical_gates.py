@@ -126,9 +126,11 @@ def all_gate_classes() -> list[type[Gate]]:
         G42TierDisciplineGate,
         G43EpistemicSymmetryGate,
         # v2.8 research-team iteration (ADR-0027+). G44 reserved for the
-        # in-flight retrieval-standardization branch; G45-G53/G55 land with
-        # their respective items. G54 is the A1 ledger-spine gate.
-        G54MemoryLedgerWrittenGate,
+        # in-flight retrieval-standardization branch; remaining gates land with
+        # their respective items. Canonical (ascending) order.
+        G45WorldUnknownComparatorGate,  # B1/ADR-0029
+        G46SoCBaselineQuantifiedGate,  # B1/ADR-0029
+        G54MemoryLedgerWrittenGate,  # A1/ADR-0027
     )
 
     return [
@@ -174,5 +176,7 @@ def all_gate_classes() -> list[type[Gate]]:
         G41SoCCompletenessGate,
         G42TierDisciplineGate,
         G43EpistemicSymmetryGate,
+        G45WorldUnknownComparatorGate,
+        G46SoCBaselineQuantifiedGate,
         G54MemoryLedgerWrittenGate,
     ]
