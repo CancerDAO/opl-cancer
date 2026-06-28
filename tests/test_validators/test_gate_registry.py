@@ -22,14 +22,14 @@ import re
 from opl_cancer.validators.mechanical_gates import all_gate_classes
 
 
-EXPECTED_GATE_COUNT = 49  # v2.8: G1-G37 + G39-G43 + G45/G46/G47/G48/G49/G52 + G54 (G38, G44 reserved)
+EXPECTED_GATE_COUNT = 51  # v2.8: G1-G37 + G39-G43 + G45-G52 (no G53) + G54 (G38, G44 reserved)
 # Gate numbering may have intentional gaps. G38 reserved (citation-provenance
 # completeness covered by G1/G2/G36 via the delivery gate runner). G44 reserved
 # for the in-flight feat/deterministic-retrieval-standardization branch.
 # research-team iteration (v2.8): G54 (A1 ledger spine, ADR-0027), G45+G46 (B1
 # false-hope firewall, ADR-0029), G48 (A3 research-delta, ADR-0028); the
 # remaining G47/G49-G53/G55 land with their own items.
-EXPECTED_GATE_NUMBERS = set(range(1, 38)) | {39, 40, 41, 42, 43, 45, 46, 47, 48, 49, 52, 54}  # 37 + 12 = 49
+EXPECTED_GATE_NUMBERS = set(range(1, 38)) | {39, 40, 41, 42, 43, 45, 46, 47, 48, 49, 50, 51, 52, 54}  # 37 + 14 = 51
 
 
 def test_registry_returns_all_gates() -> None:
@@ -142,6 +142,8 @@ def test_research_team_gates_present() -> None:
         "G47SourceSectionDepthGate",  # B2/ADR-0030
         "G48ResearchDeltaGate",  # A3/ADR-0028
         "G49ForecastPreRegistrationGate",  # C2/ADR-0032
+        "G50TournamentKillRecordedGate",  # C1/ADR-0031
+        "G51UnfalsifiedRankingGate",  # C1/ADR-0031
         "G52FailureLedgerGate",  # C3/ADR-0033
         "G54MemoryLedgerWrittenGate",  # A1/ADR-0027
     ):

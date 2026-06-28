@@ -283,6 +283,12 @@ def run_delivery_gates(
         "run_id": run_id, "memory_db": memory_db,
     }))  # A3 — FLAG a null-research run vs the prior run
     _record(results, blocked, G52FailureLedgerGate().check({"run_root": str(run_root)}))  # C3
+    # C1 G50/G51 are registered + tested but NOT yet live-wired here: their
+    # producers (the tournament emitting killed_candidates.jsonl, and the renderer
+    # flagging when a leaderboard is actually shown) live in the orchestrator that
+    # is mid-extraction (PRD open-Q#3). Wiring them into this broad sweep now would
+    # block runs that merely carry wave2 evidence without rendering a leaderboard.
+    # Activate alongside the orchestrator producers once the extraction is resolved.
 
     # G35 — scan case_text.md AND (v2.10 P0.3a) the delivered briefs. A
     # fabricated clinical value can live ONLY in the patient-facing brief with no

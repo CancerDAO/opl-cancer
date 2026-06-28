@@ -126,7 +126,11 @@ def _build_complete_run(root: Path, *, experts: list[str], pmid: str, gene: str,
         d = run_root / "tasks" / f"w1_t{i}"
         d.mkdir(parents=True)
         (d / "report.md").write_text(f"# Wave 1 — {e} / pkg\n\ntask_id: t{i}\n", encoding="utf-8")
-    (run_root / "wave2_hypotheses.json").write_text('{"hypotheses":[{"id":"h1"}]}', encoding="utf-8")
+    # C1/G51: non-Docker path renders the ranking without Wave-4 scoring, so it
+    # must badge each hypothesis 'unfalsified' (not read as validated).
+    (run_root / "wave2_hypotheses.json").write_text(
+        '{"hypotheses":[{"id":"h1","validation_status":"unfalsified"}]}', encoding="utf-8"
+    )
     # provenance journal with a recomputable-hash record carrying the PMID
     payload = {"claim_id": "c1", "text": f"{gene} finding",
                "evidence": [{"type": "pmid", "id": pmid}]}
