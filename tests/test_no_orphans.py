@@ -49,6 +49,12 @@ CRITICAL_WIRING = [
         "src/opl_cancer/glue/ledger_persist.py",
         ["src/opl_cancer/glue/*.py", "src/opl_cancer/cli.py"],
     ),
+    (
+        # A2 reality loop must be reachable via the CLI, not a dead module.
+        "persist_outcomes",
+        "src/opl_cancer/glue/outcome_reconcile.py",
+        ["src/opl_cancer/cli.py", "src/opl_cancer/glue/*.py"],
+    ),
 ]
 
 

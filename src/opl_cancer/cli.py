@@ -478,6 +478,51 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
     )
 
 
+# ─── Reality-outcome loop (A2 / ADR-0028) ─────────────────────────────────
+
+@main.command(help="Reality loop: score prior predictions against the patient's ACTUAL course (A2).")
+@click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
+@click.option("--run-id", required=True)
+@click.option("--outcomes", "outcomes_path", type=click.Path(),
+              help="JSON file of host-produced outcome records to persist. Omit to just print prior predictions to score.")
+@click.option("--json", "json_mode", is_flag=True)
+def reconcile(patient_dir: str, run_id: str, outcomes_path: str | None, json_mode: bool) -> None:
+    """Two-beat: (1) run without --outcomes to get the prior predictions to score
+    against the new clinical datum in inbox/; (2) the host writes outcome records
+    per prompts/tasks/outcome_reconciliation.md and re-runs with --outcomes to
+    persist them. This is the only channel through which reality grades OPL."""
+    from opl_cancer.glue.outcome_reconcile import load_prior_predictions, persist_outcomes
+    from opl_cancer.memory.store import default_patient_memory_db
+
+    pdir = Path(patient_dir)
+    db = default_patient_memory_db(pdir / "triggers" / run_id)
+    priors = load_prior_predictions(db)
+    persisted = 0
+    if outcomes_path and Path(outcomes_path).is_file():
+        data = json.loads(Path(outcomes_path).read_text(encoding="utf-8"))
+        outcomes = data.get("outcomes", data) if isinstance(data, dict) else data
+        if isinstance(outcomes, list):
+            persisted = persist_outcomes(db, run_id, outcomes)
+    _emit(
+        {
+            "ok": True,
+            "memory_db": str(db),
+            "prior_predictions": len(priors.get("hypotheses", [])),
+            "prior_forecasts": len(priors.get("forecasts", [])),
+            "outcomes_persisted": persisted,
+            "next": (
+                "Score the prior predictions against the new clinical datum in "
+                "inbox/ per prompts/tasks/outcome_reconciliation.md, then re-run "
+                "with --outcomes <file.json>."
+                if not persisted else
+                "Outcomes persisted to the ledger; G48 will see this run learned "
+                "from reality."
+            ),
+        },
+        json_mode,
+    )
+
+
 # ─── Step 5-8: Waves ──────────────────────────────────────────────────────
 #
 # v1.5.7 honest-failure rewrite (honest-failure policy + run
