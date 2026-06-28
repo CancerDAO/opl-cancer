@@ -25,48 +25,52 @@ from .models import (
 )
 
 
-RED_TEAM_SYSTEM_PROMPT = """You are the **Evolution Analyzer** for OPL for Cancer.
+DISEASE_FRONTIER_SYSTEM_PROMPT = """You are the **Disease-Frontier Analyzer** for OPL for Cancer.
 
-Your role is FUNDAMENTALLY DIFFERENT from the medical agents you are
-reviewing. You are not a clinician. You are not synthesising new medical
-content. You are a system-design red-team auditor.
+D4/ADR-0037 re-aim: your subject is THIS patient's DISEASE RESEARCH FRONTIER,
+not OPL-the-software. A research team's institutional memory is about the
+SCIENCE — what it killed, what reality verdicted, and what it has not yet tested.
+You read a scrubbed TraceDigest of one completed run PLUS the patient's
+disease-frontier digest (killed_directions, reality_verdicts, systematic_gaps,
+open_frontier — built from the compounding research ledger + reality outcomes)
+and propose the team's NEXT RESEARCH MOVES for THIS disease.
 
-Your single job: read a scrubbed TraceDigest of one completed OPL run and
-identify SPECIFIC, LIMITED proposals that would help OPL do better on the
-NEXT (different) patient — without weakening any safety surface.
+Aim every proposal at the frontier:
+- CHASE an `open_frontier` hypothesis (active, not yet reality-scored) — name the
+  smallest concrete test that would resolve it for THIS patient.
+- NEVER re-propose a `killed_directions` entry without genuinely new evidence
+  (the Darwin log: don't re-derive a falsified direction).
+- CLOSE a recurring `systematic_gaps` root cause.
 
 Hard rules:
-1. NEVER propose patches that weaken Henry L3/L4 acknowledgment
-   requirements, G7 imperative-free voice, G13 reviewer model split,
-   the canonical persona prefix, claim_layer enforcement, or
-   RetractionDB grounding. The InvariantGate downstream will block such
-   patches; flagging them in your output is wasted work.
-2. NEVER propose to relax citation requirements. NEVER propose to make
-   patient-facing language MORE directive.
-3. SKILL ADDITIONS must include a `clinical_anchor` field citing a
-   CSCO / NCCN / NCT / PMID reference. Skill proposals lacking this are
-   auto-rejected — don't waste a proposal slot on one.
-4. TOOL PROPOSALS are review-only; describe what the tool would do, do
-   not propose to enable it.
-5. Concrete patches preferred over abstract advice. A diff-shaped
-   "add `target_synergy_emergent` strategy slot to Wave 2 prompt" beats
-   "improve Wave 2 hypothesis quality".
+1. NEVER propose anything that weakens Henry L3/L4 acknowledgment, G7
+   imperative-free voice, G13 reviewer model split, the canonical persona
+   prefix, claim_layer enforcement, or RetractionDB grounding. The
+   InvariantGate downstream blocks such proposals.
+2. NEVER relax citation requirements. NEVER make patient-facing language
+   MORE directive. You propose research directions; the patient remains the
+   sole decision authority and nothing here is auto-applied.
+3. A `skill_addition` (a new research capability) must include a
+   `clinical_anchor` citing CSCO / NCCN / NCT / PMID — else it is auto-rejected.
+4. `tool_proposal` and research-direction proposals are review-only: describe
+   the next investigation, do not enable anything.
+5. Concrete over abstract: "run a DepMap MTAP/PRMT5 co-essentiality query to
+   test open-frontier H3" beats "explore synthetic lethality".
 6. Limit total proposals to 5. Quality > quantity.
 
 Return strict JSON:
 {
-  "analysis_summary": "<2-3 sentences on what the run did well + what gap a
-    DIFFERENT patient would also hit>",
+  "analysis_summary": "<2-3 sentences on this disease's frontier: what was killed,
+    what reality said, what is still open to chase>",
   "proposals": [
     {
       "kind": "prompt_patch | skill_addition | tool_proposal",
-      "summary": "<1 sentence>",
-      "rationale": "<2-4 sentences, MUST cite which TraceDigest field
+      "summary": "<1 sentence — a research move for THIS disease>",
+      "rationale": "<2-4 sentences, MUST cite which frontier/TraceDigest field
         triggered this>",
-      "target_path": "<file path the patch would apply to, or empty for
-        tool_proposal>",
-      "proposed_diff": "<unified diff for prompt_patch; SMILES/code/SKILL
-        markdown for others>",
+      "target_path": "<empty for a research direction; a file path only if you
+        genuinely mean a software change>",
+      "proposed_diff": "<a concrete test/plan; or a unified diff if a software change>",
       "clinical_anchor": "<MANDATORY for skill_addition; empty OK otherwise>"
     }
   ]
@@ -94,6 +98,8 @@ class EvolutionAnalyzer:
         self,
         digest: TraceDigest,
         iter_n: int = 1,
+        *,
+        frontier: dict[str, Any] | None = None,
     ) -> EvolutionCandidates:
         if not digest.is_scrubbed():
             raise ValueError(
@@ -102,12 +108,12 @@ class EvolutionAnalyzer:
             )
 
         if self.llm_client is None:
-            return self._heuristic(digest, iter_n=iter_n)
+            return self._heuristic(digest, iter_n=iter_n, frontier=frontier)
 
         try:
-            return await self._llm_call(digest, iter_n=iter_n)
+            return await self._llm_call(digest, iter_n=iter_n, frontier=frontier)
         except Exception as exc:  # noqa: BLE001 — analyzer must not crash run
-            fallback = self._heuristic(digest, iter_n=iter_n)
+            fallback = self._heuristic(digest, iter_n=iter_n, frontier=frontier)
             fallback.analysis_summary = (
                 f"LLM analyzer failed ({type(exc).__name__}); "
                 f"heuristic fallback used. {fallback.analysis_summary}"
@@ -121,18 +127,26 @@ class EvolutionAnalyzer:
         self,
         digest: TraceDigest,
         iter_n: int,
+        frontier: dict[str, Any] | None = None,
     ) -> EvolutionCandidates:
         from opl_cancer._llm_contract import LLMRequest  # transitional shim
 
+        frontier_block = ""
+        if frontier:
+            frontier_block = (
+                f"# Disease-frontier digest (this patient's compounded research memory)\n\n"
+                f"```json\n{json.dumps(frontier, ensure_ascii=False, indent=2)[:20_000]}\n```\n\n"
+            )
         prompt = (
             f"# Scrubbed TraceDigest (run {digest.run_id})\n\n"
-            f"```json\n{digest.model_dump_json(indent=2)[:80_000]}\n```\n\n"
+            f"```json\n{digest.model_dump_json(indent=2)[:60_000]}\n```\n\n"
+            f"{frontier_block}"
             f"Apply your role per the system prompt and return JSON."
         )
         req = LLMRequest(
             model=self.model_id,
             messages=[{"role": "user", "content": prompt}],
-            system=RED_TEAM_SYSTEM_PROMPT,
+            system=DISEASE_FRONTIER_SYSTEM_PROMPT,
             max_tokens=8192,
             response_format={"type": "json_object"},
         )
@@ -190,12 +204,21 @@ class EvolutionAnalyzer:
 
     # ---- Heuristic fallback ----
 
-    def _heuristic(self, digest: TraceDigest, iter_n: int) -> EvolutionCandidates:
-        """Deterministic rule-based proposals from TraceDigest.
+    def _heuristic(
+        self,
+        digest: TraceDigest,
+        iter_n: int,
+        frontier: dict[str, Any] | None = None,
+    ) -> EvolutionCandidates:
+        """Deterministic rule-based proposals.
 
-        Used when LLM client is None OR the LLM call failed. Outputs at most
-        3 narrow proposals based on observable patterns.
+        Used when LLM client is None OR the LLM call failed. When a disease
+        frontier is supplied (D4 patient path), proposals are research moves for
+        THIS disease; otherwise the legacy structural-gap heuristic runs.
         """
+        if frontier is not None:
+            return self._heuristic_frontier(digest, frontier, iter_n=iter_n)
+
         proposals: list[EvolutionProposal] = []
         strats = {h.strategy: h for h in digest.hypothesis_strategies}
 
@@ -274,6 +297,78 @@ class EvolutionAnalyzer:
                 f"Heuristic fallback ran over digest run_id={digest.run_id}. "
                 f"Identified {len(proposals)} structural gaps. Full LLM red-team "
                 f"pass requires configuring evolution_analyzer_pool in models.yaml."
+            ),
+            analyzer_model=self.model_id,
+            used_heuristic_fallback=True,
+        )
+
+    def _heuristic_frontier(
+        self,
+        digest: TraceDigest,
+        frontier: dict[str, Any],
+        iter_n: int,
+    ) -> EvolutionCandidates:
+        """D4/ADR-0037 — disease-frontier-aimed proposals from the reality ledger.
+
+        No LLM: propose chasing each open-frontier hypothesis (the team's untested
+        directions for THIS disease) and closing the biggest systematic gap. These
+        reference the disease, never OPL-the-software, and still flow through the
+        invariant gate (no auto-apply). Empty frontier (first run) → an honest
+        zero-proposal digest that still names the frontier.
+        """
+        killed = frontier.get("killed_directions") or []
+        open_frontier = frontier.get("open_frontier") or []
+        gaps = frontier.get("systematic_gaps") or []
+        verdicts = frontier.get("reality_verdicts") or []
+
+        proposals: list[EvolutionProposal] = []
+        for item in open_frontier[:4]:
+            hid = str(item.get("id", "?"))
+            text = str(item.get("text", ""))[:200]
+            p = EvolutionProposal(
+                proposal_id=f"p{uuid.uuid4().hex[:6]}",
+                kind="tool_proposal",  # review-only research direction; nothing enabled
+                summary=f"Chase open-frontier direction for this disease: {text}",
+                rationale=(
+                    f"disease_frontier.open_frontier lists hypothesis {hid} as active "
+                    "but not yet scored against the patient's real course — the team's "
+                    "live research frontier. Design the smallest reality test that "
+                    "would resolve it; do not re-derive a killed direction."
+                ),
+                target_path="",  # a research move, not an OPL-software patch
+                proposed_diff="",
+                iter_n=iter_n,
+            )
+            proposals.append(apply_gate(p))
+            if len(proposals) >= 5:
+                break
+
+        if gaps and len(proposals) < 5:
+            biggest = max(gaps, key=lambda g: g.get("size", 0)) if gaps else {}
+            p = EvolutionProposal(
+                proposal_id=f"p{uuid.uuid4().hex[:6]}",
+                kind="tool_proposal",
+                summary=f"Close the recurring failure pile for this disease: {str(biggest.get('root_cause',''))[:160]}",
+                rationale=(
+                    "disease_frontier.systematic_gaps records this as the biggest "
+                    "recurring root cause across runs; the next run should attack it "
+                    "directly rather than re-hit it."
+                ),
+                target_path="",
+                proposed_diff="",
+                iter_n=iter_n,
+            )
+            proposals.append(apply_gate(p))
+
+        return EvolutionCandidates(
+            iter_n=iter_n,
+            proposals=proposals,
+            analysis_summary=(
+                f"Disease frontier for this patient (run {digest.run_id}): "
+                f"{len(killed)} killed direction(s) (do not re-propose), "
+                f"{len(open_frontier)} open frontier hypothesis(es) to chase, "
+                f"{len(gaps)} systematic gap(s), {len(verdicts)} reality verdict(s). "
+                f"Proposed {len(proposals)} next research move(s) for this disease."
             ),
             analyzer_model=self.model_id,
             used_heuristic_fallback=True,

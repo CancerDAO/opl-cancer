@@ -59,6 +59,10 @@ class TraceDigest(BaseModel):
     novelty_gate_stats: dict[str, int] = Field(default_factory=dict)  # surfaced/blocked/etc
     integrator_latency_p50_ms: dict[str, float] = Field(default_factory=dict)
     notable_issues: list[str] = Field(default_factory=list)  # max 20 entries
+    # D4/ADR-0037 — the REAL failure tail the re-aimed loop learns from: reviewer
+    # fails, falsified Wave-4 verdicts, G14 low cohort-match. Each item is
+    # {kind, ref, reason}. Richer than the coarse keyword-grepped wave errors.
+    strange_tail: list[dict[str, str]] = Field(default_factory=list)
     digest_byte_size_estimate: int = 0  # set by collector after serialise; cap ~100KB
 
     def is_scrubbed(self) -> bool:

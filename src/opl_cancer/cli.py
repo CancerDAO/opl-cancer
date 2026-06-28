@@ -1373,28 +1373,17 @@ def wave6(
     _emit(payload, json_mode)
 
 
-# ─── ADR-0020: Evolution (post-mortem proposal generator) ─────────────────
+# ─── D4/ADR-0037: Evolution (re-aimed at the disease frontier) ────────────
 #
-# harness-split: ``evolution.*`` is the self-improvement engine, slated for
-# extraction to a standalone ``opl-cancer-evolution`` repo. We register the
-# ``evolve`` command ONLY when that package is present, so a patient-only
-# install (orchestrator/ + evolution/ absent) shows a clean ``--help`` without
-# a broken command, instead of erroring on invocation. ``find_spec`` only
-# probes availability — it does NOT import evolution, keeping ``import cli``
-# free of any orchestrator/evolution dependency.
-import importlib.util as _importlib_util
-
-try:
-    _EVOLUTION_AVAILABLE = (
-        _importlib_util.find_spec("opl_cancer.evolution") is not None
-    )
-except (ImportError, ModuleNotFoundError, ValueError):
-    # Package (or a parent finder) reports it absent — treat as not installed.
-    _EVOLUTION_AVAILABLE = False
+# Founder decision A keeps the evolution engine IN the patient path (it reverses
+# the extraction), so ``evolve`` is registered UNCONDITIONALLY — no find_spec
+# probe. The analyzer is re-aimed from OPL-software self-improvement to THIS
+# patient's disease research frontier, fed by the compounding research ledger
+# (A1) + reality outcomes (A2) via build_disease_frontier_digest.
 
 
 def evolve(run_dir: str, iter_n: int, max_proposals: int, json_mode: bool) -> None:
-    """Run the evolution analyzer over a completed run dir.
+    """Run the disease-frontier analyzer over a completed run dir.
 
     Always dry-run with respect to baseline files — output goes ONLY under
     ``<run_dir>/proposals/iter_<N>/``. There is no --auto-apply flag.
@@ -1410,9 +1399,28 @@ def evolve(run_dir: str, iter_n: int, max_proposals: int, json_mode: bool) -> No
     digest = collect_trace_digest(run_path)
     scrubbed = scrub(digest)
 
+    # D4/ADR-0037 — feed the disease-frontier digest so the analyzer learns about
+    # THIS patient's disease, not OPL-the-software. Absent ledger (first run / a
+    # bare run dir) → no frontier; the analyzer still runs (legacy heuristic).
+    frontier = None
+    try:
+        from opl_cancer.memory.disease_frontier import build_disease_frontier_digest
+        from opl_cancer.memory.store import (
+            ProjectMemoryStore,
+            default_patient_memory_db,
+        )
+
+        _db = default_patient_memory_db(run_path)
+        if _db.exists():
+            frontier = build_disease_frontier_digest(
+                ProjectMemoryStore(_db), run_id=run_path.name
+            )
+    except Exception:  # noqa: BLE001 — frontier is best-effort; analyzer must still run
+        frontier = None
+
     async def _run() -> object:
         analyzer = EvolutionAnalyzer()  # heuristic fallback by default
-        return await analyzer.analyze(scrubbed, iter_n=iter_n)
+        return await analyzer.analyze(scrubbed, iter_n=iter_n, frontier=frontier)
 
     candidates = asyncio.run(_run())
     # Truncate to max_proposals (heuristic already caps at 3-5; LLM at 5)
@@ -1434,32 +1442,31 @@ def evolve(run_dir: str, iter_n: int, max_proposals: int, json_mode: bool) -> No
     _emit(summary, json_mode)
 
 
-# Conditionally register ``evolve`` — only when the evolution engine is present.
-# Decorators are applied imperatively here (equivalent to stacking them on the
-# def) so the command vanishes from a patient-only install rather than erroring.
-if _EVOLUTION_AVAILABLE:
-    evolve = click.option(
-        "--json", "json_mode", is_flag=True, help="Emit JSON summary to stdout."
-    )(evolve)
-    evolve = click.option(
-        "--max-proposals", type=int, default=5, show_default=True,
-        help="Cap on proposals emitted.",
-    )(evolve)
-    evolve = click.option(
-        "--iter-n", type=int, default=1, show_default=True,
-        help="Iteration number recorded in proposals.",
-    )(evolve)
-    evolve = click.argument(
-        "run_dir", type=click.Path(exists=True, file_okay=False)
-    )(evolve)
-    evolve = main.command(
-        name="evolve",
-        help=(
-            "Post-mortem evolution: build a TraceDigest from a completed run, "
-            "run the red-team analyzer, write PR-style proposals under "
-            "<run_dir>/proposals/. NEVER auto-applies anything. See ADR-0020."
-        ),
-    )(evolve)
+# Register ``evolve`` UNCONDITIONALLY (D4/ADR-0037 — the engine stays in the
+# patient path). Decorators are applied imperatively here (equivalent to stacking
+# them on the def).
+evolve = click.option(
+    "--json", "json_mode", is_flag=True, help="Emit JSON summary to stdout."
+)(evolve)
+evolve = click.option(
+    "--max-proposals", type=int, default=5, show_default=True,
+    help="Cap on proposals emitted.",
+)(evolve)
+evolve = click.option(
+    "--iter-n", type=int, default=1, show_default=True,
+    help="Iteration number recorded in proposals.",
+)(evolve)
+evolve = click.argument(
+    "run_dir", type=click.Path(exists=True, file_okay=False)
+)(evolve)
+evolve = main.command(
+    name="evolve",
+    help=(
+        "Post-mortem evolution (D4): build a TraceDigest from a completed run, "
+        "run the disease-frontier analyzer, write PR-style proposals under "
+        "<run_dir>/proposals/. NEVER auto-applies anything. See ADR-0037."
+    ),
+)(evolve)
 
 
 # ─── Patient observability ────────────────────────────────────────────────

@@ -82,3 +82,40 @@ def test_evolve_no_auto_apply_flag_exists():
     # Click wraps help text — normalise whitespace
     normalised = " ".join(r.output.split())
     assert "NEVER auto-applies" in normalised
+
+
+def test_evolve_aims_at_disease_frontier(tmp_path: Path):
+    """D4/ADR-0037: in the patient path (a run under <patient>/triggers/ with a
+    research ledger), evolve feeds the disease-frontier digest so the analyzer
+    learns about THIS disease, not OPL-the-software."""
+    from opl_cancer.memory.schemas import Hypothesis
+    from opl_cancer.memory.store import ProjectMemoryStore, default_patient_memory_db
+
+    run_dir = tmp_path / "patients" / "PT-X" / "triggers" / "r1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "tasks" / "w1_bert").mkdir(parents=True)
+    (run_dir / "tasks" / "w1_bert" / "report.md").write_text("ok\n", encoding="utf-8")
+    (run_dir / "wave2_hypotheses.json").write_text(
+        json.dumps({"hypotheses": [{"id": "h1", "claim_layer": "speculative",
+                                    "generation_strategy": "literature_gap"}]}),
+        encoding="utf-8",
+    )
+    # seed the patient ledger: a falsified + an open-frontier hypothesis
+    store = ProjectMemoryStore(default_patient_memory_db(run_dir))
+    store.save_hypothesis(Hypothesis(id="H9", text="MTAP/PRMT5 synthetic lethality"), run_id="r1")
+    store.save_hypothesis(Hypothesis(id="H2", text="dead end", status="falsified"), run_id="r1")
+
+    r = CliRunner().invoke(main, ["evolve", str(run_dir), "--json"])
+    assert r.exit_code == 0, r.output
+    payload = json.loads(r.output)
+    assert payload["ok"] is True
+    assert "frontier" in payload["analysis_summary"].lower()
+
+
+def test_evolve_registered_unconditionally():
+    """D4/ADR-0037: evolution stays in the patient path — evolve is no longer
+    conditionally registered behind a find_spec probe."""
+    import opl_cancer.cli as cli_mod
+
+    assert not hasattr(cli_mod, "_EVOLUTION_AVAILABLE")
+    assert "evolve" in main.commands

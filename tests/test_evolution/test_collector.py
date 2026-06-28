@@ -116,6 +116,43 @@ def test_collector_size_bounded(tmp_path: Path):
     assert d.digest_byte_size_estimate < 100_000  # 100KB cap target
 
 
+def test_collector_captures_strange_tail(tmp_path: Path):
+    """D4/ADR-0037: the collector reads the REAL failure tail (reviewer fails,
+    falsified verdicts, G14 low cohort-match) — not just 5 keyword-grepped lines."""
+    run_dir = _make_synthetic_run(tmp_path)
+    # a reviewer-fail with a reason
+    (run_dir / "tasks" / "w1_bert" / "review.json").write_text(
+        json.dumps({"status": "fail", "result": {"reason": "claim unsupported by cited PMID"}}),
+        encoding="utf-8",
+    )
+    # a falsified Wave-4 verdict
+    (run_dir / "wave4_validation.json").write_text(
+        json.dumps({"validations": [
+            {"hyp_id": "h1", "hypothesis_text": "KRAS combo", "survival_status": "falsified"}]}),
+        encoding="utf-8",
+    )
+    # a G14 low cohort-match in the delivery attestation
+    (run_dir / "delivery" / "DELIVERY_ATTESTATION.json").write_text(
+        json.dumps({"gate_results": [
+            {"gate": "G14_dataset_patient_match", "status": "fail", "block": False,
+             "message": "weak match", "evidence": {"match_score": 0.42}}]}),
+        encoding="utf-8",
+    )
+    d = collect_trace_digest(run_dir)
+    kinds = {s["kind"] for s in d.strange_tail}
+    assert "reviewer_fail" in kinds
+    assert "falsified_hypothesis" in kinds
+    assert "g14_low_match" in kinds
+    # the reason text is carried, not just a count
+    assert any("unsupported" in s["reason"] for s in d.strange_tail if s["kind"] == "reviewer_fail")
+
+
+def test_collector_strange_tail_empty_on_clean_run(tmp_path: Path):
+    run_dir = _make_synthetic_run(tmp_path)
+    d = collect_trace_digest(run_dir)
+    assert d.strange_tail == []
+
+
 def test_collector_raises_on_missing_dir(tmp_path: Path):
     with pytest.raises(FileNotFoundError):
         collect_trace_digest(tmp_path / "nonexistent")

@@ -135,6 +135,41 @@ async def test_llm_path_invariant_gate_applied():
     assert p.invariant_impact.touches_henry_l3_l4 is True
 
 
+def test_system_prompt_aimed_at_disease_frontier():
+    """D4/ADR-0037: the analyzer is re-aimed from OPL-software self-improvement to
+    THIS patient's disease research frontier."""
+    from opl_cancer.evolution.analyzer import DISEASE_FRONTIER_SYSTEM_PROMPT
+
+    p = DISEASE_FRONTIER_SYSTEM_PROMPT.lower()
+    assert "disease" in p and "frontier" in p
+    # the old OPL-software aim ("next DIFFERENT patient" system-design) is gone
+    assert "next (different) patient" not in p
+
+
+async def test_heuristic_disease_frontier_aimed():
+    """Fed the disease-frontier digest, the heuristic proposes chasing THIS
+    disease's open frontier — not OPL-software prompt patches."""
+    digest = _digest_strong()
+    frontier = {
+        "aimed_at": "patient_disease_frontier",
+        "killed_directions": [{"id": "H2", "text": "dead end"}],
+        "reality_verdicts": [],
+        "systematic_gaps": [{"root_cause": "single-source trials", "size": 4}],
+        "open_frontier": [{"id": "H3", "text": "MTAP/PRMT5 synthetic lethality, not yet tested"}],
+        "auto_apply": False,
+    }
+    a = EvolutionAnalyzer()
+    cands = await a.analyze(digest, iter_n=1, frontier=frontier)
+    assert cands.used_heuristic_fallback is True
+    assert "frontier" in cands.analysis_summary.lower()
+    blob = " ".join(p.summary + " " + p.rationale for p in cands.proposals)
+    assert "MTAP/PRMT5" in blob or "H3" in blob  # chases the open frontier
+    # disease research moves, not OPL-software patches to intent_parser.md
+    assert all("intent_parser" not in p.target_path for p in cands.proposals)
+    # no-auto-apply posture preserved (proposals go through the invariant gate)
+    assert all(p.status in ("pending", "blocked") for p in cands.proposals)
+
+
 async def test_llm_path_caps_proposals_at_5():
     digest = _digest_missing_v2_strategies()
     proposals_raw = ",".join(

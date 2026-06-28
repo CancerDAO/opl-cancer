@@ -13,6 +13,68 @@ from .models import HypothesisStrategyCount, TraceDigest, WaveSummary
 
 _MAX_NOTABLE_ISSUES = 20
 _MAX_ARTIFACT_PATHS_PER_WAVE = 30
+_MAX_STRANGE_TAIL = 40
+_G14_MATCH_FLOOR = 0.6  # mirrors validators.gates.g14_dataset_patient_match
+
+
+def _collect_strange_tail(run_dir: Path) -> list[dict[str, str]]:
+    """D4/ADR-0037 — read the REAL failure tail the re-aimed loop learns from.
+
+    Not 5 keyword-grepped lines: the actual reviewer-fail reasons, falsified
+    Wave-4 verdicts, and G14 low cohort-match flags — the strange tail a research
+    team stares at. Tolerant: any absent/garbled artifact is skipped.
+    """
+    tail: list[dict[str, str]] = []
+
+    # reviewer-fail reasons (orchestrator/reviewer_hook writes <report_dir>/review.json)
+    for rev in sorted(run_dir.glob("**/review.json")):
+        try:
+            r = json.loads(rev.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if str(r.get("status", "")).lower() != "fail":
+            continue
+        result = r.get("result") if isinstance(r.get("result"), dict) else {}
+        reason = str(result.get("reason") or r.get("reason") or r.get("message") or "reviewer failed")
+        tail.append({"kind": "reviewer_fail", "ref": str(rev.relative_to(run_dir)), "reason": reason[:300]})
+
+    # falsified Wave-4 verdicts (data contradicted the hypothesis)
+    wave4 = run_dir / "wave4_validation.json"
+    if wave4.is_file():
+        try:
+            w4 = json.loads(wave4.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            w4 = {}
+        for v in (w4.get("validations") or []):
+            if isinstance(v, dict) and str(v.get("survival_status", "")).lower() == "falsified":
+                tail.append({
+                    "kind": "falsified_hypothesis",
+                    "ref": str(v.get("hyp_id", "?")),
+                    "reason": str(v.get("hypothesis_text", "") or "Wave-4 falsified")[:300],
+                })
+
+    # G14 low cohort-match flags from the delivery attestation
+    attest = run_dir / "delivery" / "DELIVERY_ATTESTATION.json"
+    if attest.is_file():
+        try:
+            a = json.loads(attest.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            a = {}
+        for g in (a.get("gate_results") or []):
+            if not isinstance(g, dict) or not str(g.get("gate", "")).startswith("G14"):
+                continue
+            score = (g.get("evidence") or {}).get("match_score")
+            low = str(g.get("status", "")).lower() == "fail" or (
+                isinstance(score, (int, float)) and score < _G14_MATCH_FLOOR
+            )
+            if low:
+                tail.append({
+                    "kind": "g14_low_match",
+                    "ref": str(g.get("gate")),
+                    "reason": str(g.get("message", "") or f"match_score={score}")[:300],
+                })
+
+    return tail[:_MAX_STRANGE_TAIL]
 
 
 def collect_trace_digest(run_dir: Path) -> TraceDigest:
@@ -110,6 +172,9 @@ def collect_trace_digest(run_dir: Path) -> TraceDigest:
             "world_unknown_section_present": int("World-Unknown" in text),
             "research_direction_framing_present": int("research direction" in text.lower()),
         }
+
+    # ---- Strange tail (D4) — the real failure signal the re-aimed loop reads ----
+    digest.strange_tail = _collect_strange_tail(run_dir)
 
     # ---- Notable issues — cap at 20 ----
     digest.notable_issues = digest.notable_issues[:_MAX_NOTABLE_ISSUES]
