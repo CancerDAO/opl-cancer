@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from opl_cancer.llm.base import LLMClient, LLMRequest, LLMResponse
-from opl_cancer.llm.errors import LLMResponseParseError
+from opl_cancer._llm_contract import LLMClient, LLMRequest, LLMResponse
+from opl_cancer._llm_contract import LLMResponseParseError
 from opl_cancer.orchestrator.pi_session import IntentClass, PISession
 
 

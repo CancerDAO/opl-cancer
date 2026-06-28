@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 from opl_cancer.glue.wave2_runner import Wave2Runner
-from opl_cancer.llm.base import LLMRequest, LLMResponse
+from opl_cancer._llm_contract import LLMRequest, LLMResponse
 from opl_cancer.memory.schemas import ClaimLayer
 from opl_cancer.orchestrator.debate import DebateJudge
 from opl_cancer.orchestrator.evolution import EvolutionStrategist

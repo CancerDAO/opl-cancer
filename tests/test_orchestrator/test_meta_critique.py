@@ -1,7 +1,7 @@
 """P2-T7: MetaCritiqueAggregator."""
 from __future__ import annotations
 
-from opl_cancer.llm.base import LLMRequest, LLMResponse
+from opl_cancer._llm_contract import LLMRequest, LLMResponse
 from opl_cancer.memory.schemas import Hypothesis
 from opl_cancer.orchestrator.meta_critique import MetaCritiqueAggregator
 

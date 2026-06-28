@@ -18,7 +18,7 @@ from opl_cancer.experts.aviv import AvivExpert
 from opl_cancer.experts.iain import IainExpert
 from opl_cancer.experts.roster import ROSTER
 from opl_cancer.glue.wave2_runner import Wave2Runner
-from opl_cancer.llm.base import LLMRequest, LLMResponse
+from opl_cancer._llm_contract import LLMRequest, LLMResponse
 from opl_cancer.memory.schemas import (
     Hypothesis,
     TournamentRound,
