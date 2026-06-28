@@ -62,6 +62,7 @@ from .g43_epistemic_symmetry import G43EpistemicSymmetryGate
 # branch; G38 reserved).
 from .g45_world_unknown_comparator import G45WorldUnknownComparatorGate  # B1/ADR-0029
 from .g46_soc_baseline_quantified import G46SoCBaselineQuantifiedGate  # B1/ADR-0029
+from .g48_research_delta import G48ResearchDeltaGate  # A3/ADR-0028
 from .g54_memory_ledger_written import G54MemoryLedgerWrittenGate  # A1/ADR-0027
 
 __all__ = [
@@ -110,6 +111,7 @@ __all__ = [
     "G43EpistemicSymmetryGate",
     "G45WorldUnknownComparatorGate",
     "G46SoCBaselineQuantifiedGate",
+    "G48ResearchDeltaGate",
     "G54MemoryLedgerWrittenGate",
     "redact_text",
     "scan_text",

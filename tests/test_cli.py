@@ -29,9 +29,9 @@ def test_cli_status_runs() -> None:
     # v2.7.0 (ADR-0026): G34-G37 delivery-integrity gates. 33 → 37.
     # v2.7.1 (ADR-0026 P1): G39-G43 reasoning-quality gates (G38 reserved). 37 → 42.
     # v2.8 research-team iteration: +G54 (A1 ledger, ADR-0027) +G45/G46 (B1
-    # false-hope firewall, ADR-0029). G44 reserved for the in-flight
-    # retrieval-standardization branch. 42 → 45.
-    assert "Mechanical gates: 45" in r.output
+    # false-hope firewall, ADR-0029) +G48 (A3 research-delta, ADR-0028). G44
+    # reserved for the in-flight retrieval-standardization branch. 42 → 46.
+    assert "Mechanical gates: 46" in r.output
     # v2.2 (ADR-0022): +7 bio-skill integrators (MSI/TMB/SigProfiler/ACMG/KM/CPIC/PaperQA-FT)
     assert "Integrators wired: 36" in r.output
     # v2.3 (ADR-0023): Wave 6 manuscript+.n1a wave runner.
