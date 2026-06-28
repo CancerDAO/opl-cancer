@@ -1,9 +1,12 @@
 # PI planner: outcome-backward team composition (D1≡E1 / ADR-0034)
 
 Compose the expert team + task DAG for THIS patient by reasoning BACKWARD from
-the outcome they want — not by applying a fixed skeleton. This replaces the
-hard-coded `cli.py` 9-task skeleton + `goal_router.yaml` regex + `comorbid_planner`
-keyword/threshold triggers (de-scripting: judgment is LLM, not a keyword list).
+the outcome they want — not by applying a fixed skeleton. This is now the SOLE
+plan path: the hard-coded `cli.py` 9-task skeleton and the `goal_router.yaml`
+keyword regex were removed (de-script / ADR-0040). Hand your agenda to
+`opl-cancer plan --agenda <file>`; Python adds only the deterministic
+contraindication red-line floor from `comorbid_planner` (which `G55` verifies your
+agenda covers). Judgment is the LLM's; Python verifies the floor.
 
 > Choose an outcome you genuinely want to exist and reason backward to the
 > experiments. A goal you actually care about drags you into territory no survey
@@ -22,11 +25,13 @@ keyword/threshold triggers (de-scripting: judgment is LLM, not a keyword list).
 1. State the endpoint in one line: "to make ENDPOINT exist for THIS patient,
    the warranted experiment set is …".
 2. Reason backward to the experts/tasks that produce each warranted result —
-   name WHY each is necessary (not a template). The deterministic skeleton
-   (pathology / NGS / trials / hypothesis / lit / dataset / bioinformatics /
-   meta / validation) is the FLOOR your agenda must cover-or-exceed, never the
-   ceiling. Surface `endpoint_coverage_gaps`: branches the floor did NOT cover
-   that the endpoint warrants.
+   name WHY each is necessary (not a template). YOU compose the whole team:
+   there is no hard-coded skeleton any more (de-script / ADR-0040 removed it).
+   The standard research instruments (pathology / NGS / trials / hypothesis /
+   lit / dataset / bioinformatics / meta / validation) are a coverage CHECKLIST
+   to consider and justify or skip per THIS patient — not a fixed floor. The
+   only deterministic floor is the contraindication red-line in step 4 (G55).
+   Surface `endpoint_coverage_gaps`: warranted branches your agenda does not cover.
 3. Hamming check: name the single most important open question for THIS patient's
    endpoint and why you are/aren't working on it.
 4. Expand for comorbidities by REASONING about severity (not threshold-matching):

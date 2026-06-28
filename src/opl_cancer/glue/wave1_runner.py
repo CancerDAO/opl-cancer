@@ -479,61 +479,6 @@ class Wave1Runner:
 
     # ---- pipeline stages ------------------------------------------------
 
-    @staticmethod
-    def _apply_intake_router(
-        plan_dict: dict[str, Any], patient_text: str
-    ) -> dict[str, Any]:
-        """v2.5.1 B2 — fold the intake_router output into the LLM plan dict.
-
-        For UNKNOWN-task routes the dict gets an extra Wave-1 task
-        (``unknown_task_intake``, owned by Aviv) and a ``method_dag`` field
-        carrying the composed primitive list (kaplan_meier +
-        conformal_prediction for the c3195b66 case).
-
-        For known-task routes the dict is returned untouched apart from a
-        ``method_dag`` annotation so downstream consumers always see the
-        same shape.
-        """
-        from opl_cancer.plan.intake_router import route_intake
-
-        route = route_intake(patient_text or "")
-        merged: dict[str, Any] = dict(plan_dict)
-        merged.setdefault("tasks", list(plan_dict.get("tasks", [])))
-        merged["method_dag"] = list(route.method_dag)
-        merged["intake_route"] = route.to_dict()
-        # Only inject the unknown_task_intake task when the route is
-        # meaningfully populated (decline_reasons OR ≥2 method-DAG nodes).
-        # The default fallback route (kaplan_meier only, no decline reasons)
-        # represents "the LLM planner already has a plan, no special intake
-        # needed" — don't pollute every wave1 run with an aviv intake task.
-        is_substantive = bool(route.decline_reasons) or len(route.method_dag) >= 2
-        if route.matched_task_package == "unknown_task_intake" and is_substantive:
-            existing_ids = {t["id"] for t in merged["tasks"] if "id" in t}
-            new_id = "t_intake"
-            i = 1
-            while new_id in existing_ids:
-                i += 1
-                new_id = f"t_intake_{i}"
-            merged["tasks"].append(
-                {
-                    "id": new_id,
-                    "expert": "aviv",
-                    "task_package": "unknown_task_intake",
-                    "sub_goal": (
-                        "Compose method DAG for patient question; route "
-                        f"per intake_router (matched={route.matched_task_package})"
-                    ),
-                }
-            )
-            # Make sure aviv is in the experts roster — _build_handlers
-            # instantiates only experts in plan_dict["experts"]; an aviv
-            # task with no aviv expert blows up with KeyError.
-            experts = list(merged.get("experts", []))
-            if "aviv" not in experts:
-                experts.append("aviv")
-            merged["experts"] = experts
-        return merged
-
     def _load_plan_dict(self) -> dict[str, Any]:
         """Resolve the Wave-1 plan WITHOUT an LLM call (harness-split).
 
@@ -577,9 +522,9 @@ class Wave1Runner:
             plan_dict["experts"] = sorted(
                 {str(t["expert"]) for t in plan_dict["tasks"] if t.get("expert")}
             )
-        # v2.5.1 B2 — fold intake_router output before constructing the Plan,
-        # so the c3195b66 AutoML case adds `unknown_task_intake` + method DAG.
-        plan_dict = self._apply_intake_router(plan_dict, patient_text)
+        # De-script (ADR-0040): the plan is composed upstream by the host LLM
+        # planner (goal_backward_planner.md) + the deterministic comorbid floor;
+        # the runner consumes it as-is. The old keyword intake-router fold is gone.
         # Only Wave-1 tasks (the runner runs a single wave). If the plan carries
         # explicit wave assignments, keep just wave 1; else all tasks are wave 1.
         wave1_ids: list[str] | None = None

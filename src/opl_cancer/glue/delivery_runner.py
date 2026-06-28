@@ -146,9 +146,9 @@ def _hollow_upstream(run_root: Path) -> list[str]:
     except (OSError, json.JSONDecodeError):
         plan = None
     if not isinstance(plan, dict) or not any(
-        plan.get(k) for k in ("goal", "tasks", "method_dag", "waves")
+        plan.get(k) for k in ("goal", "tasks", "waves")
     ):
-        hollow.append(f"plan hollow: {plan_p} has no goal/tasks/method_dag/waves content")
+        hollow.append(f"plan hollow: {plan_p} has no goal/tasks/waves content")
 
     # wave-1 reports must carry more than a bare header.
     reports = list(run_root.glob("tasks/w1_*/report.md"))

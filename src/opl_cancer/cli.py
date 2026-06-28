@@ -313,36 +313,85 @@ def readiness(patient_dir: str, json_mode: bool) -> None:
 
 # ─── Step 4: PI plan ──────────────────────────────────────────────────────
 
-@main.command(help="Step 4: PI (Sid) plans run — chooses experts + Waves.")
+
+def _load_plan_agenda(agenda_path: str | None) -> tuple[list, dict[str, int]]:
+    """De-script (ADR-0040): load the host-LLM-composed agenda — the expert team +
+    task DAG produced by ``prompts/pi/goal_backward_planner.md``. Returns
+    (tasks, wave_map). Omitting ``--agenda`` yields an empty team, so the plan is
+    FLOOR-ONLY (the deterministic comorbid red-line); a real run supplies the
+    agenda. Python no longer hardcodes a 9-task skeleton or keyword-routes the team.
+    """
+    from opl_cancer.plan.schemas import Task
+
+    if not agenda_path:
+        return [], {}
+    raw = json.loads(Path(agenda_path).read_text(encoding="utf-8"))
+    raw_tasks = raw.get("tasks", []) if isinstance(raw, dict) else raw
+    tasks: list[Task] = []
+    wave_map: dict[str, int] = {}
+    for rt in raw_tasks:
+        tid = str(rt["id"])
+        tasks.append(Task(
+            id=tid,
+            expert=str(rt["expert"]).lower(),
+            task_package=str(rt["task_package"]),
+            sub_goal=str(rt.get("sub_goal", "")),
+            dependencies=[str(d) for d in rt.get("dependencies", [])],
+        ))
+        if rt.get("wave") is not None:
+            wave_map[tid] = int(rt["wave"])
+    return tasks, wave_map
+
+
+def _build_plan_waves(tasks: list, wave_map: dict[str, int], floor_ids: set[str]):
+    """Build sequential 1..N WaveAssignments from the agenda's per-task wave hints.
+
+    Comorbid red-line floor tasks default to Wave 1 (retrieval). Distinct wave
+    numbers are remapped to a contiguous 1..N range (the Plan schema requires no
+    gaps). Empty task list → no waves.
+    """
+    from opl_cancer.plan.schemas import WaveAssignment
+
+    buckets: dict[int, list[str]] = {}
+    for t in tasks:
+        wn = 1 if t.id in floor_ids else int(wave_map.get(t.id, 1))
+        buckets.setdefault(wn, []).append(t.id)
+    ordered = sorted(buckets)
+    remap = {old: new for new, old in enumerate(ordered, start=1)}
+    return [WaveAssignment(wave_number=remap[wn], task_ids=buckets[wn]) for wn in ordered]
+
+
+@main.command(help="Step 4: PI (Sid) plans run — verifies the floor over the host-composed agenda.")
 @click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
 @click.option("--goal", required=True, help="Verbatim patient goal.")
 @click.option("--run-id", required=True)
 @click.option("--out", type=click.Path(), help="Output plan.json path (default: <patient>/triggers/<run_id>/plan.json)")
+@click.option(
+    "--agenda",
+    type=click.Path(exists=True, dir_okay=False),
+    help=(
+        "Host-LLM-composed agenda JSON (goal_backward_planner.md output): "
+        '{"tasks":[{id,expert,task_package,sub_goal,dependencies?,wave?}]}. '
+        "Omit for a floor-only plan (the comorbid red-line); a real run supplies it."
+    ),
+)
 @click.option("--json", "json_mode", is_flag=True)
-def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: bool) -> None:
+def plan(
+    patient_dir: str, goal: str, run_id: str, out: str | None,
+    json_mode: bool, agenda: str | None,
+) -> None:
     pdir = Path(patient_dir)
     out_path = Path(out) if out else pdir / "triggers" / run_id / "plan.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    # v1.5 P0-6: skeleton is the floor, not the ceiling. We read the
-    # patient profile and expand with triggered-expert tasks
-    # (Mark / Mary / Frances / Riad / Dennis / Heddy) when the patient's
-    # phenotype matches the multi-comorbid / L4+ / cross-border /
-    # active-irAE / cardiac / CKD / polypharmacy criteria. The expansion
-    # is deterministic + narrated; v1.6 will hand the LLM-driven
-    # planner the wheel. See `plan/comorbid_planner.py`.
+    # De-script (ADR-0040): the expert team + task DAG are composed by the host
+    # LLM planner (prompts/pi/goal_backward_planner.md) and supplied via --agenda;
+    # Python no longer hardcodes a 9-task skeleton. The deterministic comorbid
+    # red-line FLOOR is added on top (safety by construction) and exposed as
+    # `floor_required` for G55 to verify the agenda covers it. Without --agenda the
+    # plan is FLOOR-ONLY — a real run supplies the host agenda.
     from opl_cancer.plan.comorbid_planner import maybe_expand_for_comorbid
-    from opl_cancer.plan.schemas import Plan, Task, WaveAssignment
-    base_tasks = [
-        Task(id="t1", expert="rosa", task_package="pathology_interpretation", sub_goal="read pathology report"),
-        Task(id="t2", expert="bert", task_package="molecular_ngs_interpretation", sub_goal="extract actionable variants from NGS"),
-        Task(id="t3", expert="rick", task_package="trial_matching", sub_goal="match patient to CT.gov + ChiCTR trials"),
-        Task(id="t4", expert="aviv", task_package="hypothesis_generation", sub_goal="4-strategy blind-spot scan", dependencies=["t1", "t2"]),
-        Task(id="t5", expert="iain", task_package="literature_synthesis", sub_goal="PaperQA2 grounded synthesis"),
-        Task(id="t6", expert="aviv", task_package="dataset_acquisition", sub_goal="find matched GEO cohort", dependencies=["t4"]),
-        Task(id="t7", expert="aviv", task_package="bioinformatics_data_analysis", sub_goal="DESeq2 + scanpy reanalysis", dependencies=["t6"]),
-        Task(id="t8", expert="iain", task_package="meta_analysis", sub_goal="pool effect sizes across cohorts"),
-        Task(id="t9", expert="aviv", task_package="hypothesis_validation", sub_goal="retest hypotheses vs measured data", dependencies=["t4", "t7"]),
-    ]
+    from opl_cancer.plan.schemas import Plan
+    agenda_tasks, agenda_wave_map = _load_plan_agenda(agenda)
     # Read profile.json if present; safe to proceed without (just no
     # expansion triggers fire).
     profile_path = pdir / "profile.json"
@@ -365,32 +414,8 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
             validate_profile(profile_data, strict_triggers=True)
         except ProfileTriggerMismatch as exc:
             raise click.ClickException(str(exc)) from exc
-    tasks, fired = maybe_expand_for_comorbid(base_tasks, profile_data, goal=goal)
-
-    # v2.5.1 B2 — route the verbatim goal through intake_router so unknown
-    # tasks (the c3195b66 AutoML / prognosis case) are routed to
-    # `unknown_task_intake` with a composed method DAG. The intake task is
-    # appended to Wave 1 alongside the comorbid expansion.
-    from opl_cancer.plan.intake_router import route_intake
-
-    intake_route = route_intake(goal, profile=profile_data)
-    intake_task: Task | None = None
-    # Only inject the unknown_task_intake task when the route is
-    # meaningfully populated — see Wave1Runner._apply_intake_router
-    # docstring for the same gating rule.
-    _is_substantive = bool(intake_route.decline_reasons) or len(intake_route.method_dag) >= 2
-    if intake_route.matched_task_package == "unknown_task_intake" and _is_substantive:
-        intake_task = Task(
-            id="t_intake",
-            expert="aviv",  # Aviv owns method-composition + N=1 framing
-            task_package="unknown_task_intake",
-            sub_goal=(
-                f"Compose method DAG for patient question; route per "
-                f"intake_router (matched={intake_route.matched_task_package})"
-            ),
-            dependencies=[],
-        )
-        tasks.append(intake_task)
+    # Add the deterministic comorbid red-line FLOOR on top of the host agenda.
+    tasks, fired = maybe_expand_for_comorbid(agenda_tasks, profile_data)
 
     # v2.1 P0-#6: every emitted task_package must be a real file under
     # prompts/tasks/. Fail loud at emit, not silently at run.
@@ -405,33 +430,18 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
         ])
     except UnknownTaskPackage as exc:
         raise click.ClickException(str(exc)) from exc
-    expanded_task_ids = [t.id for t in tasks if t.id not in {b.id for b in base_tasks}]
-    # Newly-added tasks all go to Wave 1 (retrieval) by default — the
-    # LLM-driven planner in v1.6 will redistribute. Heddy + Frances +
-    # Dennis + Riad are retrieval-shaped tasks; Mary's polypharmacy /
-    # cardiac / CKD scans likewise read the patient + drug labels.
-    wave1_ids = ["t1", "t2", "t3"] + expanded_task_ids
+    # Waves come from the host agenda's per-task `wave` hints (remapped to a
+    # contiguous 1..N); comorbid floor tasks default to Wave 1.
+    floor_ids = {t.task.id for t in fired}
     skeleton = Plan(
         run_id=run_id,
         patient_code=pdir.name,
         goal=goal,
         tasks=tasks,
-        waves=[
-            WaveAssignment(wave_number=1, task_ids=wave1_ids),
-            WaveAssignment(wave_number=2, task_ids=["t4", "t5"]),
-            WaveAssignment(wave_number=3, task_ids=["t6", "t7", "t8"]),
-            WaveAssignment(wave_number=4, task_ids=["t9"]),
-        ],
+        waves=_build_plan_waves(tasks, agenda_wave_map, floor_ids),
     )
 
-    # v2.5.1 B2 — persist the composed method DAG on the plan JSON.
-    # `Plan` (pydantic) does not yet model `method_dag` as a first-class
-    # field, so we re-serialise + inject. Downstream callers should read
-    # the plan via plain json.load() rather than `Plan.model_validate()`
-    # to see this extension; the SKILL main thread does both.
     plan_payload = skeleton.model_dump(mode="json")
-    plan_payload["method_dag"] = list(intake_route.method_dag)
-    plan_payload["intake_route"] = intake_route.to_dict()
 
     # A1 / ADR-0027 — warm start. Ingest prior runs so this plan COMPOUNDS on
     # what earlier runs settled instead of starting cold. Previously
@@ -474,10 +484,9 @@ def plan(patient_dir: str, goal: str, run_id: str, out: str | None, json_mode: b
             "run_id": run_id,
             "run_token": manifest["run_token"],
             "planned_experts": manifest["planned_experts"],
-            "waves": 4,
+            "waves": len(skeleton.waves),
             "tasks": len(tasks),
             "comorbid_expansion_triggers_fired": triggers_payload,
-            "intake_route": intake_route.to_dict(),
             "extends_prior_run": plan_payload.get("extends_prior_run"),
             "prior_runs_ingested": len(prior_runs),
         },

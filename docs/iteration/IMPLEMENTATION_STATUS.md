@@ -109,3 +109,31 @@ importable modules, not import repair.
 
 Resume with: *"继续 OPL（决策已定 A）：做 orchestrator runtime wiring（C1/C2 producer
 + D3 runtime + D4 + un-park tests + vestigial cleanup）"*.
+
+---
+
+## SESSION FINAL — all A-path runtime wiring COMPLETE ✅
+
+Decision A executed end-to-end. Full suite **1938 passed, 8 skipped, exit 0**
+(`PYTHONPATH=src PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q
+--ignore=tests/test_glue/test_sniffer_halt.py`). Gates: **53 registered**
+(G1–G37, G39–G43, G45–G55; G38/G44 reserved) — unchanged count; the work
+LIVE-WIRED the previously-registered-but-orphaned G49/G50/G51. Each item is its
+own commit, TDD, with non-parked coverage.
+
+| # | Item | What landed | Commit |
+|---|---|---|---|
+| 5 | Un-park tests | swap `opl_cancer.llm`→`_llm_contract` in 10 test files; drop `conftest.collect_ignore` (decision A keeps the engine) — +62 tests | `3072ac4` |
+| 1 | C1 producer + G50/G51 | `wave2_runner.write_tournament_audit` (killed_candidates.jsonl / tournament_all_survived.json); G50/G51 fire in `run_delivery_gates` | `39e4e76` |
+| 2 | C2 forecast-lock + G49 | generation emits `prior_expectation`; `wave2_runner.lock_top_k_forecasts` stamps locked_at+hash; G49 fires per-hypothesis at attest (wave3_data_at from earliest wave3 artifact) | `0f45068` |
+| 3 | D3 replan runtime | `glue/surprise_replan.spawn_surprise_replan` + wave4_runner reads Aviv's surprise judgment → spawns a testable replan task; `hypothesis_validation.md` emits the surprise block | `2da5509` |
+| 4 | D4 evolution re-aim | `evolve` registered unconditionally; analyzer re-aimed to the disease frontier (fed `build_disease_frontier_digest`); collector captures the strange tail (reviewer-fail / falsified / G14 low-match); no-auto-apply + double-signoff intact | `c8ceec3` |
+| 6 | De-script (ADR-0040) | **founder chose full de-script**: removed the `cli.py` 9-task skeleton, `intake_router` keyword tables, and `goal_router` entirely; host LLM dispatch (`goal_backward_planner.md`) is the sole plan path via `plan --agenda`; the comorbid red-line stays as the deterministic floor G55 verifies; crisis G24 floor preserved | _this commit_ |
+
+**Task #13 (D4) = COMPLETED.** All 15 P0+P1 item cores are now live + firing.
+
+Multi-case E2E: `tests/test_e2e/test_pipeline_non_bypassable.py`
+(KRAS-CRC + EGFR-NSCLC) passes with the new gates wired — a complete grounded
+run persists the ledger + carries the unfalsified badge (G54/G51) and the new
+C1/C2/D-series wiring SKIPs/PASSes appropriately; the free-handed brief is still
+refused at every entry point.
