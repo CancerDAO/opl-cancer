@@ -81,6 +81,22 @@ class Journal:
     def all_nodes(self) -> list[Node]:
         return list(self._nodes.values())
 
+    def killed_candidates(self) -> list[dict[str, object]]:
+        """C1/ADR-0031 — pruned nodes as kill records for killed_candidates.jsonl.
+
+        A real tournament discards weak candidates; this exposes the ones
+        prune_below() killed so the run can record them (G50 verifies a >=4
+        candidate tournament recorded its kills)."""
+        return [
+            {
+                "hyp_id": n.payload.get("hypothesis_id", n.id) if isinstance(n.payload, dict) else n.id,
+                "final_elo": n.metric,
+                "kill_reason": "below tournament prune threshold (dominated)",
+            }
+            for n in self._nodes.values()
+            if n.status == "pruned"
+        ]
+
     # ─── serialization ────────────────────────────────────────────────────
 
     def to_jsonl(self, path: str | Path) -> None:

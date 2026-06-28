@@ -129,6 +129,15 @@ async def run_tournament(
             )
         )
 
+    # C1 / ADR-0031 — a real tournament DISCARDS weak candidates (was inert:
+    # prune_below was dead code, every node stayed 'alive'). Prune below-average
+    # candidates so the run records its kills (G50 verifies a >=4-candidate
+    # tournament killed something). Founder decision A: this engine stays in the
+    # patient product.
+    if ratings:
+        _thresh = sum(ratings.values()) / len(ratings)
+        journal.prune_below(_thresh)
+
     return {
         "rounds": rounds_log,
         "final_ratings": ratings,
@@ -138,4 +147,6 @@ async def run_tournament(
         "hypotheses": hypotheses,
         # v2.5 audit layer — RFC 0001 §8 item 12 (Sakana borrow).
         "best_first_journal": journal,
+        # C1 / ADR-0031 — kill records for killed_candidates.jsonl (G50).
+        "killed_candidates": journal.killed_candidates(),
     }
