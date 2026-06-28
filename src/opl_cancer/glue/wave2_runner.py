@@ -45,6 +45,45 @@ if TYPE_CHECKING:
 # we use "aviv" as the canonical Wave-2 owner per the v1 plan skeleton.
 _WAVE2_PRIMARY_EXPERT = "aviv"
 
+# C1/ADR-0031 — a >=4-candidate tournament must record kills for G50 to read.
+_MIN_FIELD_FOR_KILL_RECORD = 4
+
+
+def write_tournament_audit(
+    run_dir: Path, *, killed_candidates: list[dict[str, Any]], n_candidates: int
+) -> None:
+    """Persist the tournament's discard decision next to wave2_hypotheses.json.
+
+    C1/ADR-0031: research speed is the speed at which you discover you're wrong,
+    so the discard-the-wrong half of the loop must leave a record G50 can verify.
+    Write ``killed_candidates.jsonl`` when the tournament dominated >=1 candidate;
+    otherwise, for a >=4-candidate field that dominated none, record an explicit
+    ``tournament_all_survived.json`` justification. An honest "nothing was
+    dominated" beats a silently-missing kill record (which reads as a tournament
+    that never discriminated). A <4-candidate field needs neither (G50 SKIPs it).
+    """
+    if killed_candidates:
+        (run_dir / "killed_candidates.jsonl").write_text(
+            "".join(json.dumps(k, ensure_ascii=False) + "\n" for k in killed_candidates),
+            encoding="utf-8",
+        )
+    elif n_candidates >= _MIN_FIELD_FOR_KILL_RECORD:
+        (run_dir / "tournament_all_survived.json").write_text(
+            json.dumps(
+                {
+                    "candidates": n_candidates,
+                    "killed": 0,
+                    "justification": (
+                        "tournament ranked all candidates; none fell below the prune "
+                        "threshold (ratings did not diverge enough to dominate any)"
+                    ),
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
 
 def __getattr__(name: str):  # PEP 562 — lazy orchestrator re-export
     if name == "run_reviewer_pairing":
@@ -155,6 +194,15 @@ class Wave2Runner:
         out_path.write_text(
             json.dumps(out_payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
+        )
+
+        # C1/ADR-0031 — record the tournament's discard decision (kills, or an
+        # explicit all-survived justification) so the delivery sweep's G50 reads
+        # a tournament that actually discriminated, not a beauty contest.
+        write_tournament_audit(
+            run_dir,
+            killed_candidates=tournament_result.get("killed_candidates", []),
+            n_candidates=len(hypotheses),
         )
 
         # v2.5.1 B3 — same fakery_sniffer + reviewer pairing discipline as

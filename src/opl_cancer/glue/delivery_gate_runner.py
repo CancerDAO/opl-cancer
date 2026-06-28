@@ -52,6 +52,8 @@ from opl_cancer.validators.gates import (
     G46SoCBaselineQuantifiedGate,  # B1/ADR-0029
     G47SourceSectionDepthGate,  # B2/ADR-0030
     G48ResearchDeltaGate,  # A3/ADR-0028
+    G50TournamentKillRecordedGate,  # C1/ADR-0031
+    G51UnfalsifiedRankingGate,  # C1/ADR-0031
     G52FailureLedgerGate,  # C3/ADR-0033
     G54MemoryLedgerWrittenGate,  # A1/ADR-0027
     G55PlanFloorCoverageGate,  # D1/ADR-0034
@@ -294,12 +296,20 @@ def run_delivery_gates(
         "planned_experts": _plan_for_floor.get("planned_experts", []),
         "floor_required": _plan_for_floor.get("floor_required", []),
     }))
-    # C1 G50/G51 are registered + tested but NOT yet live-wired here: their
-    # producers (the tournament emitting killed_candidates.jsonl, and the renderer
-    # flagging when a leaderboard is actually shown) live in the orchestrator that
-    # is mid-extraction (PRD open-Q#3). Wiring them into this broad sweep now would
-    # block runs that merely carry wave2 evidence without rendering a leaderboard.
-    # Activate alongside the orchestrator producers once the extraction is resolved.
+    # C1/ADR-0031 — the tournament must KILL, and a rendered-but-unscored
+    # leaderboard must not read as validated. Founder decision A keeps the
+    # tournament in the patient path, so the producers now write the run-local
+    # artifacts these gates read (killed_candidates.jsonl / tournament_all_survived
+    # via wave2_runner.write_tournament_audit; the 'unfalsified' badge in the
+    # brief). Both SKIP safely: G50 SKIPs a <4-candidate tournament, G51 SKIPs a
+    # run with no rendered leaderboard — so neither misfires on a run that merely
+    # carries wave2 evidence without delivering a ranking.
+    _record(results, blocked, G50TournamentKillRecordedGate().check({
+        "run_root": str(run_root),
+    }))  # C1 — a >=4-candidate tournament must record its kills
+    _record(results, blocked, G51UnfalsifiedRankingGate().check({
+        "run_root": str(run_root),
+    }))  # C1 — a rendered leaderboard must be Wave-4-scored or 'unfalsified'-badged
 
     # G35 — scan case_text.md AND (v2.10 P0.3a) the delivered briefs. A
     # fabricated clinical value can live ONLY in the patient-facing brief with no
