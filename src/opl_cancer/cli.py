@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -713,6 +714,126 @@ def _load_json(path: Path) -> Any:
         return None
 
 
+# ── Arbor/HTR tree + funnel + abstraction helpers (ADR-0042) ──────────────
+# All pure functions of on-disk state — no LLM, no writes. The hypothesis TREE
+# is built from the Hypothesis.parent_chain field that already exists; nothing
+# used to read it. The FUNNEL is a deterministic explored-vs-survived count.
+
+def _load_hypotheses(run_root: Path) -> list[dict[str, Any]]:
+    data = _load_json(run_root / "wave2_hypotheses.json") or {}
+    return list(data.get("hypotheses") or [])
+
+
+def _build_hypothesis_forest(hyps: list[dict[str, Any]]) -> tuple[dict[str, list[str]], list[str]]:
+    """Return (children-by-id, root-ids). parent_chain[0] is the immediate parent;
+    an empty chain marks a root. Tolerant of dangling parents (treated as roots)."""
+    by_id = {str(h.get("id")): h for h in hyps if h.get("id")}
+    children: dict[str, list[str]] = {hid: [] for hid in by_id}
+    roots: list[str] = []
+    for hid, h in by_id.items():
+        chain = [str(x) for x in (h.get("parent_chain") or [])]
+        parent = chain[0] if chain else None
+        if parent and parent in by_id:
+            children[parent].append(hid)
+        else:
+            roots.append(hid)
+    # If a malformed/cyclic chain leaves every node a child (no roots), fall back
+    # to a flat forest so the patient's hypotheses are never silently dropped.
+    if not roots and by_id:
+        roots = sorted(by_id)
+        children = {hid: [] for hid in by_id}
+    return children, sorted(roots)
+
+
+def _render_forest_lines(hyps: list[dict[str, Any]], max_lines: int = 24) -> list[str]:
+    by_id = {str(h.get("id")): h for h in hyps if h.get("id")}
+    children, roots = _build_hypothesis_forest(hyps)
+    sym = {"validated": "✓", "survives": "✓", "active": "•",
+           "weakened": "~", "falsified": "✗", "inconclusive": "?", "new": "+"}
+    lines: list[str] = []
+    seen: set[str] = set()  # guard against a malformed cyclic parent_chain
+
+    def walk(hid: str, prefix: str) -> None:
+        if len(lines) >= max_lines or hid in seen:
+            return
+        seen.add(hid)
+        h = by_id[hid]
+        st = str(h.get("status", "active"))
+        elo = h.get("elo_rating")
+        elo_s = f" Elo{int(elo)}" if isinstance(elo, (int, float)) else ""
+        txt = str(h.get("text", ""))[:58]
+        lines.append(f"{prefix}{sym.get(st, '•')} {hid}{elo_s}: {txt}")
+        for c in sorted(children.get(hid, []), key=lambda c: -(by_id[c].get("elo_rating") or 0)):
+            walk(c, prefix + "    ")
+
+    for r in sorted(roots, key=lambda r: -(by_id[r].get("elo_rating") or 0)):
+        walk(r, "  ")
+    if len(by_id) > max_lines:
+        lines.append(f"  … (+{len(by_id) - max_lines} more nodes)")
+    return lines
+
+
+def _compute_funnel(run_root: Path) -> dict[str, Any]:
+    """Deterministic explored-vs-survived funnel. Counts only — the narrative is
+    the brief's job (boundary: numbers=script, prose=prompt)."""
+    hyps = _load_hypotheses(run_root)
+    explored = len(hyps)
+    killed = 0
+    kc = run_root / "killed_candidates.jsonl"
+    if kc.is_file():
+        killed = sum(1 for ln in kc.read_text(encoding="utf-8").splitlines() if ln.strip())
+    w4 = _load_json(run_root / "wave4_validation.json") or {}
+    vals = w4.get("validations") or []
+    by_verdict: dict[str, int] = {}
+    ties = 0
+    for v in vals:
+        s = str(v.get("survival_status") or v.get("aviv_verdict") or "unknown")
+        by_verdict[s] = by_verdict.get(s, 0) + 1
+        if v.get("discrimination_target"):
+            ties += 1
+    # Tree depth measured on the SAME forest the renderer builds (dangling
+    # parents = roots), so observe's tree and validate's budget check agree.
+    children, roots = _build_hypothesis_forest(hyps)
+    depth_of: dict[str, int] = {r: 1 for r in roots}
+    stack = list(roots)
+    while stack:
+        n = stack.pop()
+        for c in children.get(n, []):
+            if c not in depth_of:  # cycle-safe
+                depth_of[c] = depth_of[n] + 1
+                stack.append(c)
+    depth_reached = max(depth_of.values(), default=1) if hyps else 1
+
+    # Presence-not-truthiness: an explicit n_validated=0 must stay 0, not fall
+    # through to the by_verdict tally (review P2 — honesty of the numbers).
+    def _count(key: str, vk: str) -> int:
+        return int(w4[key]) if key in w4 else by_verdict.get(vk, 0)
+
+    return {
+        "explored": explored,
+        "killed_in_tournament": killed,
+        "validated": _count("n_validated", "validated"),
+        "falsified": _count("n_falsified", "falsified"),
+        "inconclusive": _count("n_inconclusive", "inconclusive"),
+        "verdicts": by_verdict,
+        "ties_resolved_by_selection": ties,
+        "tree_depth_reached": depth_reached,
+    }
+
+
+def _abstraction_state(run_root: Path) -> dict[str, Any]:
+    f = run_root / "abstraction.json"
+    priors = []
+    if f.is_file():
+        priors = (_load_json(f) or {}).get("abstracted_priors") or []
+    has_hyps = (run_root / "wave2_hypotheses.json").is_file()
+    return {
+        "done": bool(priors),
+        "owed": bool(has_hyps and not priors),  # research happened but not abstracted
+        "n_priors": len(priors),
+    }
+
+
 def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
     """Deterministic projection of a run's durable state. Pure read — no LLM,
     no writes. Tolerant of a half-built run (plan/manifest/memory may be absent)."""
@@ -767,9 +888,18 @@ def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
                 "negative_constraints": [
                     {"id": h.id, "text": h.text[:140]} for h in falsified_all[:20]
                 ],
+                # Arbor/HTR insight propagation: priors abstracted in PRIOR runs,
+                # the warm-start knowledge this run builds on (ADR-0042).
+                "cross_run_priors": len(store.query_abstractions()),
             }
     except Exception as exc:  # memory layer is optional/absent early in a run
         mem = {"available": False, "error": str(exc)}
+
+    # Arbor/HTR tree + funnel + abstraction (ADR-0042) — pure reads.
+    hyps = _load_hypotheses(run_root)
+    funnel = _compute_funnel(run_root)
+    abstraction = _abstraction_state(run_root)
+    max_depth = int(plan.get("max_depth") or manifest.get("max_depth") or 1)
 
     return {
         "run_id": run_id,
@@ -784,6 +914,12 @@ def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
         "delivered": delivered,
         "attested": attested,
         "memory": mem,
+        # ADR-0042 additions:
+        "hypothesis_tree": _render_forest_lines(hyps) if hyps else [],
+        "funnel": funnel,
+        "abstraction": abstraction,
+        "depth": {"max_depth": max_depth, "reached": funnel["tree_depth_reached"],
+                  "deepen_candidates": list(plan.get("deepen_candidates") or [])},
     }
 
 
@@ -818,11 +954,36 @@ def _render_observe_text(p: dict[str, Any]) -> str:
         L.append(f"  negative constraints (falsified across ALL runs — do NOT re-propose): {len(nc)}")
         for h in nc[:10]:
             L.append(f"     ✗ {h['id']}: {h['text']}")
+        L.append(f"  cross-run priors available (warm-start from prior runs): {m.get('cross_run_priors', 0)}")
+    L.append("")
+
+    # ── Arbor/HTR tree + funnel + abstraction (ADR-0042) ──
+    tree = p.get("hypothesis_tree") or []
+    dep = p.get("depth") or {}
+    L.append(f"-- Hypothesis TREE (Elo-ranked; depth {dep.get('reached', 1)}/{dep.get('max_depth', 1)}) --")
+    if not tree:
+        L.append("  (no hypotheses yet)")
+    else:
+        L.extend(tree)
+        cand = dep.get("deepen_candidates") or []
+        if cand:
+            L.append(f"  ↳ planner marked for DEEPEN (re-entry): {', '.join(cand)} "
+                     f"({'budget left' if dep.get('reached', 1) < dep.get('max_depth', 1) else 'BUDGET SPENT'})")
+    L.append("")
+    fn = p.get("funnel") or {}
+    L.append("-- Explored → survived FUNNEL --")
+    L.append(f"  explored {fn.get('explored', 0)} · killed-in-tournament {fn.get('killed_in_tournament', 0)}"
+             f" · validated {fn.get('validated', 0)} · falsified {fn.get('falsified', 0)}"
+             f" · inconclusive {fn.get('inconclusive', 0)} · ties-split-by-selection {fn.get('ties_resolved_by_selection', 0)}")
+    ab = p.get("abstraction") or {}
+    state = "done (" + str(ab.get("n_priors", 0)) + " priors)" if ab.get("done") else ("OWED — run the abstraction beat" if ab.get("owed") else "n/a")
+    L.append(f"-- Abstraction (Arbor's dominant gain driver): {state} --")
     L.append("")
     L.append(bar)
     L.append("Re-ground on THIS projection, not your memory of the conversation. Then "
-             "dispatch the next outstanding wave's subagents (main thread), or proceed "
-             "to deliver once every planned wave is done.")
+             "dispatch the next outstanding wave's subagents (main thread), or — if a "
+             "planner deepen-candidate has Elo-tie rivals and depth budget remains — "
+             "`opl-cancer deepen` that lead; abstract before delivery.")
     return "\n".join(L)
 
 
@@ -899,6 +1060,20 @@ def _validate_run_state(patient_dir: Path, run_id: str) -> list[dict[str, str]]:
         add("error", "DELIVERED_WITH_OUTSTANDING_WAVES",
             f"run delivered but planned waves {proj['outstanding_waves']} have no artifacts (under-delivery)")
 
+    # 6. Abstraction owed (ADR-0042, G60 invariant) — WARN, never blocks the brief.
+    if proj["delivered"] and proj.get("abstraction", {}).get("owed"):
+        add("warn", "DELIVERED_NO_ABSTRACTION",
+            "run delivered but no cross-run prior abstracted (G60 owed) — "
+            "learning did not compound upward; run `opl-cancer abstract --finalize`")
+
+    # 7. Depth budget invariant (ADR-0042): re-entry must never exceed the
+    #    planner-granted max_depth.
+    dep = proj.get("depth", {})
+    if dep.get("reached", 1) > dep.get("max_depth", 1):
+        add("error", "DEPTH_BUDGET_EXCEEDED",
+            f"tree depth reached {dep['reached']} exceeds plan max_depth {dep['max_depth']} "
+            "(re-entry ran past its budget)")
+
     return problems
 
 
@@ -930,6 +1105,149 @@ def validate(patient_dir: str, run_id: str, json_mode: bool) -> None:
                 click.echo(f"  {mark} {p['severity'].upper():5} {p['code']:28} {p['message']}")
     if errors:
         sys.exit(2)
+
+
+# ─── Arbor/HTR depth (ADR-0042): abstract · deepen · funnel ───────────────
+
+@main.command(help="Abstraction beat (Arbor/HTR insight propagation, ADR-0042): persist the cross-run "
+                   "priors the PI authored in triggers/<run_id>/abstraction.json. No flag = scaffold "
+                   "(tells you to dispatch prompts/pi/insight_abstraction.md); --finalize = validate shape "
+                   "+ append to the ledger. The CLI never authors the abstraction — that is judgment.")
+@click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
+@click.option("--run-id", required=True)
+@click.option("--finalize", is_flag=True, help="Validate abstraction.json + persist its priors.")
+@click.option("--json", "json_mode", is_flag=True)
+def abstract(patient_dir: str, run_id: str, finalize: bool, json_mode: bool) -> None:
+    run_root = Path(patient_dir) / "triggers" / run_id
+    abs_file = run_root / "abstraction.json"
+    hyps = _load_hypotheses(run_root)
+
+    if not finalize:
+        _emit({
+            "ok": True, "beat": "scaffold",
+            "abstraction_present": abs_file.is_file(),
+            "n_hypotheses": len(hyps),
+            "action": (
+                "Dispatch prompts/pi/insight_abstraction.md as a subagent — it reads this run's "
+                f"hypotheses + Wave-4 verdicts and writes triggers/{run_id}/abstraction.json with 1-3 "
+                "GROUNDED cross-run priors (generalise across leaves; never restate one hypothesis). "
+                "Then re-run with --finalize to persist them."
+            ),
+        }, json_mode)
+        return
+
+    if not abs_file.is_file():
+        raise click.ClickException(
+            "abstraction.json not found — dispatch prompts/pi/insight_abstraction.md first "
+            "(run `abstract` without --finalize for the exact action)."
+        )
+    priors = (_load_json(abs_file) or {}).get("abstracted_priors") or []
+    if not priors:
+        raise click.ClickException("abstraction.json has zero abstracted_priors — the beat must produce >=1 grounded prior.")
+    # Half-built-run guard (review P1): with no hypotheses there is nothing to
+    # ground against, so EVERY prior would be ungrounded. Refuse rather than
+    # persist fabricated source_leaf_ids into the durable cross-run ledger.
+    if not hyps:
+        raise click.ClickException(
+            "no hypotheses to ground against (wave2_hypotheses.json absent/empty) — run Wave 2 "
+            "before abstracting; an abstraction with no real leaves cannot be persisted."
+        )
+    src_ids = {str(h.get("id")) for h in hyps if h.get("id")}
+    src_texts = {re.sub(r"\s+", " ", str(h.get("text", "")).strip().lower()) for h in hyps}
+    problems: list[str] = []
+    for p in priors:
+        pid = str(p.get("id") or "?")
+        lesson = re.sub(r"\s+", " ", str(p.get("lesson", "")).strip().lower())
+        leaves = [str(x) for x in (p.get("source_leaf_ids") or [])]
+        if not lesson:
+            problems.append(f"{pid}: empty lesson")
+        elif lesson in src_texts:
+            problems.append(f"{pid}: lesson is a verbatim copy of a source hypothesis (auto-fill)")
+        if not leaves:
+            problems.append(f"{pid}: no source_leaf_ids (ungrounded)")
+        elif not (set(leaves) & src_ids):  # no `src_ids and` precondition — empty src_ids → reject, never skip
+            problems.append(f"{pid}: source_leaf_ids reference no real hypothesis in this run")
+    if problems:
+        raise click.ClickException("abstraction.json is not a real abstraction: " + "; ".join(problems))
+
+    from opl_cancer.memory.store import ProjectMemoryStore, default_patient_memory_db
+    store = ProjectMemoryStore(default_patient_memory_db(run_root))
+    for p in priors:
+        store.save_abstraction(p, run_id=run_id)
+    _emit({"ok": True, "beat": "finalize", "persisted_priors": len(priors), "run_id": run_id}, json_mode)
+
+
+@main.command(help="Deepen a hot lead (Arbor/HTR re-entry, ADR-0042): scaffold a focused sub-investigation of "
+                   "ONE hypothesis and its Elo-tie rivals, bounded by the plan's max_depth. Read-only "
+                   "scaffolder — checks the depth budget + tells the host to dispatch a scoped mini Wave-2..4 "
+                   "on child hypotheses (parent_chain=[target]). ADDITIVE: never drops the floor, never writes.")
+@click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
+@click.option("--run-id", required=True)
+@click.option("--target", required=True, help="Hypothesis id to deepen.")
+@click.option("--json", "json_mode", is_flag=True)
+def deepen(patient_dir: str, run_id: str, target: str, json_mode: bool) -> None:
+    run_root = Path(patient_dir) / "triggers" / run_id
+    hyps = _load_hypotheses(run_root)
+    by_id = {str(h.get("id")): h for h in hyps if h.get("id")}
+    plan = _load_json(run_root / "plan.json") or {}
+    manifest = _load_json(run_root / "run_manifest.json") or {}
+    max_depth = int(plan.get("max_depth") or manifest.get("max_depth") or 1)  # match observe/validate
+
+    if target not in by_id:
+        raise click.ClickException(
+            f"target '{target}' not found in this run's hypotheses (have e.g. {sorted(by_id)[:8]})."
+        )
+    target_depth = 1 + len(by_id[target].get("parent_chain") or [])
+    if target_depth >= max_depth:
+        _emit({
+            "ok": False, "reason": "depth_budget_exhausted",
+            "target": target, "target_depth": target_depth, "max_depth": max_depth,
+            "message": (
+                f"target {target} is at depth {target_depth}; plan max_depth={max_depth}. Re-entry refused. "
+                "Raise max_depth in the plan (planner judgment) only if a deeper split genuinely helps the "
+                "patient — otherwise stop deepening and proceed to validation/delivery."
+            ),
+        }, json_mode)
+        sys.exit(2)
+
+    elo = by_id[target].get("elo_rating") or 0
+    rivals = sorted(
+        [h for h in hyps if str(h.get("id")) != target
+         and target not in (h.get("parent_chain") or [])  # a descendant is not a rival to split from
+         and abs((h.get("elo_rating") or 0) - elo) <= 50
+         and str(h.get("status")) in ("active", "validated", "survives")],
+        key=lambda h: -(h.get("elo_rating") or 0),
+    )
+    _emit({
+        "ok": True, "target": target, "target_depth": target_depth, "new_depth": target_depth + 1,
+        "max_depth": max_depth,
+        "tie_rivals": [{"id": str(h.get("id")), "elo": h.get("elo_rating")} for h in rivals[:5]],
+        "action": (
+            f"Re-entry warranted for {target}. Dispatch a FOCUSED mini Wave-2..4 scoped to this lead: generate "
+            f"child hypotheses with parent_chain=[{target}] (refinements/alternatives that SPLIT it from its "
+            "tie-rivals), run them through tournament + validation, then `opl-cancer observe` to see the deepened "
+            "subtree. Additive only — the planned floor is untouched."
+        ),
+    }, json_mode)
+
+
+@main.command(help="Explored→survived FUNNEL (ADR-0042): deterministic counts (explored / killed-in-tournament / "
+                   "validated / falsified / inconclusive / ties-split-by-selection). --emit writes "
+                   "triggers/<run_id>/funnel.json so the brief reports it honestly to the patient. Counts only — "
+                   "no judgment.")
+@click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
+@click.option("--run-id", required=True)
+@click.option("--emit", "do_emit", is_flag=True, help="Write triggers/<run_id>/funnel.json for the brief.")
+@click.option("--json", "json_mode", is_flag=True)
+def funnel(patient_dir: str, run_id: str, do_emit: bool, json_mode: bool) -> None:
+    run_root = Path(patient_dir) / "triggers" / run_id
+    fn = _compute_funnel(run_root)
+    fn["run_id"] = run_id
+    if do_emit:
+        run_root.mkdir(parents=True, exist_ok=True)
+        (run_root / "funnel.json").write_text(json.dumps(fn, ensure_ascii=False, indent=2), encoding="utf-8")
+        fn["written"] = str(run_root / "funnel.json")
+    _emit(fn, json_mode)
 
 
 # ─── v2.1 P0-#1+#2: opl run — real executor wrapping wave runners ─────────

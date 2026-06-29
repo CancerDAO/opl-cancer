@@ -4,7 +4,7 @@ description: "OPL for Cancer (CancerDAO) — a cancer patient's own AI scientist
 license: Apache-2.0
 metadata:
   author: CancerDAO Contributors
-  version: "2.11.0"
+  version: "2.12.0"
   tags: oncology precision-medicine ai-scientist-team founder-mode hypothesis-generation co-scientist robin bixbench meta-analysis clinical-trials evidence-grounded world-unknown-candidates kg-synergy undrugged-target-design trace-digest-evolution equipped-experts bio-skills msi tmb hrd acmg cpic survival-analysis wave6 manuscript n1a preprint n1arxiv submission preprint-platform pr-assembly cross-repo-submission compositional method-primitive role-taxonomy n=1 automl prognosis
 ---
 

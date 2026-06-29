@@ -49,6 +49,13 @@ class Plan(BaseModel):
     goal: str
     waves: list[WaveAssignment]
     tasks: list[Task]
+    # Arbor/HTR re-entry (ADR-0042): the planner may grant a depth budget so the
+    # run can DEEPEN a hot lead instead of stopping at the fixed single pass.
+    # max_depth=1 (default) = legacy linear behaviour. deepen_candidates lists the
+    # hypothesis/direction ids the planner judges worth a focused re-entry. This is
+    # ADDITIVE — it can only exceed the floor, never shrink it (G55 still binds).
+    max_depth: int = Field(default=1, ge=1, le=4)
+    deepen_candidates: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check_consistency(self) -> "Plan":

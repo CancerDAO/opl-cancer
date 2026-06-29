@@ -13,6 +13,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-06-29 — Arbor/HTR tree: re-entry/depth · abstraction · informative selection · funnel (research-team branch)
+
+Closes the four remaining Arbor/HTR dynamics OPL's fixed linear waves lacked
+(ADR-0041 had added re-projection + invariant checks; this adds the *tree*). All
+four were judged first-principles helpful to the patient. The unifying move:
+`Hypothesis.parent_chain` already encoded a tree — nothing read it; now we do.
+See [`docs/adr/0042-hypothesis-tree-reentry-abstraction-funnel.md`](docs/adr/0042-hypothesis-tree-reentry-abstraction-funnel.md).
+
+### Added
+
+- **① Insight abstraction upward** (Arbor's dominant gain driver): a PI
+  abstraction beat (`prompts/pi/insight_abstraction.md`) distils 1–3 grounded
+  cross-run priors into `abstraction.json`; `opl-cancer abstract --finalize`
+  validates the shape (grounded leaves, no verbatim auto-fill) + persists them to
+  the ledger as `run_abstraction` rows. Gate **G60** (WARN) records a skip and
+  `observe` shows it OWED — never withholds the brief. `ProjectMemoryStore.save_abstraction` / `query_abstractions`.
+- **② Hypothesis tree + re-entry / adaptive depth** (architectural): `Plan.max_depth`
+  + `deepen_candidates`; `observe` renders the Elo-ranked tree with depth;
+  `opl-cancer deepen --target` is a budget-bounded re-entry scaffolder (refuses
+  past `max_depth`; `validate` flags `DEPTH_BUDGET_EXCEEDED`). Additive only —
+  never shrinks the floor (G55 still binds).
+- **③ Informative selection** under scarce N=1 validation (`prompts/methods/informative_selection.md`):
+  Wave 4 prioritises the re-test that splits a near-tie; records `discrimination_target`.
+- **④ Explored→survived funnel**: deterministic `opl-cancer funnel --emit` →
+  `funnel.json`; bilingual brief section (`patient_brief.md.j2` + render contract
+  `brief_render.md §8`) shows the patient the full explored-vs-survived picture,
+  including killed/inconclusive.
+
+### Changed
+
+- `observe` now renders the hypothesis tree + funnel + abstraction state +
+  cross-run priors; `validate` adds `DELIVERED_NO_ABSTRACTION` (WARN) +
+  `DEPTH_BUDGET_EXCEEDED` (error).
+- `run-lifecycle.md`: Step 4 may grant a depth budget; Step 8 informative
+  selection; new Step 8.5 (deepen) + 8.7 (abstraction); Step 10 emits the funnel.
+- Mechanical gates 53 → 54 (G60). G56–G59 reserved for the parallel branch.
+
+### Tests
+
+- `tests/test_adr0042_arbor_depth.py` (13 cases): G60 skip/WARN/auto-fill/pass,
+  abstract scaffold+finalize+rejections, deepen budget, funnel counts, observe
+  tree, validate warnings, plan-schema depth fields. Full non-live suite green
+  (1950 passed); version pins updated (gate registry 54, hygiene 2.12.0).
+
 ## [2.11.0] - 2026-06-29 — Arbor/HTR prompt-script boundary: `observe` + `validate` (research-team branch)
 
 Reviewed OPL against **Arbor / Hypothesis-Tree Refinement** (RUC-NLPIR/Arbor) — the

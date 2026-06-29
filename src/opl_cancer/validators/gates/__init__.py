@@ -71,6 +71,7 @@ from .g52_failure_ledger import G52FailureLedgerGate  # C3/ADR-0033
 from .g53_novel_candidate_presence import G53NovelCandidatePresenceGate  # D1/ADR-0034
 from .g54_memory_ledger_written import G54MemoryLedgerWrittenGate  # A1/ADR-0027
 from .g55_plan_floor_coverage import G55PlanFloorCoverageGate  # D1/ADR-0034
+from .g60_insight_abstraction_written import G60InsightAbstractionWrittenGate  # ADR-0042
 
 __all__ = [
     "CrossPatientContaminationError",
@@ -127,6 +128,7 @@ __all__ = [
     "G53NovelCandidatePresenceGate",
     "G54MemoryLedgerWrittenGate",
     "G55PlanFloorCoverageGate",
+    "G60InsightAbstractionWrittenGate",
     "redact_text",
     "scan_text",
 ]

@@ -65,6 +65,23 @@
 {% endif %}
 
 {% endif %}
+{% if funnel is defined and funnel %}
+## 🔎 我们探索了什么 vs 留下了什么 / What we explored vs what survived
+
+> 诚实的研究漏斗。这不是隐藏失败，而是把"团队考虑了多少方向、淘汰了多少、经数据验证后真正留下多少"摊开给你看。看到被淘汰和暂无定论的部分，和看到留下的结论一样重要。
+
+- 共生成假设 / hypotheses explored: **{{ funnel.explored }}**
+- 锦标赛中淘汰 / killed in tournament: **{{ funnel.killed_in_tournament }}**
+- 经数据验证留下 / validated against data: **{{ funnel.validated }}**
+- 被数据证伪 / falsified by data: **{{ funnel.falsified }}**
+- 证据不足、暂无定论 / inconclusive (data can't yet separate): **{{ funnel.inconclusive }}**
+{% if funnel.ties_resolved_by_selection and funnel.ties_resolved_by_selection > 0 %}- 为区分并列候选而专门安排的验证 / validations chosen to split tied options: **{{ funnel.ties_resolved_by_selection }}**
+{% endif %}{% if funnel.tree_depth_reached and funnel.tree_depth_reached > 1 %}- 对热点方向的深入层数 / depth reached on hot leads: **{{ funnel.tree_depth_reached }}**
+{% endif %}
+
+> "暂无定论"是真实且有用的信息——它意味着以现有数据还无法在两个选项之间下结论，而不是某个选项无效。
+
+{% endif %}
 {% if world_unknown_candidates is defined and world_unknown_candidates and world_unknown_candidates|length > 0 %}
 ## ⚡ World-Unknown / Speculative Candidates — Research Directions (研究方向)
 

@@ -125,6 +125,8 @@ Wait for user decision.
 
 > **Read the failure ledger before ideating (Arbor/HTR negative constraints — read half of `G52`).** First run `opl-cancer observe --patient <patient_dir> --run-id <run_id>` and pass its `negative_constraints` (hypotheses falsified in **any** prior run for this patient) into the planner. The agenda MUST NOT silently re-propose a killed direction; falsified ≠ forbidden forever, but re-opening one is a deliberate, evidence-backed choice that overturns the reason it was killed — never an accident. `G52` writes the dead ends; this is where the planner reads them back, so the run spends its budget on *new* ground (structured search, not a bigger fan-out).
 
+> **Grant a depth budget for hot leads (Arbor/HTR re-entry, ADR-0042).** By default a plan is flat (`max_depth: 1`). If the goal is the kind where one promising direction may need a *focused deeper split* to be decision-relevant for the patient (e.g. a synergy lead whose mechanism forks), the planner MAY set `max_depth: 2-4` and list the directions worth deepening in `deepen_candidates`. This is ADDITIVE — it can only exceed the floor on a warranted lead, never shrink the planned team (`G55` still binds). Most runs stay flat; grant depth only when a deeper pass genuinely helps the patient, not by default.
+
 > **Outcome-backward planning (D1/E1 · ADR-0034).** Dispatch the LLM planner
 > `prompts/pi/goal_backward_planner.md` FIRST — it reads the patient's verbatim
 > goal + structured `desired_endpoint`/`decision_juncture` (from
@@ -273,10 +275,38 @@ Stage-end example: *"[3/5 查数据 / Cross-checking] ✓ 70 个查询里 70 个
 
 Each Wave 2 hypothesis is retested against Wave 3 measured outputs. Verdict per hypothesis: `survives` / `weakened` / `falsified` / `new` (Wave 3 surfaced new finding the hypothesis pool missed).
 
+> **Informative selection (Arbor/HTR SELECT, N=1; `prompts/methods/informative_selection.md`).** Validation evidence is scarce for one patient — don't validate by popularity. When ≥2 surviving hypotheses are near-tied on Elo or imply mutually incompatible patient actions, prioritise the re-test whose outcome would **split the tie** (change the ranking), and record `discrimination_target: [hyp_a, hyp_b]` + `discrimination_rationale` on that Wave-4 record. The funnel surfaces how many ties the run actually resolved.
+
 ```bash
 opl-cancer wave4 \
   --patient <patient_dir> --run-id <run_id>
 ```
+
+---
+
+**Step 8.5 — Deepen hot leads · re-entry (Arbor/HTR tree, ADR-0042; only if the plan granted depth).**
+
+If `plan.json` set `max_depth > 1` and marked `deepen_candidates`, run `opl-cancer observe` and look at the hypothesis TREE + funnel: a `deepen_candidate` that is **near-tied with a rival** (its split is decision-relevant) and still has **depth budget** warrants a focused re-entry rather than stopping at the single pass.
+
+```bash
+opl-cancer deepen --patient <patient_dir> --run-id <run_id> --target <hyp_id>   # scaffolder: checks budget, never executes
+```
+
+Then **dispatch a focused mini Wave-2..4 scoped to that lead** — generate child hypotheses with `parent_chain=[<hyp_id>]` (refinements/alternatives that split it from its tie-rivals), run them through tournament + validation, then re-`observe` to see the deepened subtree. This is **ADDITIVE**: it can only exceed the floor on a warranted lead, never shrink the planned team (`G55` still binds); `deepen` refuses past `max_depth` and `validate` flags `DEPTH_BUDGET_EXCEEDED`. Skip this step entirely for a flat (`max_depth: 1`) run.
+
+---
+
+**Step 8.7 — Abstraction beat · distil cross-run priors (Arbor/HTR ↑, the dominant gain driver, ADR-0042).**
+
+Before delivery, turn this run's results into reusable knowledge — the single highest-value judgment in the lifecycle. `observe` shows this as **OWED** until done.
+
+```bash
+opl-cancer abstract --patient <patient_dir> --run-id <run_id>            # scaffold: tells you to dispatch the beat
+# dispatch prompts/pi/insight_abstraction.md → writes triggers/<run_id>/abstraction.json
+opl-cancer abstract --patient <patient_dir> --run-id <run_id> --finalize # validate shape + persist to ledger
+```
+
+Dispatch `prompts/pi/insight_abstraction.md` as a subagent: it reads this run's hypotheses + Wave-4 verdicts and writes **1–3 grounded cross-run priors** (each generalises across ≥1 real leaf; a verbatim restatement of one hypothesis is rejected as auto-fill). `--finalize` persists them to the append-only ledger as `run_abstraction` rows, where the next run reads them as warm-start context (and the next planner reads the `warns_against` ones as dead-ends, completing the G52 read-loop). `G60` (WARN) records the skip in attestation if you omit this — it never withholds the patient's brief, but a run that doesn't abstract did not compound.
 
 ---
 
@@ -312,8 +342,9 @@ Internal gate IDs (G1-G43), claim-level Level-3/Level-4 codes, RC-xxx risk-card 
 ```bash
 # v2.7.0: produce the honest scaffold, fill the briefs from the wave claims,
 # then FINALIZE (real Henry audit + delivery-integrity gates G34/G35/G37 + G1/G2/G36).
+opl-cancer funnel --patient <patient_dir> --run-id <run_id> --emit       # deterministic explored→survived counts → funnel.json
 opl-cancer deliver --patient <patient_dir> --run-id <run_id>            # scaffold
-#   ↳ fill patient_plain_brief.md + patient_pi_brief.md from real wave claims
+#   ↳ fill patient_plain_brief.md + patient_pi_brief.md from real wave claims (incl. the funnel section, per brief_render.md §8)
 opl-cancer deliver --patient <patient_dir> --run-id <run_id> --finalize # real audit + gates
 opl-cancer attest --patient <patient_dir> --run-id <run_id>             # final integrity proof
 opl-cancer validate --patient <patient_dir> --run-id <run_id>           # invariant check (exit≠0 = inconsistent state)

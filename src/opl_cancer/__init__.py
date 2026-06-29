@@ -1,2 +1,2 @@
 """OPL for Cancer — open-source AI scientist team skill plugin."""
-__version__ = "2.11.0"
+__version__ = "2.12.0"

@@ -4,7 +4,7 @@
 
 ### One Person Lab — your own AI scientist team, for one cancer patient
 
-[![Version](https://img.shields.io/badge/version-2.10.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.12.0-blue)](CHANGELOG.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-1748%20passing-brightgreen)](#contributing)
 [![Status](https://img.shields.io/badge/status-research%20preview-orange)](#what-this-is--what-this-is-not)
@@ -314,7 +314,7 @@ git clone https://github.com/CancerDAO/opl-cancer
 cd opl-cancer
 python -m venv .venv && source .venv/bin/activate
 pip install -e .[dev,bio]
-pytest tests/ -q -m "not live"   # 1748 passing as of v2.10.0 (clean env)
+pytest tests/ -q -m "not live"   # 1748 passing as of v2.10.0 baseline; 1950 on this branch (clean env)
 ```
 
 The roadmap is the 6-milestone M1-M6 plan in [`docs/rfc/0001-compositional-paradigm.md`](docs/rfc/0001-compositional-paradigm.md). Highlights:
@@ -363,7 +363,7 @@ Full ethics declaration and disclaimer: [DISCLAIMER.md](DISCLAIMER.md). Safety r
   author       = {{CancerDAO Contributors}},
   title        = {{OPL for Cancer: One Person Lab — your own AI scientist team for one cancer patient}},
   year         = {2026},
-  version      = {2.10.0},
+  version      = {2.12.0},
   url          = {https://github.com/CancerDAO/opl-cancer},
   license      = {Apache-2.0}
 }

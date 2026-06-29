@@ -34,7 +34,9 @@ def test_cli_status_runs() -> None:
     # pre-registration, ADR-0032) +G50/G51 (C1 honest tournament, ADR-0031). G44
     # reserved for the in-flight retrieval-standardization branch. +G53/G55 (D1
     # outcome-backward planner, ADR-0034). 42 → 53.
-    assert "Mechanical gates: 53" in r.output
+    # v2.12.0 (ADR-0042): +G60 insight_abstraction_written (WARN). G56-G59 reserved
+    # for the parallel value-source/CRC branch. 53 → 54.
+    assert "Mechanical gates: 54" in r.output
     # v2.2 (ADR-0022): +7 bio-skill integrators (MSI/TMB/SigProfiler/ACMG/KM/CPIC/PaperQA-FT)
     assert "Integrators wired: 36" in r.output
     # v2.3 (ADR-0023): Wave 6 manuscript+.n1a wave runner.
