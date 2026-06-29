@@ -298,7 +298,9 @@ Then **dispatch a focused mini Wave-2..4 scoped to that lead** — generate chil
 
 - `deepenable …` → the lead still has budget + surviving children worth splitting further → may `deepen` again.
 - `dry (converged)` → the last round produced child hypotheses but **none survived** → `deepen` refuses (`reason: direction_dry`); STOP deepening this lead, the direction is exhausted.
-- `budget-spent` → depth hit `max_depth` → STOP (raise `max_depth` only if a deeper split genuinely helps the patient).
+- `dead (Wave-4 falsified — do NOT deepen)` → the lead itself was disproven by Wave 4 → `deepen` refuses (`reason: target_dead`); STOP, never deepen a disproven direction (false-hope guard).
+- `awaiting judgement (N children pending)` → the lead has children still PENDING Wave-4 judgement → `deepen` refuses (`reason: awaiting_judgement`); STOP this round, finish validating the existing children first; if Wave 4 already returned `inconclusive`, treat the lead as converged and proceed (do not re-spawn).
+- `budget-spent` → the live frontier hit `max_depth` → STOP (raise `max_depth` only if a deeper split genuinely helps the patient).
 
 So the loop terminates on **whichever comes first: the direction goes dry, or the depth budget is spent** — never an unbounded dig. This is **ADDITIVE**: it can only exceed the floor on a warranted lead, never shrink the planned team (`G55` still binds); `deepen` refuses past `max_depth` (`validate` flags `DEPTH_BUDGET_EXCEEDED`) and refuses a dry direction. The actual mini-wave *execution* is your dispatch (the CLI never executes any wave — same contract as Steps 5–8); the harness owns the budget, the convergence detection, and the tree projection. Skip this step entirely for a flat (`max_depth: 1`) run.
 
