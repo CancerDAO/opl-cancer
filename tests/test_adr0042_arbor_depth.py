@@ -421,3 +421,22 @@ def test_tree_glyph_uses_lifestate(tmp_path):
     (rr / "wave4_validation.json").write_text(json.dumps({"validations": [{"hyp_id": "H2a", "survival_status": "falsified"}]}))
     txt = CliRunner().invoke(observe, ["--patient", str(patient), "--run-id", rid]).output
     assert "✗ H2a" in txt
+
+
+def test_deepen_cyclic_island_terminates(tmp_path):
+    """iter-5 review P1: a node on a cyclic/root-unreachable island must NOT be an
+    infinitely-deepenable frontier — missing depth defaults to the ceiling →
+    budget_spent (terminal), not a forever-deepenable depth-1 node."""
+    patient = tmp_path / "P"
+    rid = "r1"
+    rr = patient / "triggers" / rid
+    rr.mkdir(parents=True)
+    (rr / "plan.json").write_text(json.dumps({"max_depth": 3, "deepen_candidates": ["P"]}))
+    (rr / "wave2_hypotheses.json").write_text(json.dumps({"hypotheses": [
+        {"id": "R", "status": "active", "parent_chain": []},          # real root
+        {"id": "P", "status": "active", "parent_chain": ["Q"]},        # P<->Q cycle
+        {"id": "Q", "status": "active", "parent_chain": ["P"]},
+        {"id": "X", "status": "active", "parent_chain": ["P"]},        # alive childless, unreachable
+    ]}))
+    d = json.loads(CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "P", "--json"]).output)
+    assert d["ok"] is False and d["reason"] in ("depth_budget_exhausted", "dry")  # NOT deepenable-forever

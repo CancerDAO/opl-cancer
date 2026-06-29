@@ -128,35 +128,42 @@ def assess_deepen(hyps: list[dict[str, Any]], target: str, max_depth: int,
             continue
         seen.add(n)
         stack.extend(children.get(n, []))
-    alive = [s for s in seen if lifestate(by_id[s], w4_by_id) == "alive"]
-    pending = [s for s in seen if lifestate(by_id[s], w4_by_id) == "pending"]
+    order = sorted(seen)  # deterministic tie-break (independent of set/hash order)
+    alive = [s for s in order if lifestate(by_id[s], w4_by_id) == "alive"]
+    pending = [s for s in order if lifestate(by_id[s], w4_by_id) == "pending"]
 
-    # The frontier is an alive node that has NOT been deepened yet (no children)
-    # and still has room. A node is deepened AT MOST ONCE: spawning gives it
-    # children, so it is no longer "ready" next round — a structural width cap of
-    # one spawn per node. Each deepenable round therefore consumes a ready leaf
-    # and creates nodes one level deeper, so the live frontier depth strictly
-    # increases → bounded by max_depth → TERMINATION GUARANTEED, independent of
-    # whether the host ignores the advisory.
-    ready = [n for n in alive if not children.get(n) and depths.get(n, 1) < max_depth]
+    # A node with NO depth entry is unreachable from any acyclic root (a cyclic
+    # island, or the flat-fallback when there are zero roots) — treat it as AT the
+    # ceiling so it can never be an infinitely-deepenable frontier. depths.get
+    # defaulting to 1 was the non-termination hole: 1 < max_depth stayed true
+    # forever for corrupted/cyclic parent_chains.
+    def _depth(n: str) -> int:
+        return depths.get(n, max_depth)
+
+    # The frontier is an alive node not yet deepened (no children) with room. A
+    # node is deepened AT MOST ONCE (spawning gives it children → never "ready"
+    # again — a structural width cap), so each deepenable round consumes a ready
+    # leaf and creates a node one level deeper: the frontier depth strictly
+    # increases → bounded by max_depth → TERMINATION GUARANTEED.
+    ready = [n for n in alive if not children.get(n) and _depth(n) < max_depth]
     if ready:
-        frontier = max(ready, key=lambda s: depths.get(s, 1))
+        frontier = max(ready, key=lambda s: (_depth(s), s))
         return {"state": "deepenable", "frontier": frontier,
-                "frontier_depth": depths.get(frontier, 1), "max_depth": max_depth}
+                "frontier_depth": _depth(frontier), "max_depth": max_depth}
 
     # No ready alive leaf. If anything is still pending judgement, BLOCK re-spawn
-    # (validate what's there first) — this catches the relocated livelock where an
+    # (validate what's there first) — catches the relocated livelock where an
     # alive intermediate node's children are all pending.
     if pending:
         return {"state": "awaiting_judgement", "pending": len(pending),
                 "children_explored": len(direct)}
 
-    # An alive leaf pinned at the depth ceiling → budget spent.
-    capped = [n for n in alive if not children.get(n) and depths.get(n, 1) >= max_depth]
+    # An alive leaf pinned at (or above) the depth ceiling → budget spent.
+    capped = [n for n in alive if not children.get(n) and _depth(n) >= max_depth]
     if capped:
-        frontier = max(capped, key=lambda s: depths.get(s, 1))
+        frontier = max(capped, key=lambda s: (_depth(s), s))
         return {"state": "budget_spent", "frontier": frontier,
-                "frontier_depth": depths.get(frontier, 1), "max_depth": max_depth}
+                "frontier_depth": _depth(frontier), "max_depth": max_depth}
 
     # Every explored line under the target is terminally dead → dry.
     return {"state": "dry", "children_explored": len(direct)}
