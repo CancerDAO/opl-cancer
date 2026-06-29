@@ -401,3 +401,23 @@ def test_deepen_refuses_dead_target(tmp_path):
     (rr2 / "wave2_hypotheses.json").write_text(_j.dumps(h))
     d2 = _j.loads(CliRunner().invoke(deepen, ["--patient", str(patient2), "--run-id", rid2, "--target", "H2", "--json"]).output)
     assert d2["reason"] == "target_dead"
+
+
+def test_deepen_relocated_livelock_blocked(tmp_path):
+    """iter-4 review P1: an ALIVE intermediate node whose children are all pending
+    must NOT stay an infinitely-deepenable frontier — it returns awaiting_judgement."""
+    # H2(alive) -> C1(alive,depth2) -> C1a,C1b (new=pending). max_depth=4.
+    patient, rid, rr = _run_children(
+        tmp_path, [("C1", "active", ["H2"]), ("C1a", "new", ["C1", "H2"]), ("C1b", "new", ["C1", "H2"])],
+        max_depth=4)
+    d = json.loads(CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"]).output)
+    assert d["ok"] is False and d["reason"] == "awaiting_judgement"
+
+
+def test_tree_glyph_uses_lifestate(tmp_path):
+    """iter-4 review P2: a Wave-4-falsified node renders ✗ even if schema status is
+    stale 'active' (glyph must not contradict candidate_states)."""
+    patient, rid, rr = _run_children(tmp_path, [("H2a", "active", ["H2"])])
+    (rr / "wave4_validation.json").write_text(json.dumps({"validations": [{"hyp_id": "H2a", "survival_status": "falsified"}]}))
+    txt = CliRunner().invoke(observe, ["--patient", str(patient), "--run-id", rid]).output
+    assert "✗ H2a" in txt

@@ -728,11 +728,14 @@ def _load_json(path: Path) -> Any:
 # it). _load_hypotheses / _build_hypothesis_forest / _compute_funnel are imported
 # from glue.funnel (single source of truth, also used by the delivery runner).
 
-def _render_forest_lines(hyps: list[dict[str, Any]], max_lines: int = 24) -> list[str]:
+def _render_forest_lines(hyps: list[dict[str, Any]], max_lines: int = 24,
+                         w4_by_id: dict[str, str] | None = None) -> list[str]:
     by_id = {str(h.get("id")): h for h in hyps if h.get("id")}
     children, roots = _build_hypothesis_forest(hyps)
-    sym = {"validated": "✓", "survives": "✓", "active": "•",
-           "weakened": "~", "falsified": "✗", "inconclusive": "?", "new": "+"}
+    w4 = w4_by_id or {}
+    # Glyph from the canonical lifestate (NOT raw schema status), so a Wave-4
+    # falsified node never renders as alive and contradicts candidate_states.
+    sym = {"alive": "•", "dead": "✗", "pending": "?"}
     lines: list[str] = []
     seen: set[str] = set()  # guard against a malformed cyclic parent_chain
 
@@ -741,11 +744,11 @@ def _render_forest_lines(hyps: list[dict[str, Any]], max_lines: int = 24) -> lis
             return
         seen.add(hid)
         h = by_id[hid]
-        st = str(h.get("status", "active"))
+        glyph = sym.get(_lifestate(h, w4), "•")
         elo = h.get("elo_rating")
         elo_s = f" Elo{int(elo)}" if isinstance(elo, (int, float)) else ""
         txt = str(h.get("text", ""))[:58]
-        lines.append(f"{prefix}{sym.get(st, '•')} {hid}{elo_s}: {txt}")
+        lines.append(f"{prefix}{glyph} {hid}{elo_s}: {txt}")
         for c in sorted(children.get(hid, []), key=lambda c: -(by_id[c].get("elo_rating") or 0)):
             walk(c, prefix + "    ")
 
@@ -879,7 +882,7 @@ def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
         "attested": attested,
         "memory": mem,
         # ADR-0042 additions:
-        "hypothesis_tree": _render_forest_lines(hyps) if hyps else [],
+        "hypothesis_tree": _render_forest_lines(hyps, w4_by_id=_w4) if hyps else [],
         "funnel": funnel,
         "abstraction": abstraction,
         "depth": {"max_depth": max_depth, "reached": funnel["tree_depth_reached"],
@@ -1234,9 +1237,10 @@ def deepen(patient_dir: str, run_id: str, target: str, json_mode: bool) -> None:
             "target": target, "pending": a.get("pending", 0),
             "message": (
                 f"{target} has {a.get('pending', 0)} child hypothes(es) still PENDING Wave-4 judgement. Do NOT "
-                "spawn more — finish validating the existing children first; re-run deepen once they resolve "
-                "(alive → deepen further; all dead → dry). This is the termination backstop against an "
-                "all-inconclusive livelock."
+                "spawn more — finish validating the existing children first. If Wave-4 already returned "
+                "'inconclusive' for them, treat the lead as CONVERGED and proceed to delivery (do not keep "
+                "re-spawning); otherwise re-run deepen once they resolve (alive → deepen further; all dead → dry). "
+                "Termination backstop against an all-inconclusive livelock."
             ),
         }, json_mode)
         return

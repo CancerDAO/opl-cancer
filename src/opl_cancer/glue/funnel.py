@@ -128,38 +128,38 @@ def assess_deepen(hyps: list[dict[str, Any]], target: str, max_depth: int,
             continue
         seen.add(n)
         stack.extend(children.get(n, []))
-    descendants = seen - {target}
-    alive_desc = [s for s in descendants if lifestate(by_id[s], w4_by_id) == "alive"]
-    pending_desc = [s for s in descendants if lifestate(by_id[s], w4_by_id) == "pending"]
+    alive = [s for s in seen if lifestate(by_id[s], w4_by_id) == "alive"]
+    pending = [s for s in seen if lifestate(by_id[s], w4_by_id) == "pending"]
 
-    # A live descendant → advance to the deepest one (depth strictly increases →
-    # bounded by max_depth → termination guaranteed).
-    if alive_desc:
-        frontier = max(alive_desc, key=lambda s: depths.get(s, 1))
-        fdepth = depths.get(frontier, 1)
-        if fdepth >= max_depth:
-            return {"state": "budget_spent", "frontier": frontier,
-                    "frontier_depth": fdepth, "max_depth": max_depth}
+    # The frontier is an alive node that has NOT been deepened yet (no children)
+    # and still has room. A node is deepened AT MOST ONCE: spawning gives it
+    # children, so it is no longer "ready" next round — a structural width cap of
+    # one spawn per node. Each deepenable round therefore consumes a ready leaf
+    # and creates nodes one level deeper, so the live frontier depth strictly
+    # increases → bounded by max_depth → TERMINATION GUARANTEED, independent of
+    # whether the host ignores the advisory.
+    ready = [n for n in alive if not children.get(n) and depths.get(n, 1) < max_depth]
+    if ready:
+        frontier = max(ready, key=lambda s: depths.get(s, 1))
         return {"state": "deepenable", "frontier": frontier,
-                "frontier_depth": fdepth, "max_depth": max_depth}
+                "frontier_depth": depths.get(frontier, 1), "max_depth": max_depth}
 
-    # P0 (termination): children exist but NONE alive yet — if any are still
-    # pending judgement, do NOT spawn more (that is the livelock); block on
-    # validating what's there. Only when every descendant is terminally dead is
-    # the lead DRY.
-    if pending_desc:
-        return {"state": "awaiting_judgement", "pending": len(pending_desc),
+    # No ready alive leaf. If anything is still pending judgement, BLOCK re-spawn
+    # (validate what's there first) — this catches the relocated livelock where an
+    # alive intermediate node's children are all pending.
+    if pending:
+        return {"state": "awaiting_judgement", "pending": len(pending),
                 "children_explored": len(direct)}
-    if direct:
-        return {"state": "dry", "children_explored": len(direct)}
 
-    # No children yet and the target is alive → first-round deepen of the lead.
-    fdepth = depths.get(target, 1)
-    if fdepth >= max_depth:
-        return {"state": "budget_spent", "frontier": target,
-                "frontier_depth": fdepth, "max_depth": max_depth}
-    return {"state": "deepenable", "frontier": target,
-            "frontier_depth": fdepth, "max_depth": max_depth}
+    # An alive leaf pinned at the depth ceiling → budget spent.
+    capped = [n for n in alive if not children.get(n) and depths.get(n, 1) >= max_depth]
+    if capped:
+        frontier = max(capped, key=lambda s: depths.get(s, 1))
+        return {"state": "budget_spent", "frontier": frontier,
+                "frontier_depth": depths.get(frontier, 1), "max_depth": max_depth}
+
+    # Every explored line under the target is terminally dead → dry.
+    return {"state": "dry", "children_explored": len(direct)}
 
 
 def compute_funnel(run_root: Path) -> dict[str, Any]:
