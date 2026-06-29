@@ -440,3 +440,20 @@ def test_deepen_cyclic_island_terminates(tmp_path):
     ]}))
     d = json.loads(CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "P", "--json"]).output)
     assert d["ok"] is False and d["reason"] in ("depth_budget_exhausted", "dry")  # NOT deepenable-forever
+
+
+def test_lifestate_failsafe_on_noncanonical_verdict(tmp_path):
+    """iter-5 review P1: a non-canonical Wave-4 verdict ('weakened'/'refuted'/…) on a
+    stale-'active' node must NOT surface as a live deepenable lead (false-hope)."""
+    from opl_cancer.glue.funnel import lifestate
+    h = {"id": "H", "status": "active"}
+    for sv in ("weakened", "refuted", "rejected", "disproven", "not_supported"):
+        assert lifestate(h, {"H": sv}) == "pending", f"{sv} wrongly read as {lifestate(h, {'H': sv})}"
+    assert lifestate(h, {}) == "alive"          # missing verdict → schema (active)
+    assert lifestate(h, {"H": "validated"}) == "alive"
+    assert lifestate(h, {"H": "falsified"}) == "dead"
+    # end-to-end: a target whose only child is 'weakened' → awaiting/dry, not deepenable
+    patient, rid, rr = _run_children(tmp_path, [("H2a", "active", ["H2"])])
+    (rr / "wave4_validation.json").write_text(json.dumps({"validations": [{"hyp_id": "H2a", "survival_status": "weakened"}]}))
+    d = json.loads(CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"]).output)
+    assert d.get("ok") is False and d["reason"] == "awaiting_judgement"

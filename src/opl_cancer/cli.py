@@ -1054,9 +1054,9 @@ def _validate_run_state(patient_dir: Path, run_id: str) -> list[dict[str, str]]:
     if (run_root / "wave4_validation.json").exists():
         # Only SCORED survivors form a tie — a missing elo is not a 0-point tie
         # (review P2: else any ≥2 unscored survivors would false-fire the WARN).
+        _w4v = _w4_survival_by_id(run_root)
         scored = [h for h in _load_hypotheses(run_root)
-                  if str(h.get("status")) in ("active", "validated", "survives")
-                  and h.get("elo_rating") is not None]
+                  if _lifestate(h, _w4v) == "alive" and h.get("elo_rating") is not None]
         near_tie = any(
             abs(a["elo_rating"] - b["elo_rating"]) <= 50
             for i, a in enumerate(scored) for b in scored[i + 1:]

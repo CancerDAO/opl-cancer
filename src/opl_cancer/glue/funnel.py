@@ -88,9 +88,14 @@ def lifestate(hyp: dict[str, Any], w4_by_id: dict[str, str]) -> str:
         return "alive"
     if sv == "falsified":
         return "dead"
-    if sv == "inconclusive":
+    # FAIL-SAFE: any other NON-EMPTY verdict (inconclusive / weakened / refuted /
+    # rejected / disproven / any synonym the validator subagent may emit) is
+    # "judged but not affirmatively alive" → pending. It must NEVER fall through
+    # to the (possibly stale 'active') schema status and surface a Wave-4-
+    # undermined lead as a live deepenable frontier (the 真假希望 anti-pattern).
+    if sv:
         return "pending"
-    st = str(hyp.get("status") or "").lower()
+    st = str(hyp.get("status") or "").lower()  # only a MISSING verdict consults schema
     if st in ("falsified", "retired", "saturated"):
         return "dead"   # terminally judged / exhausted — no more digging
     if st in ("active", "validated", "survives"):
