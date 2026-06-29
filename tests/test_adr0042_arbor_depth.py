@@ -469,3 +469,20 @@ def test_deepen_rootless_cycle_terminates(tmp_path):
         {"id": "Q", "status": "active", "parent_chain": ["P"]}]}))   # rootless 2-cycle
     d = json.loads(CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "P", "--json"]).output)
     assert d["ok"] is False and d["reason"] in ("depth_budget_exhausted", "dry")  # terminal, not deepenable
+
+
+def test_deepen_killed_children_is_dry(tmp_path):
+    """final review-1 P0: a frontier whose entire spawned round was KILLED (written
+    to killed_candidates.jsonl, not wave2) is DRY, not deepenable-forever."""
+    patient = tmp_path / "P"; rid = "r1"; rr = patient / "triggers" / rid; rr.mkdir(parents=True)
+    (rr / "plan.json").write_text(json.dumps({"max_depth": 3, "deepen_candidates": ["H2"]}))
+    (rr / "wave2_hypotheses.json").write_text(json.dumps({"hypotheses": [
+        {"id": "H2", "status": "active", "parent_chain": []}]}))
+    (rr / "killed_candidates.jsonl").write_text(
+        json.dumps({"id": "H2a", "parent_chain": ["H2"]}) + "\n"
+        + json.dumps({"id": "H2b", "parent_chain": ["H2"]}) + "\n")
+    d = json.loads(CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"]).output)
+    assert d["ok"] is False and d["reason"] == "direction_dry"
+    # and observe agrees
+    j = json.loads(CliRunner().invoke(observe, ["--patient", str(patient), "--run-id", rid, "--json"]).output)
+    assert j["depth"]["candidate_states"]["H2"] == "dry (converged)"
