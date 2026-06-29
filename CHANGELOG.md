@@ -13,6 +13,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-06-29 — Close the four Arbor value-flow gaps (diagram-driven, adversarially reviewed)
+
+A post-iteration architecture diagram exposed four dangling edges in the v2.12.0
+tree work; each is now closed (or, where the harness/brain boundary forbids it,
+documented as by-design) and adversarially reviewed. See
+[`docs/adr/0042-*.md`](docs/adr/0042-hypothesis-tree-reentry-abstraction-funnel.md) § Gap-closure.
+
+### Added / Changed
+
+- **✗① abstraction read-back**: `observe` surfaces the abstracted-prior CONTENT
+  (`cross_run_priors_list`: lesson / directional / applies_to), and
+  `goal_backward_planner.md` instructs the planner to condition ideation on it —
+  closing the propagation loop (was: persisted + counted but unconsumed).
+- **✗② loop-until-dry convergence**: `deepen` refuses a `direction_dry` lead
+  (children exist, none survived) on top of `depth_budget_exhausted`; `observe`
+  shows per-candidate state (absent / budget-spent / dry / deepenable).
+  Termination guaranteed (dry OR depth budget). Execution stays host-dispatched
+  (the CLI never executes a wave — same contract as Steps 5–8).
+- **✗③ informative-selection enforcement**: `validate` emits
+  `INFORMATIVE_SELECTION_SKIPPED` (WARN) on a *scored* near-tie among survivors
+  with no `discrimination_target` recorded.
+- **✗④ funnel auto-emit**: `delivery_runner.run()` always writes `funnel.json` so
+  the brief renders the explored-vs-survived section without the host running
+  `funnel --emit`. Funnel/forest logic extracted to `glue/funnel.py` (single
+  source of truth; cli + delivery share it).
+
+### Fixed (from the adversarial reviews)
+
+- **Convergence single-source-of-truth (iteration-2 review found 3 P1s)**: `deepen`
+  and `observe`'s candidate-states no longer use three forked definitions of
+  child/depth/status. New `glue/funnel.py` helpers — `lifestate` (canonical
+  alive/dead/pending reconciling the schema `status` and Wave-4 `survival_status`
+  vocabularies), `depth_map` (forest-walk depth), and `assess_deepen`
+  (frontier-advancing) — are the one definition both use. Fixes: a freshly
+  scaffolded `new`/`None`/`inconclusive` child is PENDING (was wrongly read as
+  dead → false `direction_dry`); a surviving grandchild no longer masks dead
+  direct children; depth uses the tree walk (was a constant that never advanced,
+  making termination non-guaranteed). `saturated`/`retired` count as dead.
+  `direction_dry` / `depth_budget_exhausted` are ADVISORY (exit 0, `advisory:true`,
+  not error code 2). Termination is now provable: each round advances the live
+  frontier toward `max_depth`, or the frontier goes dry.
+- `INFORMATIVE_SELECTION_SKIPPED` no longer false-fires when survivors lack an
+  `elo_rating` (a missing score is not a 0-point tie).
+- `tests/test_glue/test_sniffer_halt.py` (pre-existing API drift) now skips
+  cleanly via `importorskip` instead of aborting suite collection, so the full
+  `tests/` runs green without `--ignore`.
+
+### Tests
+
+- `tests/test_adr0042_arbor_depth.py` grows to 25 cases (read-back content,
+  informative-selection WARN + unscored no-fire, funnel auto-emit, dry-detection,
+  candidate convergence states). Full suite: **1961 passed, 9 skipped, 0 failed**.
+
 ## [2.12.0] - 2026-06-29 — Arbor/HTR tree: re-entry/depth · abstraction · informative selection · funnel (research-team branch)
 
 Closes the four remaining Arbor/HTR dynamics OPL's fixed linear waves lacked

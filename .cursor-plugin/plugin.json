@@ -1,6 +1,6 @@
 {
   "name": "opl-cancer",
-  "version": "2.12.0",
+  "version": "2.13.0",
   "description": "OPL for Cancer (CancerDAO) — a patient's own AI scientist team (PI Sid + 20 expert archetypes + IRB-substitute auditor Henry) producing a PMID-anchored, three-tier-labelled research brief. Not treatment advice; the patient is sole decision authority.",
   "repository": "https://github.com/CancerDAO/opl-cancer",
   "license": "Apache-2.0",

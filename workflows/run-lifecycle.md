@@ -292,7 +292,15 @@ If `plan.json` set `max_depth > 1` and marked `deepen_candidates`, run `opl-canc
 opl-cancer deepen --patient <patient_dir> --run-id <run_id> --target <hyp_id>   # scaffolder: checks budget, never executes
 ```
 
-Then **dispatch a focused mini Wave-2..4 scoped to that lead** — generate child hypotheses with `parent_chain=[<hyp_id>]` (refinements/alternatives that split it from its tie-rivals), run them through tournament + validation, then re-`observe` to see the deepened subtree. This is **ADDITIVE**: it can only exceed the floor on a warranted lead, never shrink the planned team (`G55` still binds); `deepen` refuses past `max_depth` and `validate` flags `DEPTH_BUDGET_EXCEEDED`. Skip this step entirely for a flat (`max_depth: 1`) run.
+Then **dispatch a focused mini Wave-2..4 scoped to that lead** — generate child hypotheses with `parent_chain=[<hyp_id>]` (refinements/alternatives that split it from its tie-rivals), run them through tournament + validation, then re-`observe` to see the deepened subtree.
+
+**Loop-until-dry (the convergence rule, ADR-0042 ✗②).** Re-entry is a *bounded loop*, not a single shot. After each deepening round, re-`observe` and read the per-candidate state under "marked for DEEPEN":
+
+- `deepenable …` → the lead still has budget + surviving children worth splitting further → may `deepen` again.
+- `dry (converged)` → the last round produced child hypotheses but **none survived** → `deepen` refuses (`reason: direction_dry`); STOP deepening this lead, the direction is exhausted.
+- `budget-spent` → depth hit `max_depth` → STOP (raise `max_depth` only if a deeper split genuinely helps the patient).
+
+So the loop terminates on **whichever comes first: the direction goes dry, or the depth budget is spent** — never an unbounded dig. This is **ADDITIVE**: it can only exceed the floor on a warranted lead, never shrink the planned team (`G55` still binds); `deepen` refuses past `max_depth` (`validate` flags `DEPTH_BUDGET_EXCEEDED`) and refuses a dry direction. The actual mini-wave *execution* is your dispatch (the CLI never executes any wave — same contract as Steps 5–8); the harness owns the budget, the convergence detection, and the tree projection. Skip this step entirely for a flat (`max_depth: 1`) run.
 
 ---
 

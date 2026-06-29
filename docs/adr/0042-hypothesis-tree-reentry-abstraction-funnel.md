@@ -74,10 +74,36 @@ write run reasoning). This is ADR-0041's boundary carried through.
 - Gate numbering: **G60** used; **G56–G59 are reserved** for the in-flight
   value-source / CRC hardening on the parallel branch (branch-purpose separation).
 
-## Known follow-ups
+## Gap-closure iterations (diagram-driven, 2026-06-29)
 
-- `deepen` scaffolds the re-entry; the focused mini-wave execution is the host's
-  dispatch (as with every wave — the CLI never executes). A future ADR may add a
-  convergence gate (loop-until-dry) bounding deepening rounds.
-- Cross-run priors are persisted + surfaced; a future step could weight the
-  next run's ideation by prior confidence.
+The post-iteration architecture diagram exposed four dangling edges; each was
+then closed (or, where the boundary forbids it, documented as by-design) and
+adversarially reviewed:
+
+- **✗① abstraction read-back (closed).** `observe` now surfaces the abstracted
+  prior *content* (`cross_run_priors_list`: lesson / directional / applies_to),
+  and `goal_backward_planner.md` instructs the planner to condition ideation on
+  it (build on `supports`, avoid `warns_against`). The write-half plus this
+  read-half closes the propagation loop.
+- **✗② loop-until-dry convergence (closed).** `deepen` now refuses a
+  `direction_dry` lead (children exist but none survived) in addition to
+  `depth_budget_exhausted`; `observe` shows per-candidate state
+  (absent / budget-spent / dry / deepenable). Termination is guaranteed: a
+  deepening loop stops on whichever comes first — the direction goes dry or the
+  depth budget is spent. The mini-wave *execution* remains host-dispatched (the
+  CLI never executes any wave — the same contract as Steps 5–8); the harness owns
+  the budget, convergence detection, and tree projection.
+- **✗③ informative-selection enforcement (closed).** `validate` emits
+  `INFORMATIVE_SELECTION_SKIPPED` (WARN) when Wave 4 had a *scored* near-tie among
+  survivors but no `discrimination_target` was recorded.
+- **✗④ funnel auto-emit (closed).** `delivery_runner.run()` always emits
+  `funnel.json` (deterministic, best-effort) so the brief renders the
+  explored-vs-survived section regardless of whether the host ran `funnel --emit`.
+  Funnel logic moved to `glue/funnel.py` as a single source of truth.
+
+## Remaining (genuinely future, not gaps)
+
+- Weighting the next run's ideation by prior *confidence* (priors are consumed
+  qualitatively today).
+- Deepening across more than tie-splitting (e.g. mechanism forks) — the current
+  trigger is a scored near-tie.

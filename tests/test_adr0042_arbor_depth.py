@@ -104,15 +104,16 @@ def test_abstract_rejects_ungrounded_leaf(tmp_path):
 
 
 # ── ② deepen / depth budget ─────────────────────────────────────────────
-def test_deepen_warranted_then_budget_exhausted(tmp_path):
+def test_deepen_frontier_selection(tmp_path):
+    # _run sets H3 (child of H2) to wave4 'inconclusive' = PENDING (not a live frontier).
     patient, rid, rr = _run(tmp_path, max_depth=2)
     r = CliRunner()
-    ok = r.invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"])
-    d = json.loads(ok.output)
-    assert d["ok"] and d["new_depth"] == 2 and "H1" in [x["id"] for x in d["tie_rivals"]]
-    # H3 is already at depth 2 == max_depth → refused
-    refused = r.invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H3", "--json"])
-    assert refused.exit_code == 2 and json.loads(refused.output)["reason"] == "depth_budget_exhausted"
+    # H1: root, no children, depth1 < 2 → deepenable, frontier = H1
+    ok = json.loads(r.invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H1", "--json"]).output)
+    assert ok["ok"] is True and ok["frontier"] == "H1" and ok["new_depth"] == 2
+    # H2: only child H3 is pending → not dry, but no alive descendant yet → deepen H2 itself
+    d = json.loads(r.invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"]).output)
+    assert d["ok"] is True and d["frontier"] == "H2"
 
 
 def test_deepen_unknown_target(tmp_path):
@@ -226,3 +227,142 @@ def test_dangling_parent_depth_is_consistent(tmp_path):
     out = CliRunner().invoke(validate, ["--patient", str(patient), "--run-id", "r1", "--json"])
     codes = {p["code"] for p in json.loads(out.output)["problems"]}
     assert "DEPTH_BUDGET_EXCEEDED" not in codes
+
+
+# ── iteration-1: ✗① read-back · ✗③ enforce · ✗④ auto-emit ───────────────
+def test_observe_surfaces_prior_content_not_just_count(tmp_path):
+    """✗①: observe must show the abstracted lesson CONTENT so the planner can
+    condition ideation on it (not just a count)."""
+    patient, rid, rr = _run(tmp_path)
+    from opl_cancer.memory.store import ProjectMemoryStore, default_patient_memory_db
+    store = ProjectMemoryStore(default_patient_memory_db(rr))
+    store.save_abstraction(
+        {"id": "abs1", "lesson": "EGFR-axis monotherapy is futile in this KRAS context",
+         "directional": "warns_against", "applies_to": "KRAS-G12C mCRC"},
+        run_id="run_OLD")
+    out = CliRunner().invoke(observe, ["--patient", str(patient), "--run-id", rid])
+    assert "EGFR-axis monotherapy is futile" in out.output and "⊘" in out.output
+    j = json.loads(CliRunner().invoke(observe, ["--patient", str(patient), "--run-id", rid, "--json"]).output)
+    assert j["memory"]["cross_run_priors_list"][0]["directional"] == "warns_against"
+
+
+def test_validate_flags_skipped_informative_selection(tmp_path):
+    """✗③: near-tied survivors + no discrimination_target → WARN."""
+    patient, rid, rr = _run(tmp_path)  # H1(1260)/H2(1255) are a near-tie, both active
+    # overwrite wave4 so NO validation carries a discrimination_target
+    (rr / "wave4_validation.json").write_text(json.dumps({"validations": [
+        {"hyp_id": "H1", "survival_status": "validated"},
+        {"hyp_id": "H2", "survival_status": "validated"}]}))
+    out = CliRunner().invoke(validate, ["--patient", str(patient), "--run-id", rid, "--json"])
+    codes = {p["code"] for p in json.loads(out.output)["problems"]}
+    assert "INFORMATIVE_SELECTION_SKIPPED" in codes
+    # and it clears once a discrimination_target is recorded
+    (rr / "wave4_validation.json").write_text(json.dumps({"validations": [
+        {"hyp_id": "H1", "survival_status": "validated", "discrimination_target": ["H1", "H2"]},
+        {"hyp_id": "H2", "survival_status": "validated"}]}))
+    out2 = CliRunner().invoke(validate, ["--patient", str(patient), "--run-id", rid, "--json"])
+    assert "INFORMATIVE_SELECTION_SKIPPED" not in {p["code"] for p in json.loads(out2.output)["problems"]}
+
+
+def test_informative_selection_no_warn_when_unscored(tmp_path):
+    """review-P2: survivors with no elo_rating are not a 0-point tie → no WARN."""
+    patient = tmp_path / "P"
+    rid = "r1"
+    rr = patient / "triggers" / rid
+    rr.mkdir(parents=True)
+    (rr / "wave2_hypotheses.json").write_text(json.dumps({"hypotheses": [
+        {"id": "H1", "text": "a", "status": "active"},   # no elo_rating
+        {"id": "H2", "text": "b", "status": "active"}]}))  # no elo_rating
+    (rr / "wave4_validation.json").write_text(json.dumps({"validations": [
+        {"hyp_id": "H1", "survival_status": "validated"},
+        {"hyp_id": "H2", "survival_status": "validated"}]}))
+    out = CliRunner().invoke(validate, ["--patient", str(patient), "--run-id", rid, "--json"])
+    assert "INFORMATIVE_SELECTION_SKIPPED" not in {p["code"] for p in json.loads(out.output)["problems"]}
+
+
+def test_emit_funnel_writes_file(tmp_path):
+    """✗④: deterministic funnel.json emitter (called by delivery_runner)."""
+    patient, rid, rr = _run(tmp_path)
+    from opl_cancer.glue.funnel import emit_funnel
+    fn = emit_funnel(rr)
+    assert fn["run_id"] == rid and (rr / "funnel.json").is_file()
+    assert json.loads((rr / "funnel.json").read_text())["explored"] == 3
+
+
+# ── iteration-2/3: ✗② loop-until-dry convergence (single-source-of-truth) ──
+def _run_children(tmp_path, kids, max_depth=3):
+    """kids: list of (id, status, parent_chain). H1/H2 are root leads."""
+    patient = tmp_path / "P"
+    rid = "r1"
+    rr = patient / "triggers" / rid
+    rr.mkdir(parents=True)
+    (rr / "plan.json").write_text(json.dumps({"max_depth": max_depth, "deepen_candidates": ["H2"]}))
+    hyps = [
+        {"id": "H1", "text": "a", "elo_rating": 1260, "status": "active", "parent_chain": []},
+        {"id": "H2", "text": "b", "elo_rating": 1255, "status": "active", "parent_chain": []},
+    ]
+    for (hid, st, pc) in kids:
+        h = {"id": hid, "text": hid, "elo_rating": 1230, "parent_chain": pc}
+        if st is not None:
+            h["status"] = st
+        hyps.append(h)
+    (rr / "wave2_hypotheses.json").write_text(json.dumps({"hypotheses": hyps}))
+    return patient, rid, rr
+
+
+def test_deepen_dry_is_advisory_exit_zero(tmp_path):
+    """✗②: all direct children falsified → DRY, but it's an ADVISORY stop (exit 0)."""
+    patient, rid, rr = _run_children(tmp_path, [("H2a", "falsified", ["H2"]), ("H2b", "falsified", ["H2"])])
+    out = CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"])
+    d = json.loads(out.output)
+    assert out.exit_code == 0 and d["ok"] is False and d["reason"] == "direction_dry" and d["children_explored"] == 2
+
+
+def test_deepen_fresh_new_children_not_dry(tmp_path):
+    """✗② review-P1: freshly scaffolded children (status 'new'/missing) are PENDING,
+    not dead — the loop must NOT declare the direction it just created as dry."""
+    for st in ("new", None):
+        patient, rid, rr = _run_children(tmp_path / str(st), [("H2a", st, ["H2"])])
+        out = CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"])
+        assert json.loads(out.output).get("reason") != "direction_dry", f"status={st} wrongly read as dry"
+
+
+def test_deepen_inconclusive_child_not_dry(tmp_path):
+    """✗② review-P1: an inconclusive Wave-4 verdict is PENDING (needs more), not dry."""
+    patient, rid, rr = _run_children(tmp_path, [("H2a", "active", ["H2"])])
+    (rr / "wave4_validation.json").write_text(json.dumps({"validations": [{"hyp_id": "H2a", "survival_status": "inconclusive"}]}))
+    out = CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"])
+    assert json.loads(out.output).get("reason") != "direction_dry"
+
+
+def test_saturated_and_retired_are_dead(tmp_path):
+    """✗② review-P1: schema statuses 'saturated'/'retired' count as terminally dead."""
+    patient, rid, rr = _run_children(tmp_path, [("H2a", "saturated", ["H2"]), ("H2b", "retired", ["H2"])])
+    out = CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"])
+    assert json.loads(out.output)["reason"] == "direction_dry"
+
+
+def test_deepen_grandchild_keeps_alive_not_masked(tmp_path):
+    """✗② review-P1: a dead DIRECT child but a live GRANDCHILD → not dry; the
+    frontier correctly advances to the live grandchild (max_depth=4 leaves room)."""
+    patient, rid, rr = _run_children(
+        tmp_path, [("H2a", "falsified", ["H2"]), ("H2a1", "active", ["H2a", "H2"])], max_depth=4)
+    d = json.loads(CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"]).output)
+    assert d["ok"] is True and d["frontier"] == "H2a1" and d["frontier_depth"] == 3
+
+
+def test_deepen_terminates_at_true_depth(tmp_path):
+    """✗② review-P1: depth uses the forest walk, so a true depth-3 chain at
+    max_depth=3 is budget_spent (len-based depth would have saturated at 2)."""
+    patient, rid, rr = _run_children(
+        tmp_path, [("H2a", "active", ["H2"]), ("H2a1", "active", ["H2a", "H2"])], max_depth=3)
+    d = json.loads(CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"]).output)
+    assert d["ok"] is False and d["reason"] == "depth_budget_exhausted" and d["frontier_depth"] == 3
+
+
+def test_observe_candidate_state_matches_deepen(tmp_path):
+    """✗② review-P1: observe's candidate_states must not disagree with deepen's action."""
+    patient, rid, rr = _run_children(tmp_path, [("H2a", "falsified", ["H2"]), ("H2b", "falsified", ["H2"])])
+    j = json.loads(CliRunner().invoke(observe, ["--patient", str(patient), "--run-id", rid, "--json"]).output)
+    assert j["depth"]["candidate_states"]["H2"] == "dry (converged)"
+    assert "dry (converged)" in CliRunner().invoke(observe, ["--patient", str(patient), "--run-id", rid]).output

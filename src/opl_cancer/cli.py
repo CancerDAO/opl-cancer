@@ -25,6 +25,13 @@ import click
 from opl_cancer.compute.native_runner import NativeAnalysisRunner
 from opl_cancer.compute.runner import BixbenchRunner
 from opl_cancer.experts.roster import ROSTER
+from opl_cancer.glue.funnel import (  # ADR-0042 single source of truth
+    assess_deepen as _assess_deepen,
+    build_forest as _build_hypothesis_forest,
+    compute_funnel as _compute_funnel,
+    load_hypotheses as _load_hypotheses,
+    w4_survival_by_id as _w4_survival_by_id,
+)
 
 from opl_cancer import __version__ as VERSION  # single source of truth (kills version drift)
 DEFAULT_PATIENT_ROOT_ENV = "OPL_PATIENT_DATA_ROOT"
@@ -715,35 +722,10 @@ def _load_json(path: Path) -> Any:
 
 
 # ── Arbor/HTR tree + funnel + abstraction helpers (ADR-0042) ──────────────
-# All pure functions of on-disk state — no LLM, no writes. The hypothesis TREE
-# is built from the Hypothesis.parent_chain field that already exists; nothing
-# used to read it. The FUNNEL is a deterministic explored-vs-survived count.
-
-def _load_hypotheses(run_root: Path) -> list[dict[str, Any]]:
-    data = _load_json(run_root / "wave2_hypotheses.json") or {}
-    return list(data.get("hypotheses") or [])
-
-
-def _build_hypothesis_forest(hyps: list[dict[str, Any]]) -> tuple[dict[str, list[str]], list[str]]:
-    """Return (children-by-id, root-ids). parent_chain[0] is the immediate parent;
-    an empty chain marks a root. Tolerant of dangling parents (treated as roots)."""
-    by_id = {str(h.get("id")): h for h in hyps if h.get("id")}
-    children: dict[str, list[str]] = {hid: [] for hid in by_id}
-    roots: list[str] = []
-    for hid, h in by_id.items():
-        chain = [str(x) for x in (h.get("parent_chain") or [])]
-        parent = chain[0] if chain else None
-        if parent and parent in by_id:
-            children[parent].append(hid)
-        else:
-            roots.append(hid)
-    # If a malformed/cyclic chain leaves every node a child (no roots), fall back
-    # to a flat forest so the patient's hypotheses are never silently dropped.
-    if not roots and by_id:
-        roots = sorted(by_id)
-        children = {hid: [] for hid in by_id}
-    return children, sorted(roots)
-
+# Pure functions of on-disk state — no LLM, no writes. The hypothesis TREE is
+# built from Hypothesis.parent_chain (which already existed; nothing used to read
+# it). _load_hypotheses / _build_hypothesis_forest / _compute_funnel are imported
+# from glue.funnel (single source of truth, also used by the delivery runner).
 
 def _render_forest_lines(hyps: list[dict[str, Any]], max_lines: int = 24) -> list[str]:
     by_id = {str(h.get("id")): h for h in hyps if h.get("id")}
@@ -771,54 +753,6 @@ def _render_forest_lines(hyps: list[dict[str, Any]], max_lines: int = 24) -> lis
     if len(by_id) > max_lines:
         lines.append(f"  … (+{len(by_id) - max_lines} more nodes)")
     return lines
-
-
-def _compute_funnel(run_root: Path) -> dict[str, Any]:
-    """Deterministic explored-vs-survived funnel. Counts only — the narrative is
-    the brief's job (boundary: numbers=script, prose=prompt)."""
-    hyps = _load_hypotheses(run_root)
-    explored = len(hyps)
-    killed = 0
-    kc = run_root / "killed_candidates.jsonl"
-    if kc.is_file():
-        killed = sum(1 for ln in kc.read_text(encoding="utf-8").splitlines() if ln.strip())
-    w4 = _load_json(run_root / "wave4_validation.json") or {}
-    vals = w4.get("validations") or []
-    by_verdict: dict[str, int] = {}
-    ties = 0
-    for v in vals:
-        s = str(v.get("survival_status") or v.get("aviv_verdict") or "unknown")
-        by_verdict[s] = by_verdict.get(s, 0) + 1
-        if v.get("discrimination_target"):
-            ties += 1
-    # Tree depth measured on the SAME forest the renderer builds (dangling
-    # parents = roots), so observe's tree and validate's budget check agree.
-    children, roots = _build_hypothesis_forest(hyps)
-    depth_of: dict[str, int] = {r: 1 for r in roots}
-    stack = list(roots)
-    while stack:
-        n = stack.pop()
-        for c in children.get(n, []):
-            if c not in depth_of:  # cycle-safe
-                depth_of[c] = depth_of[n] + 1
-                stack.append(c)
-    depth_reached = max(depth_of.values(), default=1) if hyps else 1
-
-    # Presence-not-truthiness: an explicit n_validated=0 must stay 0, not fall
-    # through to the by_verdict tally (review P2 — honesty of the numbers).
-    def _count(key: str, vk: str) -> int:
-        return int(w4[key]) if key in w4 else by_verdict.get(vk, 0)
-
-    return {
-        "explored": explored,
-        "killed_in_tournament": killed,
-        "validated": _count("n_validated", "validated"),
-        "falsified": _count("n_falsified", "falsified"),
-        "inconclusive": _count("n_inconclusive", "inconclusive"),
-        "verdicts": by_verdict,
-        "ties_resolved_by_selection": ties,
-        "tree_depth_reached": depth_reached,
-    }
 
 
 def _abstraction_state(run_root: Path) -> dict[str, Any]:
@@ -879,6 +813,7 @@ def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
             # returning patient's already-killed direction is re-surfaced and
             # never silently re-proposed (Arbor's pruned-lessons projection).
             falsified_all = store.query_hypotheses(status="falsified")
+            priors_all = store.query_abstractions()
             mem = {
                 "available": True,
                 "ledger_records_total": store.ledger_count(),
@@ -888,9 +823,16 @@ def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
                 "negative_constraints": [
                     {"id": h.id, "text": h.text[:140]} for h in falsified_all[:20]
                 ],
-                # Arbor/HTR insight propagation: priors abstracted in PRIOR runs,
-                # the warm-start knowledge this run builds on (ADR-0042).
-                "cross_run_priors": len(store.query_abstractions()),
+                # Arbor/HTR insight propagation (ADR-0042 ✗① fix): the actual
+                # abstracted-prior CONTENT from prior runs, so the planner reads
+                # the lesson — not just a count — and conditions ideation on it
+                # (warns_against priors are dead-ends, supports priors are leads).
+                "cross_run_priors": len(priors_all),
+                "cross_run_priors_list": [
+                    {"id": pr.get("id"), "lesson": str(pr.get("lesson", ""))[:160],
+                     "directional": pr.get("directional"), "applies_to": pr.get("applies_to")}
+                    for pr in priors_all[:8]
+                ],
             }
     except Exception as exc:  # memory layer is optional/absent early in a run
         mem = {"available": False, "error": str(exc)}
@@ -900,6 +842,23 @@ def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
     funnel = _compute_funnel(run_root)
     abstraction = _abstraction_state(run_root)
     max_depth = int(plan.get("max_depth") or manifest.get("max_depth") or 1)
+
+    # ✗② per-candidate convergence state via the SAME assessor `deepen` uses, so
+    # the projection can never disagree with the action (the iteration-2 bug).
+    _w4 = _w4_survival_by_id(run_root)
+    cand_states: dict[str, str] = {}
+    for cand in (plan.get("deepen_candidates") or []):
+        cand = str(cand)
+        a = _assess_deepen(hyps, cand, max_depth, _w4)
+        st = a["state"]
+        if st == "absent":
+            cand_states[cand] = "absent"
+        elif st == "dry":
+            cand_states[cand] = "dry (converged)"
+        elif st == "budget_spent":
+            cand_states[cand] = f"budget-spent (frontier {a['frontier']} @ depth {a['frontier_depth']}/{a['max_depth']})"
+        else:
+            cand_states[cand] = f"deepenable (frontier {a['frontier']} @ depth {a['frontier_depth']})"
 
     return {
         "run_id": run_id,
@@ -919,7 +878,8 @@ def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
         "funnel": funnel,
         "abstraction": abstraction,
         "depth": {"max_depth": max_depth, "reached": funnel["tree_depth_reached"],
-                  "deepen_candidates": list(plan.get("deepen_candidates") or [])},
+                  "deepen_candidates": list(plan.get("deepen_candidates") or []),
+                  "candidate_states": cand_states},
     }
 
 
@@ -955,6 +915,10 @@ def _render_observe_text(p: dict[str, Any]) -> str:
         for h in nc[:10]:
             L.append(f"     ✗ {h['id']}: {h['text']}")
         L.append(f"  cross-run priors available (warm-start from prior runs): {m.get('cross_run_priors', 0)}")
+        for pr in (m.get("cross_run_priors_list") or [])[:6]:
+            arrow = "↑" if pr.get("directional") == "supports" else ("⊘" if pr.get("directional") == "warns_against" else "·")
+            L.append(f"     {arrow} {pr.get('id')}: {pr.get('lesson')}"
+                     + (f"  [{pr.get('applies_to')}]" if pr.get("applies_to") else ""))
     L.append("")
 
     # ── Arbor/HTR tree + funnel + abstraction (ADR-0042) ──
@@ -967,8 +931,10 @@ def _render_observe_text(p: dict[str, Any]) -> str:
         L.extend(tree)
         cand = dep.get("deepen_candidates") or []
         if cand:
-            L.append(f"  ↳ planner marked for DEEPEN (re-entry): {', '.join(cand)} "
-                     f"({'budget left' if dep.get('reached', 1) < dep.get('max_depth', 1) else 'BUDGET SPENT'})")
+            states = dep.get("candidate_states") or {}
+            L.append("  ↳ planner marked for DEEPEN (re-entry):")
+            for c in cand:
+                L.append(f"       {c} — {states.get(str(c), 'deepenable')}")
     L.append("")
     fn = p.get("funnel") or {}
     L.append("-- Explored → survived FUNNEL --")
@@ -1073,6 +1039,25 @@ def _validate_run_state(patient_dir: Path, run_id: str) -> list[dict[str, str]]:
         add("error", "DEPTH_BUDGET_EXCEEDED",
             f"tree depth reached {dep['reached']} exceeds plan max_depth {dep['max_depth']} "
             "(re-entry ran past its budget)")
+
+    # 8. Informative selection (ADR-0042 ✗③) — WARN. If Wave 4 ran and there were
+    #    near-tied surviving rivals but NO validation recorded a discrimination
+    #    target, the scarce N=1 validation budget was not spent splitting the tie.
+    if (run_root / "wave4_validation.json").exists():
+        # Only SCORED survivors form a tie — a missing elo is not a 0-point tie
+        # (review P2: else any ≥2 unscored survivors would false-fire the WARN).
+        scored = [h for h in _load_hypotheses(run_root)
+                  if str(h.get("status")) in ("active", "validated", "survives")
+                  and h.get("elo_rating") is not None]
+        near_tie = any(
+            abs(a["elo_rating"] - b["elo_rating"]) <= 50
+            for i, a in enumerate(scored) for b in scored[i + 1:]
+        )
+        if near_tie and proj.get("funnel", {}).get("ties_resolved_by_selection", 0) == 0:
+            add("warn", "INFORMATIVE_SELECTION_SKIPPED",
+                "Wave 4 had a scored near-tie among surviving hypotheses but no validation recorded a "
+                "discrimination_target — scarce N=1 validation was not spent splitting the tie "
+                "(informative selection; prompts/methods/informative_selection.md)")
 
     return problems
 
@@ -1191,42 +1176,72 @@ def deepen(patient_dir: str, run_id: str, target: str, json_mode: bool) -> None:
     by_id = {str(h.get("id")): h for h in hyps if h.get("id")}
     plan = _load_json(run_root / "plan.json") or {}
     manifest = _load_json(run_root / "run_manifest.json") or {}
-    max_depth = int(plan.get("max_depth") or manifest.get("max_depth") or 1)  # match observe/validate
+    max_depth = int(plan.get("max_depth") or manifest.get("max_depth") or 1)
 
-    if target not in by_id:
+    if target not in by_id:  # genuine misuse → non-zero (unlike the advisory stops)
         raise click.ClickException(
             f"target '{target}' not found in this run's hypotheses (have e.g. {sorted(by_id)[:8]})."
         )
-    target_depth = 1 + len(by_id[target].get("parent_chain") or [])
-    if target_depth >= max_depth:
+
+    # Single source of truth (glue.funnel.assess_deepen): direct-parent children,
+    # forest-walk depth, canonical alive/dead/pending lifestate, frontier-advancing.
+    a = _assess_deepen(hyps, target, max_depth, _w4_survival_by_id(run_root))
+
+    # Exit-code contract: the two NORMAL terminal outcomes (dry / budget spent) are
+    # ADVISORY stops, NOT errors — exit 0 with ok:False so an automated caller
+    # (set -e / check=True) does not misread convergence as a hard failure.
+    if a["state"] == "dry":
         _emit({
-            "ok": False, "reason": "depth_budget_exhausted",
-            "target": target, "target_depth": target_depth, "max_depth": max_depth,
+            "ok": False, "reason": "direction_dry", "advisory": True,
+            "target": target, "children_explored": a.get("children_explored", 0),
             "message": (
-                f"target {target} is at depth {target_depth}; plan max_depth={max_depth}. Re-entry refused. "
-                "Raise max_depth in the plan (planner judgment) only if a deeper split genuinely helps the "
-                "patient — otherwise stop deepening and proceed to validation/delivery."
+                f"{target} was deepened ({a.get('children_explored', 0)} children) and its whole subtree is "
+                "terminally dead (none alive, none pending) — DRY (loop-until-dry converged). Stop deepening "
+                "this lead; spend the budget elsewhere or proceed to delivery."
             ),
         }, json_mode)
-        sys.exit(2)
+        return
+    if a["state"] == "budget_spent":
+        _emit({
+            "ok": False, "reason": "depth_budget_exhausted", "advisory": True,
+            "target": target, "frontier": a["frontier"], "frontier_depth": a["frontier_depth"],
+            "max_depth": max_depth,
+            "message": (
+                f"the live frontier of {target} is {a['frontier']} at depth {a['frontier_depth']} = "
+                f"max_depth {max_depth}. Re-entry refused — raise max_depth only if a deeper split genuinely "
+                "helps the patient, else stop deepening and proceed."
+            ),
+        }, json_mode)
+        return
 
-    elo = by_id[target].get("elo_rating") or 0
+    # deepenable — deepen the live FRONTIER node (advances depth each round).
+    frontier = a["frontier"]
+    elo = by_id[frontier].get("elo_rating") or 0
+    sub = set()  # exclude the frontier's own subtree from rivals
+    children, _r = _build_hypothesis_forest(hyps)
+    stack = [frontier]
+    while stack:
+        n = stack.pop()
+        if n in sub:
+            continue
+        sub.add(n)
+        stack.extend(children.get(n, []))
     rivals = sorted(
-        [h for h in hyps if str(h.get("id")) != target
-         and target not in (h.get("parent_chain") or [])  # a descendant is not a rival to split from
+        [h for h in hyps if str(h.get("id")) not in sub
          and abs((h.get("elo_rating") or 0) - elo) <= 50
          and str(h.get("status")) in ("active", "validated", "survives")],
         key=lambda h: -(h.get("elo_rating") or 0),
     )
     _emit({
-        "ok": True, "target": target, "target_depth": target_depth, "new_depth": target_depth + 1,
-        "max_depth": max_depth,
+        "ok": True, "target": target, "frontier": frontier,
+        "frontier_depth": a["frontier_depth"], "new_depth": a["frontier_depth"] + 1, "max_depth": max_depth,
         "tie_rivals": [{"id": str(h.get("id")), "elo": h.get("elo_rating")} for h in rivals[:5]],
         "action": (
-            f"Re-entry warranted for {target}. Dispatch a FOCUSED mini Wave-2..4 scoped to this lead: generate "
-            f"child hypotheses with parent_chain=[{target}] (refinements/alternatives that SPLIT it from its "
-            "tie-rivals), run them through tournament + validation, then `opl-cancer observe` to see the deepened "
-            "subtree. Additive only — the planned floor is untouched."
+            f"Re-entry warranted. Deepen the live frontier {frontier} (depth {a['frontier_depth']}): dispatch a "
+            f"FOCUSED mini Wave-2..4 generating child hypotheses with parent_chain=[{frontier}, …] that SPLIT it "
+            "from its tie-rivals, run tournament + validation, then `opl-cancer observe`. Each round advances depth "
+            f"toward max_depth {max_depth}; the loop stops when the frontier goes dry or the budget is spent. "
+            "Additive only — the planned floor is untouched."
         ),
     }, json_mode)
 

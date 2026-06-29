@@ -71,6 +71,23 @@ team's biggest wins come from following the thing it wasn't looking for.
 mid-extraction — PRD §9 open-Q#3; this prompt defines the behavior, the runtime
 wiring activates with the orchestrator decision.)
 
+## Warm-start on cross-run priors (Arbor/HTR insight propagation, ADR-0042)
+
+Before composing the agenda, run `opl-cancer observe` and read **both** memory
+loops — not just their counts:
+
+- `negative_constraints` (falsified hypotheses across ALL of this patient's runs):
+  do NOT re-propose a killed direction; the agenda must spend its budget on new
+  ground unless you have new evidence that overturns the reason it was killed.
+- `cross_run_priors_list` (abstracted priors from prior runs): each carries a
+  `lesson`, a `directional` flag, and `applies_to`. **Condition ideation on the
+  lesson content** — a `supports` prior is an assumption to build on (steer the
+  agenda toward it where it `applies_to` this patient); a `warns_against` prior
+  is a dead-end to avoid. This is the read-half of the abstraction loop: prior
+  runs distilled what works / what to avoid, and this run must consume it, not
+  start cold. If a prior shapes a task, name it in that task's rationale so the
+  warm-start is auditable.
+
 ## Rules
 
 1. Expert names are reasoned, not hard-wired — but the plan must cover-or-exceed
