@@ -123,6 +123,8 @@ Wait for user decision.
 
 **Step 4 — PI plans the run (Sid).**
 
+> **Read the failure ledger before ideating (Arbor/HTR negative constraints — read half of `G52`).** First run `opl-cancer observe --patient <patient_dir> --run-id <run_id>` and pass its `negative_constraints` (hypotheses falsified in **any** prior run for this patient) into the planner. The agenda MUST NOT silently re-propose a killed direction; falsified ≠ forbidden forever, but re-opening one is a deliberate, evidence-backed choice that overturns the reason it was killed — never an accident. `G52` writes the dead ends; this is where the planner reads them back, so the run spends its budget on *new* ground (structured search, not a bigger fan-out).
+
 > **Outcome-backward planning (D1/E1 · ADR-0034).** Dispatch the LLM planner
 > `prompts/pi/goal_backward_planner.md` FIRST — it reads the patient's verbatim
 > goal + structured `desired_endpoint`/`decision_juncture` (from
@@ -186,6 +188,12 @@ If `comorbid_expansion_triggers_fired` is non-empty (v1.5 P0-6 surface), name th
 Wait for user `yes` / adjust.
 
 > v1.5 — every subagent dispatched in Steps 5..8 follows `prompts/safety/subagent_file_write_contract.md`: primary Write tool, fallback Bash heredoc with `OPL_REPORT_EOF` sentinel, JSON envelope confirmation with `report_path` + `report_bytes` + `report_sha256_short`. Orchestrator validates filesystem state matches the envelope; 1 retry on mismatch (`docs/ANTI_PATTERNS.md` AP-12 / F12).
+
+> **Re-ground before every wave beat (Arbor/HTR `observe`).** A multi-wave run is long; your conversation memory of "what's already done" goes lossy after context compression and is the documented root cause of under-delivery (session 0d1017d4: skipped waves while *believing* the plan had run). So at the **start of each of Steps 5–8**, re-ground on the durable state, not your recollection:
+> ```bash
+> opl-cancer observe --patient <patient_dir> --run-id <run_id>   # read-only; never executes a wave
+> ```
+> It re-projects: planned-vs-done waves, **outstanding** waves, the memory frontier, and **falsified hypotheses across ALL of this patient's runs as negative constraints** (do not re-propose them). Dispatch the next *outstanding* wave from this projection; if `observe` shows a planned wave already done, do not silently re-run it. This is the prompt/script boundary in practice — the harness hands you a faithful projection; you do the judgment.
 
 ---
 
@@ -308,7 +316,10 @@ opl-cancer deliver --patient <patient_dir> --run-id <run_id>            # scaffo
 #   ↳ fill patient_plain_brief.md + patient_pi_brief.md from real wave claims
 opl-cancer deliver --patient <patient_dir> --run-id <run_id> --finalize # real audit + gates
 opl-cancer attest --patient <patient_dir> --run-id <run_id>             # final integrity proof
+opl-cancer validate --patient <patient_dir> --run-id <run_id>           # invariant check (exit≠0 = inconsistent state)
 ```
+
+> **`validate` (Arbor/HTR invariant check).** After attest, `opl-cancer validate` re-checks run-state consistency deterministically — manifest/plan team drift, attested-without-brief, delivered-without-ledger (the `G54` learning-compounded invariant), and under-delivery (a planned wave with no artifacts). It is read-only and never executes a wave; a non-zero exit means the run is internally inconsistent and must not be presented as complete.
 
 > `opl-cancer render` is **deprecated** (it was the `{"ok":true}` no-op stub that let session 0d1017d4 ship a free-handed brief). It now just runs the integrity gates and refuses. Use `deliver --finalize`. `deliver --finalize` and `attest` REFUSE (exit ≠ 0) unless the brief is backed by a real run: `run_token` manifest + recomputable provenance journal + real Henry audit + full planned team (`G37`) + on-topic, existing PMIDs (`G1`/`G2`/`G36`).
 

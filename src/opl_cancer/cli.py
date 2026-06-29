@@ -694,6 +694,244 @@ def wave4(patient_dir: str, run_id: str, json_mode: bool) -> None:
     _emit_wave_state(4, run_root, json_mode)
 
 
+# ─── Arbor/HTR boundary: observe — read-only re-projection of run state ────
+#
+# Arbor's coordinator re-grounds on a deterministic projection of durable state
+# at the start of every cycle, rather than trusting a lossy conversation memory.
+# `observe` is OPL's analog: a no-LLM, read-only render of the whole run —
+# planned-vs-done waves, outstanding work, the Project-Memory frontier, and
+# (cross-run) falsified hypotheses surfaced as negative constraints. It NEVER
+# executes a wave and NEVER writes — a pure function of on-disk state. This is
+# the prompt/script boundary made operational: the harness gives the brain a
+# faithful re-projection; the brain does the judgment.
+# See docs/adr/0041-prompt-script-boundary-and-observe.md.
+
+def _load_json(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
+    """Deterministic projection of a run's durable state. Pure read — no LLM,
+    no writes. Tolerant of a half-built run (plan/manifest/memory may be absent)."""
+    run_root = patient_dir / "triggers" / run_id
+    plan = _load_json(run_root / "plan.json") or {}
+    manifest = _load_json(run_root / "run_manifest.json") or {}
+
+    planned_waves = manifest.get("planned_waves") or sorted({
+        int(w.get("wave_number")) for w in (plan.get("waves", []) or [])
+        if isinstance(w, dict) and w.get("wave_number") is not None
+    })
+    planned_experts = manifest.get("planned_experts") or sorted({
+        str(t.get("expert")).lower() for t in (plan.get("tasks", []) or [])
+        if isinstance(t, dict) and t.get("expert")
+    })
+
+    wave_states: dict[int, dict[str, Any]] = {}
+    outstanding: list[int] = []
+    for w in (1, 2, 3, 4):
+        if w in _WAVE_ARTIFACT_PROBES:
+            st = _wave_artifact_state(run_root, w)
+            wave_states[w] = {"done": st["ok"], "artifacts_found": st["found"]}
+            if (not planned_waves or w in planned_waves) and not st["ok"]:
+                outstanding.append(w)
+
+    delivery_dir = run_root / "delivery"
+    delivered = bool(delivery_dir.exists() and any(
+        (delivery_dir / f).exists()
+        for f in ("patient_plain_brief.md", "patient_pi_brief.md")
+    ))
+    attested = bool((delivery_dir / "DELIVERY_ATTESTATION.json").exists())
+
+    mem: dict[str, Any] = {"available": False}
+    try:
+        from opl_cancer.memory.store import ProjectMemoryStore, default_patient_memory_db
+        db = default_patient_memory_db(run_root)
+        if db.exists():
+            store = ProjectMemoryStore(db)
+            by_status: dict[str, int] = {}
+            for h in store.query_hypotheses(run_id=run_id):
+                by_status[str(h.status)] = by_status.get(str(h.status), 0) + 1
+            # Negative constraints = falsified hypotheses ACROSS ALL RUNS, so a
+            # returning patient's already-killed direction is re-surfaced and
+            # never silently re-proposed (Arbor's pruned-lessons projection).
+            falsified_all = store.query_hypotheses(status="falsified")
+            mem = {
+                "available": True,
+                "ledger_records_total": store.ledger_count(),
+                "ledger_records_this_run": store.ledger_count(run_id=run_id),
+                "hypotheses_this_run_by_status": by_status,
+                "tournament_rounds_this_run": len(store.query_tournament_rounds(run_id=run_id)),
+                "negative_constraints": [
+                    {"id": h.id, "text": h.text[:140]} for h in falsified_all[:20]
+                ],
+            }
+    except Exception as exc:  # memory layer is optional/absent early in a run
+        mem = {"available": False, "error": str(exc)}
+
+    return {
+        "run_id": run_id,
+        "patient_dir": str(patient_dir),
+        "goal": plan.get("goal") or plan.get("objective") or manifest.get("goal"),
+        "run_token_present": bool(manifest.get("run_token")),
+        "opl_version": manifest.get("opl_version") or VERSION,
+        "planned_waves": planned_waves,
+        "planned_experts": planned_experts,
+        "wave_states": wave_states,
+        "outstanding_waves": outstanding,
+        "delivered": delivered,
+        "attested": attested,
+        "memory": mem,
+    }
+
+
+def _render_observe_text(p: dict[str, Any]) -> str:
+    bar = "=" * 72
+    L = [bar, "OBSERVE — OPL run state (read-only re-projection; NOT an executor)", bar]
+    L.append(f"run_id        : {p['run_id']}")
+    L.append(f"goal          : {p.get('goal') or '(unset — plan not run yet)'}")
+    L.append(f"opl_version   : {p['opl_version']}")
+    L.append(f"run_token     : {'present' if p['run_token_present'] else 'MISSING (no plan / free-handed)'}")
+    L.append(f"planned waves : {p['planned_waves'] or '(none — run plan first)'}")
+    L.append(f"planned team  : {', '.join(p['planned_experts']) if p['planned_experts'] else '(none)'}")
+    L.append("")
+    L.append("-- Waves (done? / artifacts) --")
+    for w, st in sorted(p["wave_states"].items()):
+        mark = "=" if st["done"] else "o"
+        L.append(f"  [{mark}] wave {w}: {'done' if st['done'] else 'PENDING'} ({st['artifacts_found']} artifacts)")
+    L.append("")
+    L.append(f"-- Outstanding (planned but no artifacts): {p['outstanding_waves'] or 'none'} --")
+    L.append(f"-- Delivery: {'delivered' if p['delivered'] else 'not delivered'}"
+             f"{' + attested' if p['attested'] else ''} --")
+    L.append("")
+    m = p["memory"]
+    L.append("-- Memory frontier (Project Memory ledger) --")
+    if not m.get("available"):
+        L.append("  (no ledger yet — nothing persisted)")
+    else:
+        L.append(f"  ledger records: {m['ledger_records_this_run']} this run / {m['ledger_records_total']} total")
+        L.append(f"  hypotheses this run: {m['hypotheses_this_run_by_status'] or '{}'}")
+        L.append(f"  tournament rounds this run: {m['tournament_rounds_this_run']}")
+        nc = m.get("negative_constraints") or []
+        L.append(f"  negative constraints (falsified across ALL runs — do NOT re-propose): {len(nc)}")
+        for h in nc[:10]:
+            L.append(f"     ✗ {h['id']}: {h['text']}")
+    L.append("")
+    L.append(bar)
+    L.append("Re-ground on THIS projection, not your memory of the conversation. Then "
+             "dispatch the next outstanding wave's subagents (main thread), or proceed "
+             "to deliver once every planned wave is done.")
+    return "\n".join(L)
+
+
+@main.command(help="Re-projection of run state (read-only, no execution): planned-vs-done waves, "
+                   "outstanding work, memory frontier, and cross-run falsified hypotheses as negative "
+                   "constraints. Re-ground on this at each wave beat (Arbor/HTR observe).")
+@click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
+@click.option("--run-id", required=True)
+@click.option("--json", "json_mode", is_flag=True)
+def observe(patient_dir: str, run_id: str, json_mode: bool) -> None:
+    proj = _observe_projection(Path(patient_dir), run_id)
+    if json_mode:
+        click.echo(json.dumps(proj, ensure_ascii=False, indent=2))
+    else:
+        click.echo(_render_observe_text(proj))
+
+
+def _validate_run_state(patient_dir: Path, run_id: str) -> list[dict[str, str]]:
+    """Deterministic invariant check over a run's durable state (Arbor `validate`
+    analog). Pure read. Returns a list of {severity, code, message}; severity
+    'error' means the state is inconsistent (caller exits non-zero)."""
+    run_root = patient_dir / "triggers" / run_id
+    problems: list[dict[str, str]] = []
+
+    def add(sev: str, code: str, msg: str) -> None:
+        problems.append({"severity": sev, "code": code, "message": msg})
+
+    if not run_root.exists():
+        add("error", "RUN_MISSING", f"no run directory at {run_root}")
+        return problems
+
+    proj = _observe_projection(patient_dir, run_id)
+    manifest = _load_json(run_root / "run_manifest.json")
+    plan = _load_json(run_root / "plan.json")
+
+    # 1. A delivered/attested run must have been planned (run_token minted at plan).
+    if not manifest:
+        add("warn", "NO_MANIFEST", "no run_manifest.json — `plan` not run for this run_id")
+    elif not manifest.get("run_token"):
+        add("error", "NO_RUN_TOKEN", "run_manifest.json present but carries no run_token (forge-resistance broken)")
+
+    # 2. planned_experts in the manifest must match the experts named in plan.json.
+    if manifest and plan:
+        m_exp = set(manifest.get("planned_experts") or [])
+        p_exp = {str(t.get("expert")).lower() for t in (plan.get("tasks", []) or [])
+                 if isinstance(t, dict) and t.get("expert")}
+        if m_exp and p_exp and m_exp != p_exp:
+            add("error", "MANIFEST_PLAN_DRIFT",
+                f"manifest planned_experts {sorted(m_exp)} != plan tasks' experts {sorted(p_exp)} "
+                "(silent team-shrink / manifest tampering)")
+
+    # 3. Delivery / attestation consistency.
+    if proj["attested"] and not proj["delivered"]:
+        add("error", "ATTESTED_WITHOUT_BRIEF",
+            "DELIVERY_ATTESTATION.json present but no patient brief was rendered")
+    if proj["delivered"] and not proj["attested"]:
+        add("warn", "DELIVERED_NOT_ATTESTED",
+            "a brief exists but the run is not attested — run `opl-cancer attest`")
+
+    # 4. A delivered run must have written to the memory ledger (G54 invariant,
+    #    re-checked here so a half-finished run is caught before it claims done).
+    mem = proj["memory"]
+    if proj["delivered"]:
+        if not mem.get("available"):
+            add("error", "DELIVERED_NO_LEDGER",
+                "run delivered but no Project-Memory ledger exists — learning did not compound")
+        elif mem.get("ledger_records_this_run", 0) == 0:
+            add("error", "DELIVERED_EMPTY_LEDGER",
+                "run delivered but wrote 0 ledger records this run (G54 would block)")
+
+    # 5. Artifacts for a wave the manifest planned but that has none yet — only
+    #    a problem once the run claims delivery (mid-run, pending is expected).
+    if proj["delivered"] and proj["outstanding_waves"]:
+        add("error", "DELIVERED_WITH_OUTSTANDING_WAVES",
+            f"run delivered but planned waves {proj['outstanding_waves']} have no artifacts (under-delivery)")
+
+    return problems
+
+
+@main.command(help="Read-only invariant check on a run's durable state (Arbor/HTR `validate`). "
+                   "Exits non-zero if the state is inconsistent (manifest/plan drift, attested-without-brief, "
+                   "delivered-without-ledger, under-delivery). Never executes a wave, never writes.")
+@click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
+@click.option("--run-id", required=True)
+@click.option("--json", "json_mode", is_flag=True)
+def validate(patient_dir: str, run_id: str, json_mode: bool) -> None:
+    problems = _validate_run_state(Path(patient_dir), run_id)
+    errors = [p for p in problems if p["severity"] == "error"]
+    payload = {
+        "ok": not errors,
+        "run_id": run_id,
+        "errors": len(errors),
+        "warnings": len(problems) - len(errors),
+        "problems": problems,
+    }
+    if json_mode:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        if not problems:
+            click.echo(f"OK — run {run_id} state is consistent.")
+        else:
+            click.echo(f"validate {run_id}: {len(errors)} error(s), {payload['warnings']} warning(s)")
+            for p in problems:
+                mark = "✗" if p["severity"] == "error" else "!"
+                click.echo(f"  {mark} {p['severity'].upper():5} {p['code']:28} {p['message']}")
+    if errors:
+        sys.exit(2)
+
+
 # ─── v2.1 P0-#1+#2: opl run — real executor wrapping wave runners ─────────
 #
 # honest-failure policy + ADR-0021. Through v2.0.x the only

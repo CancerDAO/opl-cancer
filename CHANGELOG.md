@@ -13,6 +13,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-06-29 — Arbor/HTR prompt-script boundary: `observe` + `validate` (research-team branch)
+
+Reviewed OPL against **Arbor / Hypothesis-Tree Refinement** (RUC-NLPIR/Arbor) — the
+cleanest published statement of the harness/brain (prompt vs script) boundary —
+and adopted the one mechanism OPL lacked: the coordinator's read-only
+re-projection. (OPL already had Arbor's other build-logic invariants: structural
+gates, the G52 failure ledger, G49 forecast pre-registration, G54 ledger-write
+forcing-function.) See [`docs/adr/0041-prompt-script-boundary-and-observe.md`](docs/adr/0041-prompt-script-boundary-and-observe.md).
+
+### Added
+
+- `opl-cancer observe` — read-only, no-LLM re-projection of a run (goal ·
+  planned-vs-done waves · outstanding waves · Project-Memory frontier ·
+  **falsified hypotheses across ALL of a patient's runs as negative
+  constraints**). Pure function of on-disk state; `--json`. The documented fix
+  for the session-0d1017d4 under-delivery drift (the agent must re-ground on the
+  projection, not lossy conversation memory).
+- `opl-cancer validate` — read-only run-state invariant checker (Arbor `validate`
+  analog): manifest/plan team drift, attested-without-brief, delivered-without-
+  ledger (the G54 invariant re-checked), delivered-with-outstanding-waves
+  (under-delivery). Exit ≠ 0 on inconsistency; `--json`.
+
+### Changed
+
+- `workflows/run-lifecycle.md`: re-ground on `observe` at the start of every wave
+  beat (Steps 5–8); **read the failure ledger at plan time** (Step 4) so ideation
+  conditions on falsified directions — the *read half* of G52 ("structured search,
+  not a bigger fan-out"); run `validate` after `attest` (Step 10).
+- `SKILL.md` execution-model: document `observe`/`validate` + the boundary rule.
+
+### Notes
+
+- No new numbered gate introduced; G56+ are reserved for the in-flight
+  value-source/CRC hardening on a separate branch (branch-purpose separation).
+- Honest deferral (next ADR): make Arbor's highest-value lesson — insight
+  *abstraction* upward as its own un-skippable judgment beat (G54 only checks a
+  write happened) — a named forcing-function.
+
 ## [2.10.0] - 2026-06-04 — Patient-fidelity hardening + hygiene
 
 Fixes from a 9-agent patient-safety review. All changes keep the patient as
