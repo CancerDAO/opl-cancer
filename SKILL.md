@@ -16,6 +16,13 @@ OPL for Cancer is the patient's own scientist team, built by **CancerDAO**. **No
 
 Patient is sole decision authority. No human-in-the-loop external sign-off. Model disagreements surfaced openly. Level-3/4 high-stakes claims gated by patient-acknowledgement, never by physician sign-off.
 
+## 两大方法论基石（生成 + 验证，贯穿每个 Wave）
+
+前者管生成、后者管验证，合起来是一个完整闭环——每个 Wave 都套这两层：
+
+- **第一性原理（管生成）** — 科研团队推理下一线方案 / 靶点协同 / hypothesis 时，从**该患者自己的底层事实**（分子谱、已用尽的治疗线、真实约束）重新推导，**不要类比套指南模板**。先问"这对*这位* N=1 患者真的成立吗"，再问"标准做法是什么"。把当前正在依赖、但尚未 grounding 的假设显式摊开。
+- **对抗式审查（管验证）** — `deliver` 前，以"假设这份 brief 有致命缺陷、我的任务是把它找出来"的对抗立场审一遍（剂量、禁忌、矛盾证据、过期数据、虚假希望、患者安全半径），**不 echo 团队的结论**。多 subagent 并发，各攻一个面，产出 P0/P1/P2 缺陷清单，清完才交付。（这一层与 Henry 审计、tournament 互补，不替代 42-gate 机械门。）
+
 ## Operating contract (v2.7.0 — read before anything else)
 
 > Root-cause fix for session 0d1017d4: OPL under-delivered (ran 4 generic agents instead of the planned team, skipped Wave 2/3/4, skipped the audit) **and** fabricated content (invented lab values before OCR; cited 4 real-but-wrong-paper PMIDs). It only became complete because a domain-expert user kept pushing. A normal patient cannot do that. See `docs/ANTI_PATTERNS.md` + `docs/adr/0026-delivery-non-bypassable.md`.
