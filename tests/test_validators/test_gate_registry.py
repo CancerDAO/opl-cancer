@@ -22,14 +22,16 @@ import re
 from opl_cancer.validators.mechanical_gates import all_gate_classes
 
 
-EXPECTED_GATE_COUNT = 53  # v2.8: G1-G37 + G39-G43 + G45-G55 (G38, G44 reserved)
+EXPECTED_GATE_COUNT = 54  # v2.12: G1-G37 + G39-G43 + G45-G55 + G60 (G38, G44, G56-G59 reserved)
 # Gate numbering may have intentional gaps. G38 reserved (citation-provenance
 # completeness covered by G1/G2/G36 via the delivery gate runner). G44 reserved
 # for the in-flight feat/deterministic-retrieval-standardization branch.
 # research-team iteration (v2.8): G54 (A1 ledger spine, ADR-0027), G45+G46 (B1
 # false-hope firewall, ADR-0029), G48 (A3 research-delta, ADR-0028); the
 # remaining G47/G49-G53/G55 land with their own items.
-EXPECTED_GATE_NUMBERS = set(range(1, 38)) | {39, 40, 41, 42, 43, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55}  # 37 + 16 = 53
+# v2.12 (ADR-0042): G60 insight_abstraction_written (WARN). G56-G59 reserved for
+# the parallel value-source/CRC branch.
+EXPECTED_GATE_NUMBERS = set(range(1, 38)) | {39, 40, 41, 42, 43, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 60}  # 37 + 17 = 54
 
 
 def test_registry_returns_all_gates() -> None:

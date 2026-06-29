@@ -1,11 +1,11 @@
-"""v2.10.0 hygiene / packaging guards.
+"""v2.13.0 hygiene / packaging guards.
 
 Locks in the patient-fidelity-review hygiene fixes so they cannot silently
 regress:
 
   * The two operator scripts that imported the deleted ``opl_cancer.llm``
     module are gone (they crashed on run).
-  * Version is bumped to 2.10.0 and consistent across pyproject / __init__ /
+  * Version is bumped to 2.13.0 and consistent across pyproject / __init__ /
     plugin manifests / README badges.
   * Public-facing product docs carry no ``memory:*`` private anchors and do
     not name private internal skills.
@@ -54,12 +54,12 @@ def test_no_minimax_llm_module() -> None:
 def test_version_is_2_10_0() -> None:
     from opl_cancer import __version__
 
-    assert __version__ == "2.10.0"
+    assert __version__ == "2.13.0"
 
 
 def test_pyproject_version_matches() -> None:
     text = (_REPO / "pyproject.toml").read_text(encoding="utf-8")
-    assert 'version = "2.10.0"' in text
+    assert 'version = "2.13.0"' in text
 
 
 @pytest.mark.parametrize(
@@ -72,13 +72,13 @@ def test_pyproject_version_matches() -> None:
 )
 def test_plugin_manifest_version(rel: str) -> None:
     data = json.loads((_REPO / rel).read_text(encoding="utf-8"))
-    assert data["version"] == "2.10.0"
+    assert data["version"] == "2.13.0"
 
 
 def test_marketplace_manifest_versions() -> None:
     data = json.loads((_REPO / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
-    assert data["version"] == "2.10.0"
-    assert all(p["version"] == "2.10.0" for p in data["plugins"])
+    assert data["version"] == "2.13.0"
+    assert all(p["version"] == "2.13.0" for p in data["plugins"])
 
 
 def test_readme_test_count_restamped() -> None:

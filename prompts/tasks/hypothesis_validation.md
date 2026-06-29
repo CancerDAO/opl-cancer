@@ -17,6 +17,16 @@ Required:
 6. Score the data against the hypothesis's LOCKED forecast (`prior_expectation` in the
    hypothesis JSON, recorded at Wave 2 before any data): did the Wave-3 result match it?
 
+**Recorded-status contract (ADR-0042).** When this validation is written into
+`triggers/<run_id>/wave4_validation.json`, the per-hypothesis `survival_status`
+MUST be exactly one of `validated` | `falsified` | `inconclusive` — map your
+`verdict` as: `supported → validated`, `falsified → falsified`, and
+`weakened`/`inconclusive`/anything-uncertain → `inconclusive`. Never invent a
+synonym: the re-entry harness treats a `validated` child as a live lead, so a
+mislabelled non-canonical status could surface a Wave-4-undermined direction as
+deepenable (the harness fails safe to "pending" on any non-canonical value, but
+the pinned vocabulary is the real contract).
+
 Return strict JSON:
 {
   "hyp_id": "<hyp_id>",

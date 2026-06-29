@@ -45,6 +45,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from opl_cancer.glue.funnel import emit_funnel
 from opl_cancer.glue.ledger_persist import persist_run_to_ledger
 from opl_cancer.validators.fakery_sniffer import scan_text
 from opl_cancer.validators.henry import HenryAuditError, HenryAuditor
@@ -658,6 +659,14 @@ class DeliveryRunner:
             result["ledger_persisted"] = persist_run_to_ledger(self.run_root)
         except Exception as exc:  # pragma: no cover — defensive; gate is the backstop
             result["ledger_persisted"] = {"error": str(exc)}
+
+        # ADR-0042 ✗④ fix: always emit the deterministic explored→survived funnel
+        # so the patient brief renders it even if the host never ran
+        # `opl funnel --emit`. Pure read+write of run artifacts; best-effort.
+        try:
+            result["funnel"] = emit_funnel(self.run_root)
+        except Exception as exc:  # pragma: no cover — defensive
+            result["funnel"] = {"error": str(exc)}
         return result
 
     def _rollback(self) -> None:

@@ -4,7 +4,7 @@ description: "OPL for Cancer (CancerDAO) — a cancer patient's own AI scientist
 license: Apache-2.0
 metadata:
   author: CancerDAO Contributors
-  version: "2.10.0"
+  version: "2.13.0"
   tags: oncology precision-medicine ai-scientist-team founder-mode hypothesis-generation co-scientist robin bixbench meta-analysis clinical-trials evidence-grounded world-unknown-candidates kg-synergy undrugged-target-design trace-digest-evolution equipped-experts bio-skills msi tmb hrd acmg cpic survival-analysis wave6 manuscript n1a preprint n1arxiv submission preprint-platform pr-assembly cross-repo-submission compositional method-primitive role-taxonomy n=1 automl prognosis
 ---
 
@@ -44,6 +44,7 @@ OPL is two halves that hand off via artifacts on disk. Do not confuse them:
 - **You (the host agent) are the only reasoning brain.** The named experts, the planner's judgment, hypothesis generation, cross-expert review, and Henry's disagreement reasoning are all done by **you dispatching subagents** per `prompts/experts/expert_task_package.md` (+ `prompts/render/`, `prompts/auditor/`). Each subagent writes its report into `triggers/<run_id>/tasks/<task_id>/`. **There is no LLM inside the Python package — it never calls a model.**
 - **The `opl-cancer` CLI is a deterministic harness, not an executor.** `plan` / `wave1..4` / `run` / `audit` / `deliver` / `attest` scaffold the run, pre-fetch live integrator data, **validate the artifacts you wrote**, run the 42 gates (verdict = Python, `exit≠0` on violation), hash provenance, and assemble the brief. `opl-cancer wave1` and friends are *state-checks*: they confirm your dispatched reports exist and pass gates — they do **not** produce the reasoning.
 - So every wave is a **two-beat loop**: (1) you dispatch the experts as subagents → they write reports; (2) you run the matching CLI command → it validates + gates and tells you the next beat.
+- **Re-ground each beat (Arbor/HTR boundary, ADR-0041).** `opl-cancer observe` is a read-only, no-LLM re-projection of the run (goal · planned-vs-done waves · outstanding work · memory frontier · **falsified hypotheses across all of this patient's runs as negative constraints**). Re-read it at the start of every wave beat and at plan time so you re-ground on durable state, not your lossy memory of the conversation — this is the documented fix for the under-delivery drift that G37 only caught at the end. `opl-cancer validate` is its sibling invariant-checker (manifest/plan drift · attested-without-brief · delivered-without-ledger · under-delivery), run after `attest`. Both are state *readers* — they never execute a wave or write.
 - **Install consequence:** `pip install -e <skill_dir>` installs the *harness*. The patient path needs **no LLM provider key** — the reviewer is a second subagent of yours, not a Python API call. (Provider keys only feed the optional self-improvement engine, which is being extracted.)
 
 ## Where patient data lives

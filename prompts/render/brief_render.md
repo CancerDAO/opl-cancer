@@ -110,6 +110,16 @@ Produce both, writing to the run's `delivery/` directory:
    as the top-3. False-hope safety is symmetric: the patient must see what is
    weak and unconfirmed as clearly as the recommendations. A clean run
    (`piles: []`) renders a one-line "本次分析未发现系统性证据短板。"
+8. **Explored → survived funnel (ADR-0042)** — if `triggers/<run_id>/funnel.json`
+   exists, render the "我们探索了什么 vs 留下了什么 / What we explored vs what
+   survived" section using its counts verbatim (`explored` / `killed_in_tournament`
+   / `validated` / `falsified` / `inconclusive` / `ties_resolved_by_selection` /
+   `tree_depth_reached`), exactly as the `funnel` block in `patient_brief.md.j2`.
+   The counts are deterministic (the harness computed them — never recompute or
+   editorialise them); your job is only to present them honestly so the patient
+   sees the full explored-vs-survived picture, including how many directions were
+   killed or left inconclusive. "Inconclusive" is true and useful information,
+   never a failure to hide.
 
 ### Fidelity rules
 

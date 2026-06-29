@@ -136,6 +136,26 @@ class ProjectMemoryStore:
             run_id=run_id,
         )
 
+    def save_abstraction(self, prior: dict[str, Any], run_id: str | None = None) -> int:
+        """Persist one abstracted cross-run prior (Arbor/HTR insight propagation,
+        ADR-0042). The *judgment* — the abstracted lesson — is authored by the PI
+        subagent (prompts/pi/insight_abstraction.md); this only persists it,
+        append-only, so future runs read it as warm-start context. ``directional``
+        ('supports' / 'warns_against') goes in the status column for cheap
+        filtering of dead-ends the next planner must avoid."""
+        return self.append_ledger(
+            "run_abstraction",
+            str(prior.get("id") or f"abs_{run_id}"),
+            prior,
+            run_id=run_id,
+            status=str(prior.get("directional") or ""),
+        )
+
+    def query_abstractions(self, run_id: str | None = None) -> list[dict[str, Any]]:
+        """All abstracted priors (across runs if run_id is None) — the cross-run
+        knowledge a new run starts warm on."""
+        return self.ledger_rows(record_type="run_abstraction", run_id=run_id)
+
     def ledger_rows(
         self, record_type: str | None = None, run_id: str | None = None
     ) -> list[dict[str, Any]]:

@@ -139,6 +139,7 @@ def all_gate_classes() -> list[type[Gate]]:
         G53NovelCandidatePresenceGate,  # D1/ADR-0034
         G54MemoryLedgerWrittenGate,  # A1/ADR-0027
         G55PlanFloorCoverageGate,  # D1/ADR-0034
+        G60InsightAbstractionWrittenGate,  # ADR-0042 (G56-G59 reserved: parallel value-source/CRC branch)
     )
 
     return [
@@ -195,4 +196,5 @@ def all_gate_classes() -> list[type[Gate]]:
         G53NovelCandidatePresenceGate,
         G54MemoryLedgerWrittenGate,
         G55PlanFloorCoverageGate,
+        G60InsightAbstractionWrittenGate,  # ADR-0042 (G56-G59 reserved for parallel branch)
     ]
