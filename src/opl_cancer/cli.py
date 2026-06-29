@@ -31,6 +31,7 @@ from opl_cancer.glue.funnel import (  # ADR-0042 single source of truth
     compute_funnel as _compute_funnel,
     lifestate as _lifestate,
     load_hypotheses as _load_hypotheses,
+    load_killed as _load_killed,
     w4_survival_by_id as _w4_survival_by_id,
 )
 
@@ -850,10 +851,11 @@ def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
     # ✗② per-candidate convergence state via the SAME assessor `deepen` uses, so
     # the projection can never disagree with the action (the iteration-2 bug).
     _w4 = _w4_survival_by_id(run_root)
+    _hyps_re = hyps + _load_killed(run_root)  # killed children counted (re-entry only, not funnel/tree)
     cand_states: dict[str, str] = {}
     for cand in (plan.get("deepen_candidates") or []):
         cand = str(cand)
-        a = _assess_deepen(hyps, cand, max_depth, _w4)
+        a = _assess_deepen(_hyps_re, cand, max_depth, _w4)
         st = a["state"]
         if st == "absent":
             cand_states[cand] = "absent"
@@ -1180,7 +1182,9 @@ def abstract(patient_dir: str, run_id: str, finalize: bool, json_mode: bool) -> 
 @click.option("--json", "json_mode", is_flag=True)
 def deepen(patient_dir: str, run_id: str, target: str, json_mode: bool) -> None:
     run_root = Path(patient_dir) / "triggers" / run_id
-    hyps = _load_hypotheses(run_root)
+    # killed-in-tournament children count as DEAD children of their frontier, so a
+    # round whose spawns all died makes the frontier 'dry', not forever-deepenable.
+    hyps = _load_hypotheses(run_root) + _load_killed(run_root)
     by_id = {str(h.get("id")): h for h in hyps if h.get("id")}
     plan = _load_json(run_root / "plan.json") or {}
     manifest = _load_json(run_root / "run_manifest.json") or {}

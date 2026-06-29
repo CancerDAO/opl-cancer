@@ -24,6 +24,33 @@ def load_hypotheses(run_root: Path) -> list[dict[str, Any]]:
     return list(data.get("hypotheses") or [])
 
 
+def load_killed(run_root: Path) -> list[dict[str, Any]]:
+    """Killed-in-tournament candidates (killed_candidates.jsonl), forced to a DEAD
+    lifestate. Used ONLY by the deepen/observe re-entry assessment (NOT the funnel
+    counts): a frontier whose spawned children were all KILLED writes them here,
+    not into wave2_hypotheses.json — so without this they'd look childless and
+    assess_deepen would return 'deepenable' on them forever (the killed-children
+    livelock). Feeding them as dead children makes the parent count as deepened →
+    dry."""
+    f = Path(run_root) / "killed_candidates.jsonl"
+    out: list[dict[str, Any]] = []
+    if not f.is_file():
+        return out
+    for ln in f.read_text(encoding="utf-8").splitlines():
+        ln = ln.strip()
+        if not ln:
+            continue
+        try:
+            rec = json.loads(ln)
+        except Exception:
+            continue
+        if isinstance(rec, dict) and rec.get("id"):
+            rec = dict(rec)
+            rec["status"] = "falsified"  # killed = eliminated → dead for re-entry
+            out.append(rec)
+    return out
+
+
 def build_forest(hyps: list[dict[str, Any]], flat_fallback: bool = True) -> tuple[dict[str, list[str]], list[str]]:
     """(children-by-id, root-ids). parent_chain[0] is the immediate parent; an
     empty/absent parent marks a root. If a malformed/cyclic chain leaves every
