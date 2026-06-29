@@ -457,3 +457,15 @@ def test_lifestate_failsafe_on_noncanonical_verdict(tmp_path):
     (rr / "wave4_validation.json").write_text(json.dumps({"validations": [{"hyp_id": "H2a", "survival_status": "weakened"}]}))
     d = json.loads(CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"]).output)
     assert d.get("ok") is False and d["reason"] == "awaiting_judgement"
+
+
+def test_deepen_rootless_cycle_terminates(tmp_path):
+    """final review-A P1: a FULLY rootless cyclic forest must not livelock —
+    depth_map (no flat-fallback) leaves rootless nodes depthless → ceiling → terminal."""
+    patient = tmp_path / "P"; rid = "r1"; rr = patient / "triggers" / rid; rr.mkdir(parents=True)
+    (rr / "plan.json").write_text(json.dumps({"max_depth": 3, "deepen_candidates": ["P"]}))
+    (rr / "wave2_hypotheses.json").write_text(json.dumps({"hypotheses": [
+        {"id": "P", "status": "active", "parent_chain": ["Q"]},
+        {"id": "Q", "status": "active", "parent_chain": ["P"]}]}))   # rootless 2-cycle
+    d = json.loads(CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "P", "--json"]).output)
+    assert d["ok"] is False and d["reason"] in ("depth_budget_exhausted", "dry")  # terminal, not deepenable

@@ -24,7 +24,7 @@ def load_hypotheses(run_root: Path) -> list[dict[str, Any]]:
     return list(data.get("hypotheses") or [])
 
 
-def build_forest(hyps: list[dict[str, Any]]) -> tuple[dict[str, list[str]], list[str]]:
+def build_forest(hyps: list[dict[str, Any]], flat_fallback: bool = True) -> tuple[dict[str, list[str]], list[str]]:
     """(children-by-id, root-ids). parent_chain[0] is the immediate parent; an
     empty/absent parent marks a root. If a malformed/cyclic chain leaves every
     node a child (no roots), fall back to a flat forest so the patient's
@@ -39,7 +39,10 @@ def build_forest(hyps: list[dict[str, Any]]) -> tuple[dict[str, list[str]], list
             children[parent].append(hid)
         else:
             roots.append(hid)
-    if not roots and by_id:
+    if flat_fallback and not roots and by_id:
+        # Renderer-only: a fully rootless (cyclic) forest must still display its
+        # nodes. depth_map calls with flat_fallback=False so it does NOT fabricate
+        # depth-1 for rootless nodes (that defeated the ceiling guard / livelock).
         roots = sorted(by_id)
         children = {hid: [] for hid in by_id}
     return children, sorted(roots)
@@ -50,7 +53,10 @@ def depth_map(hyps: list[dict[str, Any]]) -> dict[str, int]:
     parents = roots, root depth = 1), cycle-safe. Single source of truth for
     depth — used by observe, validate, AND the deepen budget so they cannot
     disagree (the bug iteration-2's review caught)."""
-    children, roots = build_forest(hyps)
+    # No flat-fallback: a rootless-cyclic forest yields NO depths, so every such
+    # node is "missing" → treated as at-ceiling by assess_deepen (_depth default
+    # = max_depth) → terminal (budget_spent), never an infinite frontier.
+    children, roots = build_forest(hyps, flat_fallback=False)
     depth_of: dict[str, int] = {r: 1 for r in roots}
     stack = list(roots)
     while stack:
