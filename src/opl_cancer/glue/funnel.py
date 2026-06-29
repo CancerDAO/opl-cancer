@@ -83,7 +83,7 @@ def lifestate(hyp: dict[str, Any], w4_by_id: dict[str, str]) -> str:
     'inconclusive' are PENDING (not yet terminally judged) — they must BLOCK a
     `dry` verdict, never count as death (a freshly-scaffolded child must not look
     dead)."""
-    sv = w4_by_id.get(str(hyp.get("id")), "")
+    sv = str(w4_by_id.get(str(hyp.get("id")), "")).strip().lower()
     if sv == "validated":
         return "alive"
     if sv == "falsified":
@@ -110,6 +110,14 @@ def assess_deepen(hyps: list[dict[str, Any]], target: str, max_depth: int,
         return {"state": "absent"}
     children, _ = build_forest(hyps)       # DIRECT-parent children (matches the tree)
     depths = depth_map(hyps)
+    direct = children.get(target, [])
+
+    # P1: a terminally-dead lead (Wave-4 falsified, or schema retired/saturated)
+    # is NEVER recommended for deepening — that would present a disproven
+    # direction as a live frontier (the false-hope / 真假希望 anti-pattern).
+    if lifestate(by_id[target], w4_by_id) == "dead":
+        return {"state": "dead_target", "target": target,
+                "children_explored": len(direct)}
 
     # subtree (target + transitive descendants) via the direct-children map
     seen: set[str] = set()
@@ -120,28 +128,37 @@ def assess_deepen(hyps: list[dict[str, Any]], target: str, max_depth: int,
             continue
         seen.add(n)
         stack.extend(children.get(n, []))
-
-    # Dryness is about the target's DESCENDANTS, not the target itself (the lead
-    # is expected to stay 'alive' — that is not what we're asking).
     descendants = seen - {target}
     alive_desc = [s for s in descendants if lifestate(by_id[s], w4_by_id) == "alive"]
     pending_desc = [s for s in descendants if lifestate(by_id[s], w4_by_id) == "pending"]
-    direct = children.get(target, [])
 
-    # DRY: the lead WAS deepened (direct children exist) and every descendant is
-    # terminally dead — no alive sub-lead, nothing still pending judgement.
-    if direct and not alive_desc and not pending_desc:
+    # A live descendant → advance to the deepest one (depth strictly increases →
+    # bounded by max_depth → termination guaranteed).
+    if alive_desc:
+        frontier = max(alive_desc, key=lambda s: depths.get(s, 1))
+        fdepth = depths.get(frontier, 1)
+        if fdepth >= max_depth:
+            return {"state": "budget_spent", "frontier": frontier,
+                    "frontier_depth": fdepth, "max_depth": max_depth}
+        return {"state": "deepenable", "frontier": frontier,
+                "frontier_depth": fdepth, "max_depth": max_depth}
+
+    # P0 (termination): children exist but NONE alive yet — if any are still
+    # pending judgement, do NOT spawn more (that is the livelock); block on
+    # validating what's there. Only when every descendant is terminally dead is
+    # the lead DRY.
+    if pending_desc:
+        return {"state": "awaiting_judgement", "pending": len(pending_desc),
+                "children_explored": len(direct)}
+    if direct:
         return {"state": "dry", "children_explored": len(direct)}
 
-    # Frontier = the deepest ALIVE descendant (each round advances depth → bounded
-    # by max_depth → termination guaranteed). If no alive descendant yet (first
-    # round, or only-pending children), deepen the target itself.
-    frontier = max(alive_desc, key=lambda s: depths.get(s, 1)) if alive_desc else target
-    fdepth = depths.get(frontier, 1)
+    # No children yet and the target is alive → first-round deepen of the lead.
+    fdepth = depths.get(target, 1)
     if fdepth >= max_depth:
-        return {"state": "budget_spent", "frontier": frontier,
+        return {"state": "budget_spent", "frontier": target,
                 "frontier_depth": fdepth, "max_depth": max_depth}
-    return {"state": "deepenable", "frontier": frontier,
+    return {"state": "deepenable", "frontier": target,
             "frontier_depth": fdepth, "max_depth": max_depth}
 
 

@@ -52,8 +52,16 @@ documented as by-design) and adversarially reviewed. See
   direct children; depth uses the tree walk (was a constant that never advanced,
   making termination non-guaranteed). `saturated`/`retired` count as dead.
   `direction_dry` / `depth_budget_exhausted` are ADVISORY (exit 0, `advisory:true`,
-  not error code 2). Termination is now provable: each round advances the live
-  frontier toward `max_depth`, or the frontier goes dry.
+  not error code 2).
+- **Livelock + false-hope guards (iteration-3 review found a P0 + P1)**: a target
+  whose children are all PENDING (Wave-4 `inconclusive` / fresh `new`) now returns
+  `awaiting_judgement` (advisory) — the host must validate existing children
+  before spawning more, so an all-inconclusive sequence cannot livelock (depth
+  only advances on a *live* frontier; termination is provable). And `assess_deepen`
+  now guards the **target's own** lifestate: a Wave-4-falsified / retired /
+  saturated lead returns `dead_target` and is never recommended for deepening
+  (the 真假希望 / false-hope anti-pattern OPL exists to prevent). `lifestate`
+  lowercases the Wave-4 verdict; rivals selection uses `lifestate` (no vocab fork).
 - `INFORMATIVE_SELECTION_SKIPPED` no longer false-fires when survivors lack an
   `elo_rating` (a missing score is not a 0-point tie).
 - `tests/test_glue/test_sniffer_halt.py` (pre-existing API drift) now skips

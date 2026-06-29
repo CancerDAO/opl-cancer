@@ -105,15 +105,15 @@ def test_abstract_rejects_ungrounded_leaf(tmp_path):
 
 # ── ② deepen / depth budget ─────────────────────────────────────────────
 def test_deepen_frontier_selection(tmp_path):
-    # _run sets H3 (child of H2) to wave4 'inconclusive' = PENDING (not a live frontier).
+    # _run: H1 is Wave-4 falsified (dead); H2 validated with child H3 inconclusive (pending).
     patient, rid, rr = _run(tmp_path, max_depth=2)
     r = CliRunner()
-    # H1: root, no children, depth1 < 2 → deepenable, frontier = H1
-    ok = json.loads(r.invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H1", "--json"]).output)
-    assert ok["ok"] is True and ok["frontier"] == "H1" and ok["new_depth"] == 2
-    # H2: only child H3 is pending → not dry, but no alive descendant yet → deepen H2 itself
-    d = json.loads(r.invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"]).output)
-    assert d["ok"] is True and d["frontier"] == "H2"
+    # H1 falsified → refused as a dead target (false-hope guard)
+    d1 = json.loads(r.invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H1", "--json"]).output)
+    assert d1["ok"] is False and d1["reason"] == "target_dead"
+    # H2 has a pending (inconclusive) child → awaiting judgement, not a fresh spawn
+    d2 = json.loads(r.invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"]).output)
+    assert d2["ok"] is False and d2["reason"] == "awaiting_judgement"
 
 
 def test_deepen_unknown_target(tmp_path):
@@ -366,3 +366,38 @@ def test_observe_candidate_state_matches_deepen(tmp_path):
     j = json.loads(CliRunner().invoke(observe, ["--patient", str(patient), "--run-id", rid, "--json"]).output)
     assert j["depth"]["candidate_states"]["H2"] == "dry (converged)"
     assert "dry (converged)" in CliRunner().invoke(observe, ["--patient", str(patient), "--run-id", rid]).output
+
+
+# ── iteration-4: review P0 (livelock) + P1 (dead target) ────────────────
+def test_deepen_awaiting_judgement_breaks_livelock(tmp_path):
+    """review-P0: a target whose children are all PENDING returns awaiting_judgement
+    (advisory, exit 0) — the host must NOT spawn more, so an all-inconclusive loop
+    cannot livelock. depth never advances on pending → this is the structural stop."""
+    patient, rid, rr = _run_children(tmp_path, [("H2a", "new", ["H2"])])
+    out = CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"])
+    d = json.loads(out.output)
+    assert out.exit_code == 0 and d["ok"] is False and d["reason"] == "awaiting_judgement" and d["pending"] == 1
+    # inconclusive (Wave-4) children behave identically
+    patient2, rid2, rr2 = _run_children(tmp_path / "b", [("H2a", "active", ["H2"])])
+    (rr2 / "wave4_validation.json").write_text(json.dumps({"validations": [{"hyp_id": "H2a", "survival_status": "inconclusive"}]}))
+    d2 = json.loads(CliRunner().invoke(deepen, ["--patient", str(patient2), "--run-id", rid2, "--target", "H2", "--json"]).output)
+    assert d2["reason"] == "awaiting_judgement"
+
+
+def test_deepen_refuses_dead_target(tmp_path):
+    """review-P1: a Wave-4-falsified lead is never recommended for deepening
+    (false-hope guard), even if it has pending children."""
+    patient, rid, rr = _run_children(tmp_path, [("H2a", "new", ["H2"])])
+    (rr / "wave4_validation.json").write_text(json.dumps({"validations": [{"hyp_id": "H2", "survival_status": "falsified"}]}))
+    d = json.loads(CliRunner().invoke(deepen, ["--patient", str(patient), "--run-id", rid, "--target", "H2", "--json"]).output)
+    assert d["ok"] is False and d["reason"] == "target_dead"
+    # and a schema-falsified target (no wave4) is also refused
+    patient2, rid2, rr2 = _run_children(tmp_path / "b", [])
+    import json as _j
+    h = _j.loads((rr2 / "wave2_hypotheses.json").read_text())
+    for x in h["hypotheses"]:
+        if x["id"] == "H2":
+            x["status"] = "falsified"
+    (rr2 / "wave2_hypotheses.json").write_text(_j.dumps(h))
+    d2 = _j.loads(CliRunner().invoke(deepen, ["--patient", str(patient2), "--run-id", rid2, "--target", "H2", "--json"]).output)
+    assert d2["reason"] == "target_dead"

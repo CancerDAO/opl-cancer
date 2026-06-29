@@ -29,6 +29,7 @@ from opl_cancer.glue.funnel import (  # ADR-0042 single source of truth
     assess_deepen as _assess_deepen,
     build_forest as _build_hypothesis_forest,
     compute_funnel as _compute_funnel,
+    lifestate as _lifestate,
     load_hypotheses as _load_hypotheses,
     w4_survival_by_id as _w4_survival_by_id,
 )
@@ -853,8 +854,12 @@ def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
         st = a["state"]
         if st == "absent":
             cand_states[cand] = "absent"
+        elif st == "dead_target":
+            cand_states[cand] = "dead (Wave-4 falsified — do NOT deepen)"
         elif st == "dry":
             cand_states[cand] = "dry (converged)"
+        elif st == "awaiting_judgement":
+            cand_states[cand] = f"awaiting judgement ({a.get('pending', 0)} children pending validation)"
         elif st == "budget_spent":
             cand_states[cand] = f"budget-spent (frontier {a['frontier']} @ depth {a['frontier_depth']}/{a['max_depth']})"
         else:
@@ -1185,7 +1190,8 @@ def deepen(patient_dir: str, run_id: str, target: str, json_mode: bool) -> None:
 
     # Single source of truth (glue.funnel.assess_deepen): direct-parent children,
     # forest-walk depth, canonical alive/dead/pending lifestate, frontier-advancing.
-    a = _assess_deepen(hyps, target, max_depth, _w4_survival_by_id(run_root))
+    _w4 = _w4_survival_by_id(run_root)
+    a = _assess_deepen(hyps, target, max_depth, _w4)
 
     # Exit-code contract: the two NORMAL terminal outcomes (dry / budget spent) are
     # ADVISORY stops, NOT errors — exit 0 with ok:False so an automated caller
@@ -1213,6 +1219,27 @@ def deepen(patient_dir: str, run_id: str, target: str, json_mode: bool) -> None:
             ),
         }, json_mode)
         return
+    if a["state"] == "dead_target":  # P1: never deepen a Wave-4-falsified lead
+        _emit({
+            "ok": False, "reason": "target_dead", "advisory": True, "target": target,
+            "message": (
+                f"{target} is itself terminally dead (Wave-4 falsified / retired / saturated). Deepening a "
+                "disproven direction would present false hope — refused. Pick a live lead or proceed to delivery."
+            ),
+        }, json_mode)
+        return
+    if a["state"] == "awaiting_judgement":  # P0: don't spawn more while children pending
+        _emit({
+            "ok": False, "reason": "awaiting_judgement", "advisory": True,
+            "target": target, "pending": a.get("pending", 0),
+            "message": (
+                f"{target} has {a.get('pending', 0)} child hypothes(es) still PENDING Wave-4 judgement. Do NOT "
+                "spawn more — finish validating the existing children first; re-run deepen once they resolve "
+                "(alive → deepen further; all dead → dry). This is the termination backstop against an "
+                "all-inconclusive livelock."
+            ),
+        }, json_mode)
+        return
 
     # deepenable — deepen the live FRONTIER node (advances depth each round).
     frontier = a["frontier"]
@@ -1229,7 +1256,7 @@ def deepen(patient_dir: str, run_id: str, target: str, json_mode: bool) -> None:
     rivals = sorted(
         [h for h in hyps if str(h.get("id")) not in sub
          and abs((h.get("elo_rating") or 0) - elo) <= 50
-         and str(h.get("status")) in ("active", "validated", "survives")],
+         and _lifestate(h, _w4) == "alive"],   # canonical vocab (no fork)
         key=lambda h: -(h.get("elo_rating") or 0),
     )
     _emit({
