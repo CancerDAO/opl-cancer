@@ -75,6 +75,16 @@ Produce both, writing to the run's `delivery/` directory:
    acknowledgement requirement (`permission_levels` semantics). Never move risk
    cards below the findings.
 4. **Summary** — `sid_summary`, verbatim.
+4b. **Standard-of-care floor (G57, BLOCK)** — if `soc_floor` is present and
+   truthy, render the `## 标准治疗地板 / Standard-of-care floor [SOC-FLOOR]`
+   section with `soc_floor` verbatim, **before** Findings and before any
+   beyond-guideline / world-unknown content. The `[SOC-FLOOR]` marker + the
+   stage statement inside `soc_floor` are what G57 verifies. If `soc_floor` is
+   absent, omit the section — delivery then blocks on G57, which is correct: a
+   frontier-only brief that never names the stage-appropriate standard of care
+   is the exact failure G57 guards against (the missed PACIFIC / durvalumab
+   consolidation incident). Do not fabricate a floor to satisfy the gate; the
+   floor comes from the treating-oncologist expert's `soc_floor.json`.
 5. **Findings by Expert** — for each expert in `experts` (in order), a section
    `<Name capitalized> — <role>`, then each claim as:
    - a 3-tier badge `[{{ claim.layer }}]` + the claim `text` **verbatim**

@@ -17,6 +17,13 @@
 ## Summary
 {{ sid_summary }}
 
+{% if soc_floor is defined and soc_floor %}
+## 标准治疗地板 / Standard-of-care floor [SOC-FLOOR]
+> 在任何「超越指南」的方向之前，先确认你这种分期下的标准治疗地板 / Before any beyond-guideline option, the stage-appropriate standard of care is named here.
+
+{{ soc_floor }}
+{% endif %}
+
 ## Findings by Expert
 {% for ex in experts %}
 ### {{ ex.name|capitalize }} — {{ ex.role }}

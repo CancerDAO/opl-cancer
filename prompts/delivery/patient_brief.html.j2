@@ -79,6 +79,12 @@
 <h2>Summary</h2>
 <p>{{ sid_summary }}</p>
 
+{% if soc_floor is defined and soc_floor %}
+<h2>标准治疗地板 / Standard-of-care floor [SOC-FLOOR]</h2>
+<p class="framing">在任何「超越指南」的方向之前，先确认你这种分期下的标准治疗地板 / Before any beyond-guideline option, the stage-appropriate standard of care is named here.</p>
+<p>{{ soc_floor }}</p>
+{% endif %}
+
 <h2>Findings by Expert</h2>
 {% for ex in experts %}
 <h3>{{ ex.name | capitalize }} — {{ ex.role }}</h3>

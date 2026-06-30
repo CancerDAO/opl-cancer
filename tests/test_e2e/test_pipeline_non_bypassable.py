@@ -106,6 +106,7 @@ def _build_complete_run(root: Path, *, experts: list[str], pmid: str, gene: str,
     out_dir = run_root / "delivery"
     (patient / "ocr").mkdir(parents=True)
     (patient / "ocr" / "labs.txt").write_text("肌酐 88 umol/L\n", encoding="utf-8")
+    (patient / "ocr" / "stage.txt").write_text("Stage IV metastatic disease\n", encoding="utf-8")
     (patient / "case_text.md").write_text(
         f"诊断: {cancer} {gene} 突变。肌酐 88 [[src:ocr/labs.txt#L1]]\n", encoding="utf-8"
     )
@@ -142,10 +143,24 @@ def _build_complete_run(root: Path, *, experts: list[str], pmid: str, gene: str,
         "claim_id": "c1", "entities": [gene, cancer],
         "evidence": [{"type": "pmid", "id": pmid, "quote": f"{gene} in {cancer}"}],
     }]}), encoding="utf-8")
+    # G57: a complete run names the stage-appropriate standard-of-care FLOOR
+    # before any frontier. The treating-oncologist writes soc_floor.json; the
+    # deterministic renderer surfaces it into the brief's [SOC-FLOOR] section.
+    (run_root / "soc_floor.json").write_text(
+        json.dumps({
+            "stage": "Stage IV metastatic",
+            "standard": f"guideline standard of care for {gene}-driven {cancer}",
+            "pivotal_pmid": pmid,
+        }), encoding="utf-8",
+    )
     # filled briefs + real Henry audit
     out_dir.mkdir(parents=True)
     (out_dir / "patient_pi_brief.md").write_text(
-        f"{gene} therapy supported [PMID:{pmid}].\n", encoding="utf-8"
+        "## Standard-of-care floor [SOC-FLOOR]\n"
+        "Stage IV metastatic disease [[src:ocr/stage.txt#L1]].\n"
+        f"For this setting the stage-appropriate standard of care is named [PMID:{pmid}].\n\n"
+        f"{gene} therapy supported [PMID:{pmid}].\n",
+        encoding="utf-8",
     )
     (out_dir / "HENRY_AUDIT.json").write_text(
         json.dumps({"henry_real_audit": True, "claims_audited": 1, "status": "pass"}),

@@ -151,6 +151,41 @@ def actionability_label_zh(tier: str) -> str:
     return _ACTIONABILITY_LABEL_ZH.get(tier, _ACTIONABILITY_LABEL_ZH["research_only"])
 
 
+def load_soc_floor(run_dir: Path) -> str | None:
+    """Read the stage-appropriate standard-of-care FLOOR statement (G57).
+
+    A complete run names the global standard of care for the patient's stage
+    BEFORE any beyond-guideline frontier. The treating-oncologist expert
+    (Vince) writes ``triggers/<run_id>/soc_floor.json`` with keys
+    ``{stage, standard, pivotal_pmid?}``. Rendering is deterministic: this
+    loader surfaces it into the brief's ``[SOC-FLOOR]`` section.
+
+    Returns ``None`` when absent/malformed → the section is omitted → G57
+    blocks delivery. That is the gate working as designed: a frontier-only
+    brief that skips the floor is the exact failure G57 guards against
+    (ADR-0030 / project_opl_cancer_v211_hardening — the missed PACIFIC /
+    durvalumab consolidation incident).
+    """
+    fp = run_dir / "soc_floor.json"
+    if not fp.exists():
+        return None
+    try:
+        data = json.loads(fp.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    stage = str(data.get("stage") or "").strip()
+    standard = str(data.get("standard") or "").strip()
+    if not stage or not standard:
+        return None
+    line = f"{stage} — 标准治疗地板 / stage-appropriate standard of care: {standard}"
+    pmid = str(data.get("pivotal_pmid") or "").strip()
+    if pmid:
+        line += f" [PMID:{pmid}]"
+    return line
+
+
 def load_world_unknown_candidates(run_dir: Path) -> list[dict[str, Any]]:
     """Read wave2_hypotheses.json from run_dir, return [S]-with-testability list.
 

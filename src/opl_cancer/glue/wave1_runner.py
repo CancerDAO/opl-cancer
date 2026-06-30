@@ -309,7 +309,10 @@ class Wave1Runner:
 
         # v2.0.1 (post-review): bridge Wave 2 → renderer so the World-Unknown
         # section actually populates in real runs (was dead template before).
-        from opl_cancer.glue.render_bridge import load_world_unknown_candidates
+        from opl_cancer.glue.render_bridge import (
+            load_soc_floor,
+            load_world_unknown_candidates,
+        )
 
         # P0.2c: a wired-but-not-fully-provisioned engine run BLOCKS delivery.
         # Append explicit Level-3 risk cards so the brief shows the block loudly
@@ -348,6 +351,7 @@ class Wave1Runner:
             "expanded_access_routes": actionable["expanded_access_routes"],
             "has_actionable_paths": actionable["has_any"],
             "world_unknown_candidates": load_world_unknown_candidates(run_dir),
+            "soc_floor": load_soc_floor(run_dir),
         }
         if self._retrieval_unavailable:
             render_ctx["delivery_blocked_notice"] = (
