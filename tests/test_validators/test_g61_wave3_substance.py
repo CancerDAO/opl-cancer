@@ -59,6 +59,15 @@ def test_alive_token_not_treated_as_live(tmp_path: Path) -> None:
     assert r.block is True
 
 
+def test_evidence_in_subdir_is_found_not_skipped(tmp_path: Path) -> None:
+    # adversarial review P0-1: the legacy Wave3Runner writes evidence into a
+    # wave3_<ts>/ subdir. G61 must still find it (not silently SKIP → gate dead).
+    sub = tmp_path / "wave3_20260630_010101"
+    _write_w3(sub, ["dry-run"])
+    r = G61Wave3SubstanceGate().check({"run_dir": str(tmp_path)})
+    assert r.status.value == "fail" and r.block is True  # dry-run still caught
+
+
 def test_no_wave3_evidence_skips(tmp_path: Path) -> None:
     # absent file → other gates (G25/delivery_runner) own the "no evidence" case
     r = G61Wave3SubstanceGate().check({"run_dir": str(tmp_path)})

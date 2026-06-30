@@ -33,6 +33,7 @@ drug/metric), which is exactly what the grounding gates verify against.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -59,14 +60,35 @@ def resolve_db_path() -> Path | None:
     return None
 
 
+def _norm_pmid(pmid: str) -> str:
+    """Strip a leading 'PMID:' / 'PMID ' prefix (prefix, not char-class)."""
+    s = str(pmid).strip()
+    m = re.match(r"(?i)^pmid[:\s]*", s)
+    return s[m.end():].strip() if m else s
+
+
 def is_available() -> bool:
-    """True iff the corpus is configured AND queryable (env + duckdb + file)."""
+    """True iff the corpus is configured AND genuinely queryable.
+
+    Actually OPENS the DB read-only and runs a trivial probe — a non-duckdb file
+    named evidence.duckdb (or a truncated/corrupt DB) returns False rather than
+    passing a path-only check and then silently failing every query
+    (adversarial review 2026-06-30 P2-#5).
+    """
     p = resolve_db_path()
     if p is None or not p.is_file():
         return False
     try:
-        import duckdb  # noqa: F401
+        import duckdb
     except ImportError:
+        return False
+    try:
+        con = duckdb.connect(str(p), read_only=True)
+        try:
+            con.execute("SELECT 1")
+        finally:
+            con.close()
+    except Exception:
         return False
     return True
 
@@ -122,7 +144,7 @@ class OncoEvidenceIntegrator(Integrator):
         if not rest:
             raise IntegratorError(f"OncoEvidence: empty selector in key {key!r}")
         if kind == "pmid":
-            rows = self._query("pmid = ?", [rest.lstrip("PMID:").strip()], 50)
+            rows = self._query("pmid = ?", [_norm_pmid(rest)], 50)
         elif kind == "drug":
             rows = self._query("lower(drugs) LIKE '%' || lower(?) || '%'", [rest], 25)
         elif kind == "biomarker":
@@ -143,5 +165,5 @@ class OncoEvidenceIntegrator(Integrator):
     # ── grounding helpers (deterministic; used by G2 / G56 when available) ──
     def quotes_for_pmid(self, pmid: str) -> list[str]:
         """All non-empty verbatim quotes the corpus holds for a PMID."""
-        rows = self._query("pmid = ? AND verbatim_quote <> ''", [str(pmid).strip()], 50)
+        rows = self._query("pmid = ? AND verbatim_quote <> ''", [_norm_pmid(pmid)], 50)
         return [str(r["verbatim_quote"]) for r in rows if r.get("verbatim_quote")]

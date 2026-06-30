@@ -175,13 +175,13 @@ class Wave3Runner:
                 plan={"task_packages": ["bioinformatics_data_analysis"]},
                 context=ba_context,
             )
-            # bixbench dry-run (live only if OPL_BIXBENCH_LIVE=1)
-            # KNOWN SUBSTANCE GAP (first-principles audit 2026-06-30, finding
-            # C1-b): this writes an EMPTY notebook stub, so even a live run
-            # executes nothing real — G61 verifies the runner EXECUTED, not that
-            # the notebook was substantive. Closing this needs the analysis
-            # plan_out → executable-notebook wiring (host-LLM/Aviv's cells), a
-            # larger change than a gate patch. Tracked as a P1 follow-up.
+            # bixbench dry-run (live only if OPL_BIXBENCH_LIVE=1).
+            # KNOWN SUBSTANCE GAP (C1-b, first-principles audit 2026-06-30): this
+            # writes an empty notebook stub; in the host-agent flow the real
+            # analysis notebook is produced by the LLM under data/. G61 verifies
+            # the runner executed LIVE (mode), not that the notebook was
+            # substantive — robustly proving computation-happened needs
+            # notebook-execution provenance, tracked as a follow-up.
             nb_path = run_dir / f"{hid}_analysis.ipynb"
             nb_path.write_text("{}", encoding="utf-8")
             bix_result = self.bixbench.run_notebook(

@@ -64,15 +64,29 @@ class G61Wave3SubstanceGate(Gate):
     failure_mode_code = "F-SUBSTANCE-W3"
 
     def _evidence_path(self, claim: dict[str, Any]) -> Path | None:
-        rd = claim.get("run_dir")
-        if rd:
-            p = Path(rd) / "wave3_data_evidence.json"
-            return p if p.exists() else None
-        # allow a direct path override
+        # explicit override first
         ep = claim.get("wave3_evidence_path")
         if ep and Path(ep).exists():
             return Path(ep)
-        return None
+        rd = claim.get("run_dir")
+        if not rd:
+            return None
+        root = Path(rd)
+        # canonical: run_root/wave3_data_evidence.json (host-agent flow).
+        direct = root / "wave3_data_evidence.json"
+        if direct.exists():
+            return direct
+        # robustness: the legacy Wave3Runner writes it into a wave3_<ts>/ subdir.
+        # Search one level of subdirs so the gate is not silently disabled by
+        # layout (adversarial review 2026-06-30 P0-1). Pick the most recent.
+        try:
+            cands = sorted(
+                root.glob("*/wave3_data_evidence.json"),
+                key=lambda p: p.stat().st_mtime, reverse=True,
+            )
+        except OSError:
+            cands = []
+        return cands[0] if cands else None
 
     def check(self, claim: dict[str, Any]) -> GateResult:
         path = self._evidence_path(claim)
@@ -130,6 +144,15 @@ class G61Wave3SubstanceGate(Gate):
         if not live:
             return self._block(runs, "no run executed live: "
                                + ", ".join(m or "?" for m in modes))
+        # KNOWN LIMITATION (C1-b, first-principles audit 2026-06-30): G61
+        # verifies the runner EXECUTED LIVE, not that the notebook it ran was
+        # substantive. A notebook-source heuristic was trialled and REVERTED
+        # (adversarial review): it was inert in the real layouts (notebooks live
+        # under data/**/, not co-located with the evidence file) and gameable (a
+        # 10-char junk cell satisfied it). Robustly proving "real computation
+        # happened" needs notebook-execution provenance (execution_count +
+        # non-empty outputs, reliably located + mapped to each analysis_run) —
+        # a larger design tracked as a follow-up, not a heuristic.
         return GateResult(
             gate=self.name, status=GateStatus.PASS,
             message=f"G61 OK — all {len(live)} Wave-3 analysis run(s) executed live.",

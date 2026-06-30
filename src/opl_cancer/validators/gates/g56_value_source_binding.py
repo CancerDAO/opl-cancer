@@ -125,6 +125,15 @@ class G56ValueSourceBindingGate(Gate):
 
     def __init__(self, pubmed: Any) -> None:
         self.pubmed = pubmed
+        # NOTE: OncoEvidence was trialled as a haystack augmentation here and
+        # REVERTED (adversarial review 2026-06-30, P0). G56's binding is
+        # context-free (`_number_present` only asks "does this digit token appear
+        # anywhere"), so adding a PMID's full-text-derived quotes — which carry
+        # many numbers across arms / subgroups / CIs — can ONLY raise the
+        # coincidental-match rate. A fabricated mPFS would bind to an unrelated
+        # DoR number from the same paper. Augmenting a context-free safety gate
+        # with more text strictly weakens it. The local corpus belongs in the
+        # RETRIEVAL path (more evidence is good there), never as a gate haystack.
 
     def check(self, claim: dict[str, Any]) -> GateResult:  # pragma: no cover
         raise NotImplementedError("G56 is async; call check_async()")
