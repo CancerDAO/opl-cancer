@@ -18,6 +18,7 @@ TOOL_NAMES = (
     "checkpoint_read",
     "checkpoint_write",
     "integrator_plugins",
+    "task_capabilities",
 )
 
 _MISSING_SDK_HINT = (
@@ -100,6 +101,11 @@ def build_server() -> Any:
     def integrator_plugins() -> dict[str, Any]:
         """List discovered integrator entry-point plugins."""
         return ops.integrator_plugins()
+
+    @server.tool()
+    def task_capabilities() -> dict[str, Any]:
+        """List task-package capability prompts and owners."""
+        return ops.task_capabilities()
 
     return server
 

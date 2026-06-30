@@ -61,6 +61,7 @@ def test_mcp_tool_names_are_stable() -> None:
         "checkpoint_read",
         "checkpoint_write",
         "integrator_plugins",
+        "task_capabilities",
     }
 
 
@@ -75,3 +76,12 @@ def test_session_ops_integrator_plugins_inventory() -> None:
     names = {row["name"] for row in payload["integrators"]}
     assert {"pubmed", "opentargets", "clinicaltrials", "cbioportal", "oncokb"} <= names
     assert payload["entry_point_group"] == "opl_cancer.integrators"
+
+
+def test_session_ops_task_capabilities_inventory() -> None:
+    payload = session_ops.task_capabilities()
+    capabilities = {row["task_package"]: row for row in payload["capabilities"]}
+    assert payload["ok"] is True
+    assert payload["summary"]["count"] == 78
+    assert capabilities["target_synergy_emergent"]["owners"] == ["maya"]
+    assert capabilities["undrugged_target_design"]["owners"] == ["julius"]

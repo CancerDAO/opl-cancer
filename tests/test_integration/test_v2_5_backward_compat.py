@@ -24,22 +24,25 @@ def test_all_33_v24_gates_still_register() -> None:
     assert len(classes) >= 33, f"expected ≥ 33 gates, got {len(classes)}"
 
 
-# ─── invariant 2: 63 v2.4 task packages resolve (now 64 with v2.5 add) ───
+# ─── invariant 2: all current task packages still resolve ────────────────
 
 
 def test_v24_task_packages_still_resolve() -> None:
     """All v2.4 task packages must still validate via task_validator.
 
-    v2.5 adds `unknown_task_intake.md`, taking the count from 63 → 64.
-    Every v2.4 package name still works as before; the new one validates
-    too."""
+    v2.5 adds `unknown_task_intake.md`, taking the count from 63 -> 64.
+    Every historical package name still works as before; newer capability
+    contracts validate too."""
     from opl_cancer.plan.task_validator import list_packages, validate_task_packages
 
     packages = list_packages()
     # v2.8 research-team iteration adds 5 task packages (outcome_reconciliation,
     # error_analysis, n1_applicability_audit, actionability_tier_classification,
-    # forecast_registration).
-    assert len(packages) == 69, f"expected 69 task packages (64 + 5 v2.8), got {len(packages)}"
+    # forecast_registration). ADR-0046 adds 9 class-portfolio capability
+    # contracts for Maya/Julius/Tyler.
+    assert len(packages) == 78, (
+        f"expected 78 task packages (64 + 5 v2.8 + 9 ADR-0046), got {len(packages)}"
+    )
     # Every package can be validated as a known reference
     tasks = [{"task_package": p} for p in packages]
     validate_task_packages(tasks)  # raises on unknown

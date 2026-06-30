@@ -124,3 +124,19 @@ def integrator_plugins() -> dict[str, Any]:
         "count": len(rows),
         "integrators": rows,
     }
+
+
+def task_capabilities() -> dict[str, Any]:
+    """Return the task-package capability registry."""
+    from opl_cancer.plan.task_capabilities import (
+        registry_as_list,
+        validate_task_capability_registry,
+    )
+
+    validation = validate_task_capability_registry()
+    return {
+        "ok": validation["ok"],
+        "summary": validation["summary"],
+        "problems": validation["problems"],
+        "capabilities": registry_as_list(),
+    }

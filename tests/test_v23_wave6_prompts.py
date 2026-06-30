@@ -94,8 +94,9 @@ def test_total_task_package_count_is_62() -> None:
     (`unknown_task_intake.md` — RFC 0001 §8 item 8, the c3195b66 bug fix) = 64.
     v2.8 research-team iteration adds 5 (outcome_reconciliation, error_analysis,
     n1_applicability_audit, actionability_tier_classification,
-    forecast_registration) = 69."""
+    forecast_registration) = 69. ADR-0046 adds 9 prompt contracts for
+    class-level Maya/Julius/Tyler capabilities, bringing the count to 78."""
     count = sum(
         1 for _ in TASK_PACKAGES_DIR.iterdir() if _.suffix == ".md"
     )
-    assert count == 69, f"expected 69 task packages, got {count}"
+    assert count == 78, f"expected 78 task packages, got {count}"

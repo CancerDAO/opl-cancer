@@ -127,6 +127,17 @@ def test_cli_integrator_plugins_json() -> None:
     assert payload["entry_point_group"] == "opl_cancer.integrators"
 
 
+def test_cli_task_capabilities_json() -> None:
+    r = CliRunner().invoke(main, ["task-capabilities", "--json"])
+    assert r.exit_code == 0, r.output
+    payload = json.loads(r.output)
+    capabilities = {row["task_package"]: row for row in payload["capabilities"]}
+    assert payload["ok"] is True
+    assert payload["summary"]["count"] == 78
+    assert capabilities["target_synergy_emergent"]["owners"] == ["maya"]
+    assert capabilities["structure_source_acquisition"]["owners"] == ["julius"]
+
+
 def test_cli_list_experts_runs() -> None:
     r = CliRunner().invoke(main, ["list-experts"])
     assert r.exit_code == 0

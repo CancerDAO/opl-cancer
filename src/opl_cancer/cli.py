@@ -2352,6 +2352,39 @@ def integrator_plugins(json_mode: bool) -> None:
         click.echo(f"  {mark:3} {row['name']:<18} {row.get('module', '')}:{row.get('class', '')}")
 
 
+@main.command(name="task-capabilities", help="List task-package capability prompts and owners.")
+@click.option("--json", "json_mode", is_flag=True)
+def task_capabilities(json_mode: bool) -> None:
+    from opl_cancer.plan.task_capabilities import (
+        registry_as_list,
+        validate_task_capability_registry,
+    )
+
+    capabilities = registry_as_list()
+    validation = validate_task_capability_registry()
+    payload = {
+        "ok": validation["ok"],
+        "summary": validation["summary"],
+        "problems": validation["problems"],
+        "capabilities": capabilities,
+    }
+    if json_mode:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    summary = validation["summary"]
+    click.echo(
+        "Task capabilities: "
+        f"{summary['count']} total, {summary['owned']} owned, "
+        f"{summary['unowned']} unowned, {summary['missing_prompt']} missing prompts"
+    )
+    for row in capabilities:
+        owners = ", ".join(row["owners"]) if row["owners"] else "-"
+        mark = "ok" if row["prompt_exists"] else "MISS"
+        click.echo(f"  {mark:4} {row['task_package']:<38} owners={owners}")
+    if not validation["ok"]:
+        raise click.exceptions.Exit(2)
+
+
 @main.command(help="Initialize a new patient project directory.")
 @click.argument("patient_code")
 @click.option("--root", type=click.Path(file_okay=False),
