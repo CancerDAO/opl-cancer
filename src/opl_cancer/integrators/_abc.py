@@ -79,6 +79,30 @@ class IntegratorRegistry:
             raise KeyError(f"unknown integrator entry-point: {name!r}")
         return self._classes[name]
 
+    def describe(self) -> list[dict[str, Any]]:
+        """Machine-readable inventory for CLI/MCP dashboards."""
+        rows: list[dict[str, Any]] = []
+        for name, cls in sorted(self._classes.items()):
+            if isinstance(cls, _LoadFailure):
+                rows.append({
+                    "name": name,
+                    "ok": False,
+                    "error": cls.message,
+                })
+                continue
+            rows.append({
+                "name": name,
+                "ok": True,
+                "module": getattr(cls, "__module__", ""),
+                "class": getattr(cls, "__name__", repr(cls)),
+                "id": getattr(cls, "id", ""),
+                "family": getattr(cls, "family", ""),
+                "implements_integrator_abc": (
+                    isinstance(cls, type) and issubclass(cls, IntegratorABC)
+                ),
+            })
+        return rows
+
     def __contains__(self, name: str) -> bool:
         return name in self._classes
 

@@ -111,3 +111,16 @@ def checkpoint_write(
         payload=payload,
     )
     return {"ok": True, "checkpoint": checkpoint}
+
+
+def integrator_plugins() -> dict[str, Any]:
+    """Return the discovered integrator entry-point inventory."""
+    from opl_cancer.integrators._abc import ENTRY_POINT_GROUP, IntegratorRegistry
+
+    rows = IntegratorRegistry.discover().describe()
+    return {
+        "ok": all(r.get("ok") for r in rows),
+        "entry_point_group": ENTRY_POINT_GROUP,
+        "count": len(rows),
+        "integrators": rows,
+    }

@@ -1,4 +1,5 @@
 """Test CLI subcommands skeleton."""
+import json
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -115,6 +116,15 @@ def test_cli_init_patient_runs(tmp_path: Path) -> None:
     assert (tmp_path / "anon_test" / "pi_session").exists()
     assert (tmp_path / "anon_test" / "inbox").exists()
     assert (tmp_path / "anon_test" / "triggers").exists()
+
+
+def test_cli_integrator_plugins_json() -> None:
+    r = CliRunner().invoke(main, ["integrator-plugins", "--json"])
+    assert r.exit_code == 0, r.output
+    payload = json.loads(r.output)
+    names = {row["name"] for row in payload["integrators"]}
+    assert {"pubmed", "opentargets", "clinicaltrials", "cbioportal", "oncokb"} <= names
+    assert payload["entry_point_group"] == "opl_cancer.integrators"
 
 
 def test_cli_list_experts_runs() -> None:

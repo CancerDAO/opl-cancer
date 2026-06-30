@@ -2330,6 +2330,28 @@ def status() -> None:
     click.echo(f"  Patient data root: {_patient_root()}")
 
 
+@main.command(name="integrator-plugins", help="List integrator entry-point plugins.")
+@click.option("--json", "json_mode", is_flag=True)
+def integrator_plugins(json_mode: bool) -> None:
+    from opl_cancer.integrators._abc import ENTRY_POINT_GROUP, IntegratorRegistry
+
+    registry = IntegratorRegistry.discover()
+    rows = registry.describe()
+    payload = {
+        "ok": all(r.get("ok") for r in rows),
+        "entry_point_group": ENTRY_POINT_GROUP,
+        "count": len(rows),
+        "integrators": rows,
+    }
+    if json_mode:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    click.echo(f"Integrator entry points ({ENTRY_POINT_GROUP}): {len(rows)}")
+    for row in rows:
+        mark = "ok" if row.get("ok") else "ERR"
+        click.echo(f"  {mark:3} {row['name']:<18} {row.get('module', '')}:{row.get('class', '')}")
+
+
 @main.command(help="Initialize a new patient project directory.")
 @click.argument("patient_code")
 @click.option("--root", type=click.Path(file_okay=False),

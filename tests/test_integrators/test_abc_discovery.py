@@ -50,6 +50,14 @@ def test_unknown_entry_point_raises() -> None:
         reg.get("not_a_real_integrator_xyz")
 
 
+def test_registry_describe_returns_machine_inventory() -> None:
+    reg = IntegratorRegistry.discover()
+    rows = {row["name"]: row for row in reg.describe()}
+    assert rows["clinicaltrials"]["ok"] is True
+    assert rows["clinicaltrials"]["implements_integrator_abc"] is True
+    assert rows["pubmed"]["module"].startswith("opl_cancer.integrators.")
+
+
 def test_integrator_abc_protocol_methods() -> None:
     """IntegratorABC declares id / query / normalize / provenance."""
     abc_attrs = dir(IntegratorABC)

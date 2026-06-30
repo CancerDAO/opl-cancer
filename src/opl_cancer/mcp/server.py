@@ -17,6 +17,7 @@ TOOL_NAMES = (
     "events_append",
     "checkpoint_read",
     "checkpoint_write",
+    "integrator_plugins",
 )
 
 _MISSING_SDK_HINT = (
@@ -94,6 +95,11 @@ def build_server() -> Any:
         return ops.checkpoint_write(
             patient_dir, run_id, reason=reason, phase=phase, payload=payload
         )
+
+    @server.tool()
+    def integrator_plugins() -> dict[str, Any]:
+        """List discovered integrator entry-point plugins."""
+        return ops.integrator_plugins()
 
     return server
 
