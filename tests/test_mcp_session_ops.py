@@ -62,6 +62,7 @@ def test_mcp_tool_names_are_stable() -> None:
         "checkpoint_write",
         "integrator_plugins",
         "task_capabilities",
+        "release_eval",
     }
 
 
@@ -85,3 +86,10 @@ def test_session_ops_task_capabilities_inventory() -> None:
     assert payload["summary"]["count"] == 78
     assert capabilities["target_synergy_emergent"]["owners"] == ["maya"]
     assert capabilities["undrugged_target_design"]["owners"] == ["julius"]
+
+
+def test_session_ops_release_eval() -> None:
+    payload = session_ops.release_eval()
+    assert payload["ok"] is True
+    assert payload["schema"] == "opl.release_golden_eval.v1"
+    assert payload["summary"]["errors"] == 0

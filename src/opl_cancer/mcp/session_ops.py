@@ -140,3 +140,10 @@ def task_capabilities() -> dict[str, Any]:
         "problems": validation["problems"],
         "capabilities": registry_as_list(),
     }
+
+
+def release_eval(golden_root: str | Path | None = None) -> dict[str, Any]:
+    """Run deterministic golden-set release regression checks."""
+    from opl_cancer.evaluation.release_golden import run_release_golden_eval
+
+    return run_release_golden_eval(golden_root)

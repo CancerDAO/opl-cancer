@@ -19,6 +19,7 @@ TOOL_NAMES = (
     "checkpoint_write",
     "integrator_plugins",
     "task_capabilities",
+    "release_eval",
 )
 
 _MISSING_SDK_HINT = (
@@ -106,6 +107,11 @@ def build_server() -> Any:
     def task_capabilities() -> dict[str, Any]:
         """List task-package capability prompts and owners."""
         return ops.task_capabilities()
+
+    @server.tool()
+    def release_eval(golden_root: str | None = None) -> dict[str, Any]:
+        """Run deterministic golden-set release regression checks."""
+        return ops.release_eval(golden_root)
 
     return server
 

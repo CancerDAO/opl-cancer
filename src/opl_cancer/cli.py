@@ -2385,6 +2385,43 @@ def task_capabilities(json_mode: bool) -> None:
         raise click.exceptions.Exit(2)
 
 
+@main.command(name="release-eval", help="Run deterministic golden-set release regression checks.")
+@click.option(
+    "--golden-root",
+    type=click.Path(file_okay=False),
+    help="Golden-set root (default: validators/golden_set in this checkout).",
+)
+@click.option("--out", type=click.Path(), help="Optional path to write the JSON report.")
+@click.option("--json", "json_mode", is_flag=True)
+def release_eval(golden_root: str | None, out: str | None, json_mode: bool) -> None:
+    from opl_cancer.evaluation.release_golden import (
+        run_release_golden_eval,
+        write_release_golden_eval,
+    )
+
+    report = run_release_golden_eval(golden_root)
+    if out:
+        report["report_path"] = str(write_release_golden_eval(report, out))
+    if json_mode:
+        click.echo(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        summary = report["summary"]
+        click.echo(
+            "Release eval: "
+            f"{'OK' if report['ok'] else 'FAIL'}; "
+            f"{summary['checks']} checks, {summary['errors']} errors, "
+            f"{summary['warnings']} warnings"
+        )
+        for check in report["checks"]:
+            if not check["ok"]:
+                click.echo(
+                    f"  {check['severity'].upper()} "
+                    f"{check['category']}/{check['name']}: {check['message']}"
+                )
+    if not report["ok"]:
+        raise click.exceptions.Exit(2)
+
+
 @main.command(help="Initialize a new patient project directory.")
 @click.argument("patient_code")
 @click.option("--root", type=click.Path(file_okay=False),
