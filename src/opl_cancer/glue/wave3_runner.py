@@ -232,10 +232,22 @@ class Wave3Runner:
                 }
             )
 
+        # Substance signal (G61): summarise whether ANY analysis run executed
+        # for real. A run materialised but all dry-run → un-computed numbers,
+        # which G61 blocks at delivery. "live" iff at least one run executed.
+        _run_modes = [
+            str((r.get("bixbench_result") or {}).get("mode") or "")
+            for r in analysis_runs
+        ]
+        _analysis_mode = (
+            "live" if any(m.endswith("live") and "dry-run" not in m for m in _run_modes)
+            else ("dry-run" if _run_modes else "none")
+        )
         payload: dict[str, Any] = {
             "run_id": run_id,
             "patient_text": patient_text,
             "datasets": datasets_out,
+            "analysis_mode": _analysis_mode,
             "analysis_runs": analysis_runs,
             "validations": validations,
         }

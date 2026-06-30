@@ -51,6 +51,7 @@ from .g37_service_completeness import G37ServiceCompletenessGate
 from .g56_value_source_binding import G56ValueSourceBindingGate
 from .g57_soc_floor_present import G57SoCFloorPresentGate
 from .g58_jurisdiction_availability import G58JurisdictionAvailabilityGate
+from .g61_wave3_substance import G61Wave3SubstanceGate
 # v2.7.1 ADR-0026 (P1) — reasoning-quality gates (G38 reserved: entity-attachment
 # enforcement is now done in-line by G36, which fails CLOSED when a PMID-bearing
 # claim has no upstream entities and none can be derived — see g36 docstring).
@@ -118,6 +119,7 @@ __all__ = [
     "G56ValueSourceBindingGate",
     "G57SoCFloorPresentGate",
     "G58JurisdictionAvailabilityGate",
+    "G61Wave3SubstanceGate",
     "G39BiomarkerContingencyGate",
     "G40DrugComorbiditySafetyGate",
     "G41SoCCompletenessGate",

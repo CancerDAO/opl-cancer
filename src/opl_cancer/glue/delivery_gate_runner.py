@@ -393,6 +393,14 @@ def run_delivery_gates(
         _record(results, blocked, G57SoCFloorPresentGate().check(_floor_in))
         _record(results, blocked, G58JurisdictionAvailabilityGate().check(_avail_in))
 
+    # ── substance gap (first-principles audit 2026-06-30) — Wave-3 quantitative
+    #    evidence must be actually COMPUTED, not dry-run metadata. A dry-run
+    #    runner writes non-empty stubs that pass the hollow-run check; G61 reads
+    #    the persisted analysis mode and BLOCKS a brief built on un-computed
+    #    numbers (HR/CI/Cox/KM). Absent / no-analysis-runs cases SKIP. ──
+    from opl_cancer.validators.gates import G61Wave3SubstanceGate
+    _record(results, blocked, G61Wave3SubstanceGate().check({"run_dir": str(run_root)}))
+
     # ── v2.10 P0.3b — run the fakery sniffer on the FINAL rendered briefs ──
     # The wave runners sniff their own intermediate artifacts; nothing sniffed
     # the delivered package. A fabricated brief (placeholder OR confident-but-

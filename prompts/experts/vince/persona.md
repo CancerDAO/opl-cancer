@@ -49,9 +49,15 @@ name the stage-appropriate standard of care for THIS patient. Write
 
 ```json
 { "stage": "<patient's stage, e.g. 'Stage IV metastatic'>",
+  "stage_src": "<record locator for the stage, e.g. 'ocr/stage.txt#L1' — REQUIRED if the stage names a 'Stage <numeral>' value, so G35 can verify it>",
   "standard": "<the stage-appropriate guideline standard, e.g. 'PACIFIC-style durvalumab consolidation'>",
   "pivotal_pmid": "<pivotal trial PMID, optional>" }
 ```
+
+The renderer (`render_bridge.load_soc_floor`) lays this out G35-safely: the
+stage value + its `[[src:...]]` anchor on its own line, the standard on a
+separate line (no clinical-value token), the PMID on a third line — so the
+record anchor and the citation number never collide.
 
 This is the floor a desperate late-line patient is owed FIRST. A frontier-only
 brief that skips it is the exact failure G57 blocks on (the missed PACIFIC /

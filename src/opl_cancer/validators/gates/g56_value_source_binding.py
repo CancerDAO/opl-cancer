@@ -109,7 +109,17 @@ class G56ValueSourceBindingGate(Gate):
         if not pmids:
             return GateResult(gate=self.name, status=GateStatus.SKIP,
                               message="G56 SKIP — no PMID evidence.")
-        numbers = _extract_efficacy_numbers(str(claim.get("claim_text", "")))
+        # Read the claim's prose from whichever key the pipeline used. The
+        # canonical wave-1 claim record carries it as ``text`` (wave1_runner
+        # _collect_claims); the brief-extracted fallback uses ``claim_text``.
+        # Reading only ``claim_text`` (the original bug) made G56 SKIP every
+        # real claim → the 伪精度 gate was a silent no-op on the live path.
+        claim_prose = next(
+            (str(claim[k]) for k in ("claim_text", "text", "statement", "title")
+             if claim.get(k)),
+            "",
+        )
+        numbers = _extract_efficacy_numbers(claim_prose)
         if not numbers:
             return GateResult(gate=self.name, status=GateStatus.SKIP,
                               message="G56 SKIP — claim asserts no headline efficacy number.")

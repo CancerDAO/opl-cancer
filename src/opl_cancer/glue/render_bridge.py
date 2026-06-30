@@ -179,11 +179,23 @@ def load_soc_floor(run_dir: Path) -> str | None:
     standard = str(data.get("standard") or "").strip()
     if not stage or not standard:
         return None
-    line = f"{stage} — 标准治疗地板 / stage-appropriate standard of care: {standard}"
+    # G35-safe rendering. The patient's stage is a clinical fact: it goes on its
+    # OWN line carrying the [[src:...]] record anchor (G35 verifies the value at
+    # the locator). The standard-of-care line has no clinical-value token, so
+    # G35 does not scan it. The pivotal PMID goes on a SEPARATE line — never on
+    # the stage line — because G35 would otherwise read the PMID digits as a
+    # clinical number that must appear at the stage anchor (the collision the
+    # 2026-06-30 adversarial review caught). See prompts/experts/vince/persona.md.
+    stage_src = str(data.get("stage_src") or "").strip()
+    stage_line = f"{stage} [[src:{stage_src}]]" if stage_src else stage
+    lines = [
+        stage_line + ".",
+        f"标准治疗地板 / stage-appropriate standard of care: {standard}.",
+    ]
     pmid = str(data.get("pivotal_pmid") or "").strip()
     if pmid:
-        line += f" [PMID:{pmid}]"
-    return line
+        lines.append(f"依据 / per [PMID:{pmid}].")
+    return "\n".join(lines)
 
 
 def load_world_unknown_candidates(run_dir: Path) -> list[dict[str, Any]]:
