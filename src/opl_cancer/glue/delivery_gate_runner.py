@@ -252,17 +252,23 @@ async def _run_citation_gates(
     claims: list[dict[str, Any]], pubmed: Any, paperqa: Any | None,
 ) -> list[GateResult]:
     """Await the async citation gates over every claim that carries PMID evidence."""
-    from opl_cancer.validators.gates import G1PMIDExistenceGate, G2PMIDQuoteMatchGate
+    from opl_cancer.validators.gates import (
+        G1PMIDExistenceGate,
+        G2PMIDQuoteMatchGate,
+        G56ValueSourceBindingGate,
+    )
 
     out: list[GateResult] = []
     g36 = G36PMIDTopicRelevanceGate(pubmed)
     g1 = G1PMIDExistenceGate(pubmed)
     g2 = G2PMIDQuoteMatchGate(paperqa) if paperqa is not None else None
+    g56 = G56ValueSourceBindingGate(pubmed)  # value↔source binding (伪精度 catch)
     for c in claims:
         if not [e for e in c.get("evidence", []) if e.get("type") == "pmid"]:
             continue
         out.append(await g1.check_async(c))
         out.append(await g36.check_async(c))
+        out.append(await g56.check_async(c))
         if g2 is not None:
             out.append(await g2.check_async(c))
     return out
@@ -370,6 +376,22 @@ def run_delivery_gates(
             "G35 clinical_fact_provenance: no case_text.md and no delivered brief "
             "to scan at this layer."
         )
+
+    # ── v2.11 — the SoC FLOOR must be anchored (G57, block) + a mainland-CN
+    #    patient's options must be labelled by China availability (G58, FLAG).
+    #    Closes the jessie run-opl-20260629 review findings: frontier-without-floor
+    #    (skipped PACIFIC consolidation) and unreachable-options-unlabelled. ──
+    from opl_cancer.validators.gates import (
+        G57SoCFloorPresentGate,
+        G58JurisdictionAvailabilityGate,
+    )
+    _floor_in: dict[str, Any] = {"out_dir": str(out_dir)}
+    _avail_in: dict[str, Any] = {"out_dir": str(out_dir)}
+    if patient_dir is not None:
+        _avail_in["patient_dir"] = str(patient_dir)
+    if has_brief:
+        _record(results, blocked, G57SoCFloorPresentGate().check(_floor_in))
+        _record(results, blocked, G58JurisdictionAvailabilityGate().check(_avail_in))
 
     # ── v2.10 P0.3b — run the fakery sniffer on the FINAL rendered briefs ──
     # The wave runners sniff their own intermediate artifacts; nothing sniffed
