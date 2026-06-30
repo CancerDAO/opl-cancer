@@ -17,6 +17,7 @@ TOOL_NAMES = (
     "events_append",
     "checkpoint_read",
     "checkpoint_write",
+    "recovery_plan",
     "integrator_plugins",
     "task_capabilities",
     "release_eval",
@@ -46,6 +47,11 @@ def build_server() -> Any:
     def validate(patient_dir: str, run_id: str) -> dict[str, Any]:
         """Read-only invariant check over durable run state."""
         return ops.validate(patient_dir, run_id)
+
+    @server.tool()
+    def recovery_plan(patient_dir: str, run_id: str) -> dict[str, Any]:
+        """Build a deterministic run recovery plan."""
+        return ops.recovery_plan(patient_dir, run_id)
 
     @server.tool()
     def events_list(

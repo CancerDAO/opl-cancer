@@ -1135,6 +1135,38 @@ def validate(patient_dir: str, run_id: str, json_mode: bool) -> None:
 
 
 @main.command(
+    name="recovery-plan",
+    help=(
+        "Build a deterministic recovery plan for a run. Read-only: inspects "
+        "validate/observe/checkpoint/events and proposes next actions."
+    ),
+)
+@click.option("--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True)
+@click.option("--run-id", required=True)
+@click.option("--json", "json_mode", is_flag=True)
+def recovery_plan_cmd(patient_dir: str, run_id: str, json_mode: bool) -> None:
+    from opl_cancer.glue.recovery import build_recovery_plan
+
+    pdir = Path(patient_dir)
+    projection = _observe_projection(pdir, run_id)
+    problems = _validate_run_state(pdir, run_id)
+    plan = build_recovery_plan(
+        pdir,
+        run_id,
+        projection=projection,
+        validation_problems=problems,
+    )
+    if json_mode:
+        click.echo(json.dumps(plan, ensure_ascii=False, indent=2))
+        return
+    click.echo(f"Recovery plan for {run_id}: {plan['status']}")
+    for action in plan["next_actions"]:
+        click.echo(f"  {action['code']}: {action['label']}")
+        if action.get("command"):
+            click.echo(f"    {action['command']}")
+
+
+@main.command(
     name="events",
     help=(
         "Append/read the structured run event log (run_events.jsonl). "

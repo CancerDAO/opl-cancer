@@ -44,6 +44,20 @@ def validate(patient_dir: str | Path, run_id: str) -> dict[str, Any]:
     }
 
 
+def recovery_plan(patient_dir: str | Path, run_id: str) -> dict[str, Any]:
+    """Build a deterministic run recovery plan."""
+    from opl_cancer.cli import _observe_projection, _validate_run_state
+    from opl_cancer.glue.recovery import build_recovery_plan
+
+    pdir = Path(patient_dir)
+    return build_recovery_plan(
+        pdir,
+        run_id,
+        projection=_observe_projection(pdir, run_id),
+        validation_problems=_validate_run_state(pdir, run_id),
+    )
+
+
 def events_list(
     patient_dir: str | Path,
     run_id: str,

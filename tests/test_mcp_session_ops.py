@@ -52,6 +52,16 @@ def test_session_ops_observe_and_validate(tmp_path: Path) -> None:
     assert "problems" in validated
 
 
+def test_session_ops_recovery_plan(tmp_path: Path) -> None:
+    patient = tmp_path / "P"
+    patient.mkdir()
+
+    recovered = session_ops.recovery_plan(patient, "r1")
+    assert recovered["schema"] == "opl.recovery_plan.v1"
+    assert recovered["status"] == "blocked"
+    assert recovered["next_actions"][0]["code"] == "check_run_id_or_plan"
+
+
 def test_mcp_tool_names_are_stable() -> None:
     assert set(TOOL_NAMES) == {
         "observe",
@@ -60,6 +70,7 @@ def test_mcp_tool_names_are_stable() -> None:
         "events_append",
         "checkpoint_read",
         "checkpoint_write",
+        "recovery_plan",
         "integrator_plugins",
         "task_capabilities",
         "release_eval",
