@@ -483,6 +483,20 @@ def plan(
     # v2.7.0 ADR-0026 — mint the run-token + planned-team manifest so G34 can bind
     # the eventual brief to THIS run (free-handed briefs have no token → refused).
     manifest = _write_run_manifest(out_path.parent, run_id, plan_payload)
+    from opl_cancer.glue.run_events import append_run_event
+    append_run_event(
+        out_path.parent,
+        "plan.manifest_written",
+        phase="planning",
+        source="opl_cancer.cli.plan",
+        payload={
+            "planned_experts": manifest["planned_experts"],
+            "planned_waves": manifest["planned_waves"],
+            "run_token_present": bool(manifest.get("run_token")),
+            "tasks": len(tasks),
+            "extends_prior_run": plan_payload.get("extends_prior_run"),
+        },
+    )
     triggers_payload = [
         {"name": t.name, "rationale": t.rationale, "task_id": t.task.id, "expert": t.task.expert}
         for t in fired
@@ -847,6 +861,8 @@ def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
     funnel = _compute_funnel(run_root)
     abstraction = _abstraction_state(run_root)
     max_depth = int(plan.get("max_depth") or manifest.get("max_depth") or 1)
+    from opl_cancer.glue.run_events import summarize_run_events
+    events_summary = summarize_run_events(run_root)
 
     # ✗② per-candidate convergence state via the SAME assessor `deepen` uses, so
     # the projection can never disagree with the action (the iteration-2 bug).
@@ -887,6 +903,7 @@ def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
         "hypothesis_tree": _render_forest_lines(hyps, w4_by_id=_w4) if hyps else [],
         "funnel": funnel,
         "abstraction": abstraction,
+        "events": events_summary,
         "depth": {"max_depth": max_depth, "reached": funnel["tree_depth_reached"],
                   "deepen_candidates": list(plan.get("deepen_candidates") or []),
                   "candidate_states": cand_states},
@@ -954,6 +971,13 @@ def _render_observe_text(p: dict[str, Any]) -> str:
     ab = p.get("abstraction") or {}
     state = "done (" + str(ab.get("n_priors", 0)) + " priors)" if ab.get("done") else ("OWED — run the abstraction beat" if ab.get("owed") else "n/a")
     L.append(f"-- Abstraction (Arbor's dominant gain driver): {state} --")
+    ev = p.get("events") or {}
+    L.append("-- Run events (machine log) --")
+    if ev.get("available"):
+        last = ev.get("last_event") or {}
+        L.append(f"  events: {ev.get('count', 0)} · last {last.get('event_type')} @ {last.get('at')}")
+    else:
+        L.append("  (no run_events.jsonl yet)")
     L.append("")
     L.append(bar)
     L.append("Re-ground on THIS projection, not your memory of the conversation. Then "
@@ -1100,6 +1124,100 @@ def validate(patient_dir: str, run_id: str, json_mode: bool) -> None:
                 click.echo(f"  {mark} {p['severity'].upper():5} {p['code']:28} {p['message']}")
     if errors:
         sys.exit(2)
+
+
+@main.command(
+    name="events",
+    help=(
+        "Append/read the structured run event log (run_events.jsonl). "
+        "This is the machine-readable spine for dashboards, resume, and MCP tools; "
+        "it never executes a wave."
+    ),
+)
+@click.option(
+    "--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True
+)
+@click.option("--run-id", required=True)
+@click.option(
+    "--emit", "emit_type", default="", help="Append one event of this type, then return it."
+)
+@click.option("--phase", default="", help="Optional phase label for emitted or filtered events.")
+@click.option("--source", default="opl_cancer.cli.events", show_default=True)
+@click.option(
+    "--severity",
+    type=click.Choice(["debug", "info", "warn", "error"]),
+    default="info",
+    show_default=True,
+)
+@click.option("--payload-json", default="", help="JSON object payload for --emit.")
+@click.option("--type", "filter_type", default="", help="Filter listed events by event_type.")
+@click.option("--limit", type=int, default=20, show_default=True)
+@click.option("--json", "json_mode", is_flag=True)
+def events_cmd(
+    patient_dir: str,
+    run_id: str,
+    emit_type: str,
+    phase: str,
+    source: str,
+    severity: str,
+    payload_json: str,
+    filter_type: str,
+    limit: int,
+    json_mode: bool,
+) -> None:
+    from opl_cancer.glue.run_events import (
+        append_run_event,
+        iter_run_events,
+        summarize_run_events,
+    )
+
+    run_root = Path(patient_dir) / "triggers" / run_id
+    if emit_type:
+        payload: dict[str, Any] = {}
+        if payload_json:
+            try:
+                parsed = json.loads(payload_json)
+            except json.JSONDecodeError as exc:
+                raise click.ClickException(f"--payload-json is not valid JSON: {exc}") from exc
+            if not isinstance(parsed, dict):
+                raise click.ClickException("--payload-json must decode to a JSON object")
+            payload = parsed
+        event = append_run_event(
+            run_root,
+            emit_type,
+            phase=phase or None,
+            source=source,
+            severity=severity,
+            payload=payload,
+        )
+        _emit({"ok": True, "event": event}, json_mode)
+        return
+
+    records = list(iter_run_events(
+        run_root,
+        event_type=filter_type or None,
+        phase=phase or None,
+    ))
+    if limit >= 0:
+        records = records[-limit:]
+    payload = {
+        "ok": True,
+        "run_id": run_id,
+        "summary": summarize_run_events(run_root),
+        "events": records,
+    }
+    if json_mode:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    if not records:
+        click.echo(f"No run events for {run_id}.")
+        return
+    for event in records:
+        ph = f" [{event.get('phase')}]" if event.get("phase") else ""
+        click.echo(
+            f"{event.get('at')} {event.get('severity')} {event.get('event_type')}{ph} "
+            f"{event.get('event_id')}"
+        )
 
 
 # ─── Arbor/HTR depth (ADR-0042): abstract · deepen · funnel ───────────────
