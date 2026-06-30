@@ -22,6 +22,11 @@ def event_log_path(run_root: Path) -> Path:
     return Path(run_root) / "run_events.jsonl"
 
 
+def checkpoint_path(run_root: Path) -> Path:
+    """Canonical resumable checkpoint path for one trigger run."""
+    return Path(run_root) / "run_checkpoint.json"
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -145,3 +150,55 @@ def summarize_run_events(run_root: Path) -> dict[str, Any]:
             "at": last.get("at"),
         } if last else None,
     }
+
+
+def write_run_checkpoint(
+    run_root: Path,
+    *,
+    reason: str,
+    phase: str | None = None,
+    payload: dict[str, Any] | None = None,
+    at: str | None = None,
+) -> dict[str, Any]:
+    """Persist the latest resume checkpoint and append a matching event.
+
+    The checkpoint is not a clinical artifact. It tells a host agent where to
+    resume orchestration after interruption, while the gates still verify the
+    actual plan/wave/delivery artifacts.
+    """
+    run_root = Path(run_root)
+    run_root.mkdir(parents=True, exist_ok=True)
+    event = append_run_event(
+        run_root,
+        "checkpoint.saved",
+        phase=phase,
+        source="opl_cancer.glue.run_events",
+        payload={"reason": reason, **dict(payload or {})},
+        at=at,
+    )
+    checkpoint = {
+        "schema": "opl.run_checkpoint.v1",
+        "run_id": run_root.name,
+        "phase": (phase or "").strip() or None,
+        "reason": reason,
+        "at": event["at"],
+        "event_id": event["event_id"],
+        "payload": dict(payload or {}),
+    }
+    checkpoint_path(run_root).write_text(
+        json.dumps(checkpoint, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return checkpoint
+
+
+def load_run_checkpoint(run_root: Path) -> dict[str, Any] | None:
+    """Read the latest checkpoint, returning None when absent or malformed."""
+    path = checkpoint_path(run_root)
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None

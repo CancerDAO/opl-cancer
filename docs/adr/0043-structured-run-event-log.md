@@ -34,9 +34,16 @@ minted. `opl-cancer events` can append or read events in JSON. `opl-cancer
 observe` includes a compact event summary so the host re-grounds on the same
 machine log it will later use for dashboards and MCP tools.
 
+Each run also has one latest checkpoint at `triggers/<run_id>/run_checkpoint.json`
+with schema `opl.run_checkpoint.v1`. A checkpoint records the orchestration
+resume position (`phase`, `reason`, payload, and the event id that wrote it).
+`opl-cancer checkpoint --write` updates that file and appends a
+`checkpoint.saved` event; `opl-cancer checkpoint` reads it.
+
 Boundary:
 
 - `run_events.jsonl` records orchestration facts.
+- `run_checkpoint.json` records the latest host-agent resume position.
 - `provenance.jsonl` records evidence and claim traceability.
 - Project Memory records cross-run learning.
 - Delivery gates decide whether patient-facing artifacts can ship.
@@ -51,6 +58,8 @@ Positive:
 
 - Long runs gain a stable machine-readable spine for dashboards, resume, and
   future MCP tools without parsing prose.
+- Interrupted runs can persist a latest resume point without pretending that a
+  wave or delivery artifact is complete.
 - `observe` can show recent run activity even when no wave artifact has been
   completed yet.
 - The event schema is small enough for external host agents to append their own
@@ -62,10 +71,12 @@ Negative:
   logic.
 - Event completeness is initially incremental: older commands may not emit
   events until they are wired in later iterations.
+- A checkpoint can become stale if the host writes it and then continues work;
+  resume code must still call `observe` and inspect real artifacts before
+  dispatching.
 
 Follow-up:
 
 - Emit events from wave state checks, delivery, attestation, gate failures, and
   integrator calls.
 - Expose the same event operations through the future OPL MCP tool surface.
-- Add checkpoint records once resume semantics are defined.

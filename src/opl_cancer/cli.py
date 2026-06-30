@@ -861,8 +861,9 @@ def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
     funnel = _compute_funnel(run_root)
     abstraction = _abstraction_state(run_root)
     max_depth = int(plan.get("max_depth") or manifest.get("max_depth") or 1)
-    from opl_cancer.glue.run_events import summarize_run_events
+    from opl_cancer.glue.run_events import load_run_checkpoint, summarize_run_events
     events_summary = summarize_run_events(run_root)
+    checkpoint = load_run_checkpoint(run_root)
 
     # ✗② per-candidate convergence state via the SAME assessor `deepen` uses, so
     # the projection can never disagree with the action (the iteration-2 bug).
@@ -904,6 +905,7 @@ def _observe_projection(patient_dir: Path, run_id: str) -> dict[str, Any]:
         "funnel": funnel,
         "abstraction": abstraction,
         "events": events_summary,
+        "checkpoint": checkpoint,
         "depth": {"max_depth": max_depth, "reached": funnel["tree_depth_reached"],
                   "deepen_candidates": list(plan.get("deepen_candidates") or []),
                   "candidate_states": cand_states},
@@ -978,6 +980,12 @@ def _render_observe_text(p: dict[str, Any]) -> str:
         L.append(f"  events: {ev.get('count', 0)} · last {last.get('event_type')} @ {last.get('at')}")
     else:
         L.append("  (no run_events.jsonl yet)")
+    cp = p.get("checkpoint")
+    L.append("-- Resume checkpoint --")
+    if cp:
+        L.append(f"  phase: {cp.get('phase') or '(unset)'} · reason: {cp.get('reason')}")
+    else:
+        L.append("  (none)")
     L.append("")
     L.append(bar)
     L.append("Re-ground on THIS projection, not your memory of the conversation. Then "
@@ -1218,6 +1226,68 @@ def events_cmd(
             f"{event.get('at')} {event.get('severity')} {event.get('event_type')}{ph} "
             f"{event.get('event_id')}"
         )
+
+
+@main.command(
+    name="checkpoint",
+    help=(
+        "Read/write the latest resumable checkpoint (run_checkpoint.json). "
+        "This records orchestration position only; gates still validate artifacts."
+    ),
+)
+@click.option(
+    "--patient", "patient_dir", type=click.Path(exists=True, file_okay=False), required=True
+)
+@click.option("--run-id", required=True)
+@click.option("--write", is_flag=True, help="Write a new checkpoint instead of reading.")
+@click.option("--reason", default="", help="Why the run is pausing or where resume should start.")
+@click.option("--phase", default="", help="Current phase label.")
+@click.option("--payload-json", default="", help="JSON object payload for --write.")
+@click.option("--json", "json_mode", is_flag=True)
+def checkpoint_cmd(
+    patient_dir: str,
+    run_id: str,
+    write: bool,
+    reason: str,
+    phase: str,
+    payload_json: str,
+    json_mode: bool,
+) -> None:
+    from opl_cancer.glue.run_events import load_run_checkpoint, write_run_checkpoint
+
+    run_root = Path(patient_dir) / "triggers" / run_id
+    if write:
+        if not reason.strip():
+            raise click.ClickException("--reason is required with --write")
+        payload: dict[str, Any] = {}
+        if payload_json:
+            try:
+                parsed = json.loads(payload_json)
+            except json.JSONDecodeError as exc:
+                raise click.ClickException(f"--payload-json is not valid JSON: {exc}") from exc
+            if not isinstance(parsed, dict):
+                raise click.ClickException("--payload-json must decode to a JSON object")
+            payload = parsed
+        checkpoint = write_run_checkpoint(
+            run_root,
+            reason=reason,
+            phase=phase or None,
+            payload=payload,
+        )
+        _emit({"ok": True, "checkpoint": checkpoint}, json_mode)
+        return
+
+    checkpoint = load_run_checkpoint(run_root)
+    payload = {"ok": checkpoint is not None, "run_id": run_id, "checkpoint": checkpoint}
+    if json_mode:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    elif checkpoint:
+        click.echo(
+            f"{checkpoint.get('at')} {checkpoint.get('phase') or '(unset)'} "
+            f"{checkpoint.get('reason')}"
+        )
+    else:
+        click.echo(f"No checkpoint for {run_id}.")
 
 
 # ─── Arbor/HTR depth (ADR-0042): abstract · deepen · funnel ───────────────
