@@ -26,6 +26,33 @@ _CN_MARKER = re.compile(r"\[CN-?AVAIL\]", re.I)
 _BRIEF_GLOBS = ("*brief.md", "*brief.html", "patient_brief.html")
 
 
+# Only keys that actually denote WHERE the patient lives / is treated count for
+# jurisdiction. Scanning the full profile JSON (the original bug) false-activated
+# on any free-text mention of 中国/mainland/CN — a hospital name, ancestry note,
+# or travel history — flipping G58 on for non-CN patients (adversarial review
+# 2026-06-30). Scope to location-bearing fields only.
+_LOCATION_KEY = re.compile(
+    r"locale|country|nation|国籍|residence|现居|居住|地址|address|jurisdiction|"
+    r"region|province|省|城市|city|treat.*location|就诊地",
+    re.I,
+)
+_CN_VALUE = re.compile(r"中国|大陆|内地|mainland|\bPRC\b|\bCN\b", re.I)
+
+
+def _collect_location_values(obj: Any, key_hit: bool = False) -> list[str]:
+    """Values living under a location-bearing key (recursively)."""
+    out: list[str] = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            out += _collect_location_values(v, key_hit or bool(_LOCATION_KEY.search(str(k))))
+    elif isinstance(obj, list):
+        for v in obj:
+            out += _collect_location_values(v, key_hit)
+    elif key_hit and obj is not None:
+        out.append(str(obj))
+    return out
+
+
 def _is_mainland_cn(patient_dir: Path | None) -> bool:
     if patient_dir is None:
         return False
@@ -36,10 +63,11 @@ def _is_mainland_cn(patient_dir: Path | None) -> bool:
         prof = json.loads(p.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
+    if not isinstance(prof, dict):
+        return False
     if str(prof.get("locale", "")).lower().startswith("zh"):
         return True
-    juris = json.dumps(prof, ensure_ascii=False)
-    return bool(re.search(r"中国|大陆|mainland|jurisdiction.{0,8}CN", juris))
+    return any(_CN_VALUE.search(v) for v in _collect_location_values(prof))
 
 
 class G58JurisdictionAvailabilityGate(Gate):

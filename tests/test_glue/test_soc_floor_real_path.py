@@ -80,6 +80,34 @@ def test_g57_blocks_when_floor_absent(tmp_path: Path) -> None:
     assert g57.block is True
 
 
+def test_g57_blocks_hollow_marker_with_stage_word_elsewhere(tmp_path: Path) -> None:
+    # Gameability: a hollow "[SOC-FLOOR] TBD" heading + the word 'metastatic' in
+    # a trial title elsewhere must NOT pass (the marker/stage were OR-ed before).
+    out = tmp_path / "delivery"
+    out.mkdir(parents=True)
+    (out / "patient_brief.md").write_text(
+        "## Floor [SOC-FLOOR]\nTBD\n\n"
+        "## Trials\nA trial in metastatic disease (NCT01).\n",
+        encoding="utf-8",
+    )
+    g57 = G57SoCFloorPresentGate().check({"out_dir": str(out)})
+    assert g57.status.value == "fail"
+    assert g57.block is True
+
+
+def test_g57_honest_no_standard_remains_passes(tmp_path: Path) -> None:
+    # Honest escape: a genuine late-line patient with no remaining SoC can say so.
+    out = tmp_path / "delivery"
+    out.mkdir(parents=True)
+    (out / "patient_brief.md").write_text(
+        "## 标准治疗地板 [SOC-FLOOR]\n"
+        "在 Stage IV 多线进展后，标准治疗已用尽；以下为研究方向，非标准替代。\n",
+        encoding="utf-8",
+    )
+    g57 = G57SoCFloorPresentGate().check({"out_dir": str(out)})
+    assert g57.status.value == "pass", g57.message
+
+
 def test_soc_floor_without_stage_src_still_safe(tmp_path: Path) -> None:
     # When no stage_src is given, the loader must not emit a 'Stage <numeral>'
     # value that G35 would demand an anchor for. A descriptive setting word

@@ -27,6 +27,33 @@ from ..mechanical_gates import Gate, GateResult, GateStatus
 _FLOOR_MARKER = re.compile(r"\[SOC-?FLOOR\]", re.I)
 _STAGE = re.compile(r"\b(?:stage|分期|IV|III|II|N[0-3]|M[01]|局部区域|locoregional|metastatic|转移)\b", re.I)
 _BRIEF_GLOBS = ("*brief.md", "*brief.html", "patient_brief.html")
+# Honest escape: the brief may declare that no standard of care remains for this
+# patient (a genuine late-line reality) instead of fabricating a floor.
+_NO_SOC = re.compile(
+    r"no\s+(?:remaining\s+)?standard(?:\s+of\s+care)?(?:\s+remains?)?"
+    r"|standard\s+of\s+care\s+(?:is\s+)?exhausted"
+    r"|标准治疗(?:已)?(?:用尽|耗尽)|无(?:可用)?标准治疗|无标准方案",
+    re.I,
+)
+# Unfinished-scaffold markers that must not count as a real floor.
+_PLACEHOLDER = re.compile(r"\bTBD\b|待填充|占位|<\s*insert|<\s*[^>]*>|XXX+|\.\.\.\s*$", re.I)
+# Minimum real (whitespace-normalised) characters of floor content after the
+# marker for the section to count as substantive (not a bare heading).
+_MIN_FLOOR_CHARS = 25
+
+
+def _floor_window(text: str, marker_start: int) -> str:
+    """Text from a [SOC-FLOOR] marker to the next markdown heading (or 800 chars)."""
+    rest = text[marker_start:]
+    nl = rest.find("\n")
+    after = rest[nl + 1:] if nl != -1 else ""
+    nxt = re.search(r"\n#{1,6}\s", after)
+    end = nxt.start() if nxt else min(len(after), 800)
+    return rest[: (nl + 1 if nl != -1 else 0)] + after[:end]
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"\s+", " ", s).strip()
 
 
 class G57SoCFloorPresentGate(Gate):
@@ -66,34 +93,76 @@ class G57SoCFloorPresentGate(Gate):
         if not briefs:
             return GateResult(gate=self.name, status=GateStatus.SKIP,
                               message="G57 SKIP — no delivered brief to check.")
-        marker_ok = False
-        stage_ok = False
+        # Tightened (adversarial review 2026-06-30): marker + stage + substance
+        # must be CO-LOCATED in the marker's own section, not OR-ed across the
+        # whole brief — else a hollow "## [SOC-FLOOR] TBD" heading plus the word
+        # "metastatic" in a trial title elsewhere would pass. We scan the window
+        # from each [SOC-FLOOR] marker to the next markdown heading (or 800 chars)
+        # and require, within it: a stage token AND either a substantive named
+        # standard OR an explicit honest "no standard remains" declaration.
+        best: dict[str, Any] | None = None
         for bp in briefs:
             try:
                 text = bp.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
-            if _FLOOR_MARKER.search(text):
-                marker_ok = True
-            if _STAGE.search(text):
-                stage_ok = True
-        if marker_ok and stage_ok:
+            for m in _FLOOR_MARKER.finditer(text):
+                window = _floor_window(text, m.start())
+                stage_ok = bool(_STAGE.search(window))
+                honest_none = bool(_NO_SOC.search(window))
+                # substance = real content beyond marker/stage that is not a
+                # placeholder (TBD / 待填充 / <insert ...>).
+                body = _FLOOR_MARKER.sub(" ", window)
+                placeholder = bool(_PLACEHOLDER.search(body))
+                substance_ok = (len(_norm(body)) >= _MIN_FLOOR_CHARS) and not placeholder
+                cand = {"brief": bp.name, "stage_ok": stage_ok,
+                        "honest_none": honest_none, "substance_ok": substance_ok,
+                        "placeholder": placeholder}
+                if honest_none and not placeholder:
+                    return GateResult(
+                        gate=self.name, status=GateStatus.PASS,
+                        message="G57 OK — brief honestly declares no remaining "
+                                "standard of care ([SOC-FLOOR] + explicit none).",
+                        evidence=cand,
+                    )
+                if stage_ok and substance_ok:
+                    return GateResult(
+                        gate=self.name, status=GateStatus.PASS,
+                        message="G57 OK — brief anchors the standard-of-care floor "
+                                "([SOC-FLOOR] + stage + named standard).",
+                        evidence=cand,
+                    )
+                # keep the most-complete failing window for the message
+                score = stage_ok + substance_ok + honest_none
+                if best is None or score > best.get("_score", -1):
+                    best = {**cand, "_score": score}
+
+        if best is None:
             return GateResult(
-                gate=self.name, status=GateStatus.PASS,
-                message="G57 OK — brief anchors the standard-of-care floor ([SOC-FLOOR] + stage).",
+                gate=self.name, status=GateStatus.FAIL, block=True,
+                message="G57 FAIL — no [SOC-FLOOR] anchor in any delivered brief. "
+                        "OPL must name the stage-appropriate standard of care (e.g. "
+                        "PACIFIC consolidation for post-definitive-RT locoregional "
+                        "disease) BEFORE any beyond-guideline option — or honestly "
+                        "declare no standard remains.",
+                evidence={"briefs": [b.name for b in briefs]},
             )
         missing = []
-        if not marker_ok:
-            missing.append("[SOC-FLOOR] anchor (name the stage-appropriate standard before the frontier)")
-        if not stage_ok:
-            missing.append("a stage statement")
+        if not best["stage_ok"]:
+            missing.append("a stage statement in the [SOC-FLOOR] section")
+        if not best["substance_ok"]:
+            missing.append(
+                "a substantive named standard (the section is empty/placeholder)"
+                if best["placeholder"] or not best["stage_ok"]
+                else "a substantive named standard of care"
+            )
         return GateResult(
             gate=self.name, status=GateStatus.FAIL, block=True,
             message=(
-                "G57 FAIL — delivered brief does not anchor the SoC floor: missing "
-                + " and ".join(missing) + ". OPL must name the stage-appropriate "
-                "standard of care (e.g. PACIFIC consolidation for post-definitive-RT "
-                "locoregional disease) BEFORE any beyond-guideline option."
+                "G57 FAIL — the [SOC-FLOOR] section is present but hollow: missing "
+                + " and ".join(missing) + ". Name the stage-appropriate standard of "
+                "care BEFORE any beyond-guideline option, or honestly declare that no "
+                "standard remains."
             ),
-            evidence={"briefs": [b.name for b in briefs], "marker_ok": marker_ok, "stage_ok": stage_ok},
+            evidence={k: v for k, v in best.items() if k != "_score"},
         )

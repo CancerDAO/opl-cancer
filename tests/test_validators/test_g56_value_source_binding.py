@@ -53,6 +53,21 @@ async def test_real_claim_passes_when_number_present_in_abstract() -> None:
 
 
 @pytest.mark.asyncio
+async def test_point_estimate_does_not_bind_to_ci_bound() -> None:
+    # fabricated HR 0.49 where 0.49 appears ONLY as a CI bound in the abstract
+    # (true point estimate is 0.31) → must BLOCK, not pass on the bound.
+    gate = G56ValueSourceBindingGate(
+        _FakePubMed({"30000004": "Overall survival HR 0.31 (95% CI 0.20-0.49)."})
+    )
+    r = await gate.check_async({
+        "text": "Reported HR 0.49 for the regimen.",
+        "evidence": [{"type": "pmid", "id": "30000004"}],
+    })
+    assert r.status.value == "fail"
+    assert r.block is True
+
+
+@pytest.mark.asyncio
 async def test_no_efficacy_number_skips() -> None:
     gate = G56ValueSourceBindingGate(_FakePubMed({"30000003": "irrelevant"}))
     r = await gate.check_async({
