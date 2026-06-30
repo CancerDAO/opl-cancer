@@ -44,6 +44,10 @@ bio = [
     # "SigProfilerAssignment>=0.0.30",
 ]
 
+mcp = [
+    "mcp>=1.2.0",
+]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 # When PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 is set (CI / sandbox), explicitly
@@ -55,6 +59,7 @@ markers = [
 
 [project.scripts]
 opl-cancer = "opl_cancer.cli:main"
+opl-cancer-mcp = "opl_cancer.mcp.server:run"
 
 # v2.5 RFC 0001 §2.4 — integrator plugin protocol via entry points.
 # 5 v2.4 integrators registered as the first entry points; 39 others tagged

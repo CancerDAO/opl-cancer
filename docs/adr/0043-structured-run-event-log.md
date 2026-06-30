@@ -40,10 +40,17 @@ resume position (`phase`, `reason`, payload, and the event id that wrote it).
 `opl-cancer checkpoint --write` updates that file and appends a
 `checkpoint.saved` event; `opl-cancer checkpoint` reads it.
 
+The same deterministic operations are exposed as Python functions in
+`opl_cancer.mcp.session_ops` and, when the optional `mcp` extra is installed, as
+an MCP stdio server via `opl-cancer-mcp`. The MCP layer is an adapter only:
+it does not call an LLM and does not replace the CLI or delivery gates.
+
 Boundary:
 
 - `run_events.jsonl` records orchestration facts.
 - `run_checkpoint.json` records the latest host-agent resume position.
+- `opl_cancer.mcp.session_ops` exposes observe/validate/events/checkpoint as
+  tool-callable deterministic operations.
 - `provenance.jsonl` records evidence and claim traceability.
 - Project Memory records cross-run learning.
 - Delivery gates decide whether patient-facing artifacts can ship.
@@ -64,6 +71,8 @@ Positive:
   completed yet.
 - The event schema is small enough for external host agents to append their own
   operator notes or dispatch milestones.
+- Host agents can call the same surfaces through MCP without parsing terminal
+  output.
 
 Negative:
 
@@ -79,4 +88,5 @@ Follow-up:
 
 - Emit events from wave state checks, delivery, attestation, gate failures, and
   integrator calls.
-- Expose the same event operations through the future OPL MCP tool surface.
+- Extend the MCP surface to delivery-integrity gates once the event emitters are
+  wired across those paths.
