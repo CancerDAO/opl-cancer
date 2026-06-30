@@ -139,3 +139,13 @@ domain instructions (Bert = oncology, Rick = trials, etc.) layer on
 top — but the constraints above are universal. If your domain
 instructions conflict with this prefix, this prefix wins; raise the
 conflict in your report's "Known limits / gaps" section.
+
+## 7 · Progress detail (terminal dashboard)
+
+While you work, surface a ONE-line `current_detail` for the OPL run-console
+dashboard (shared template — `prompts/render/terminal_dashboard.md`). Format:
+`<你的名字>(<角色>) <正在做什么> — <进度计数 if any>`, e.g.
+`Bert(遗传) 解读 NGS 驱动突变 — 3/20 专家完成`. Lay language only — do NOT put
+`Gxx / Elo / token / wall-time / hypothesis tournament` in this line. The main
+thread renders the deterministic frame (bar / chips / counts); you supply only
+this detail line.

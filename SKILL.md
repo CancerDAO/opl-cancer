@@ -47,6 +47,27 @@ OPL is two halves that hand off via artifacts on disk. Do not confuse them:
 - **Re-ground each beat (Arbor/HTR boundary, ADR-0041).** `opl-cancer observe` is a read-only, no-LLM re-projection of the run (goal · planned-vs-done waves · outstanding work · memory frontier · **falsified hypotheses across all of this patient's runs as negative constraints**). Re-read it at the start of every wave beat and at plan time so you re-ground on durable state, not your lossy memory of the conversation — this is the documented fix for the under-delivery drift that G37 only caught at the end. `opl-cancer validate` is its sibling invariant-checker (manifest/plan drift · attested-without-brief · delivered-without-ledger · under-delivery), run after `attest`. Both are state *readers* — they never execute a wave or write.
 - **Install consequence:** `pip install -e <skill_dir>` installs the *harness*. The patient path needs **no LLM provider key** — the reviewer is a second subagent of yours, not a Python API call. (Provider keys only feed the optional self-improvement engine, which is being extracted.)
 
+## 输出格式（终端）— 运行仪表盘 (MANDATORY)
+
+OPL 一次 run 很长（多波 + 20 专家）。**每个相位起点、每次 ≥60s 心跳、每个相位完成时，你 MUST 打印一个固定的运行仪表盘**，让用户随时看到「在哪个环节 / 在干什么 / 还要多久」。这是所有阶段共用的**主模板**；每个专家 / 任务包只特化最后那行 `当前` 详情（见下「特化契约」）。
+
+**主模板（左边框样式，CJK 不会错位）：**
+
+```
+╭─ OPL for Cancer ▸ <run_id> ──────
+│ [██████░░░░░░░░░░░░] 4/9 · ⏱ <eta 区间>
+│ ✓整理 ✓就绪 ✓规划 ▶Wave1 查证据 ○Wave2 假设 ○Wave3 数据 ○Wave4 验证 ○审核 ○交付
+│ ▸ 当前 / now: <本阶段/本专家的一行详情>
+│ ▸ 刚完成 / done: <上一步一行详情>
+╰────────────────────────────────────────────
+```
+
+- **确定性外框由脚本产出**（numbers=script，ADR-0041 边界）：进度条 / `i/9` / 相位 chips（✓ 已完成 · ▶ 当前 · ○ 待办）由 `src/opl_cancer/glue/progress_dashboard.py::render(run_id=, phase_idx=, current_detail=, last_detail=, eta=)` 渲染——**不要手画外框、不要自己数进度**，调它。9 个相位见 `PHASES`，`phase_index("Wave1 查证据")` 解析相位序号。
+- **散文只填 `current_detail` 一行**（prose=prompt）：用大白话，遵守 `prompts/tasks/progress_message_rendering.md` 的禁忌（聊天面**不要**出现 "Wave/hypothesis tournament/Henry/Gxx/Elo/token"——仪表盘 chips 里的 Wave 标签是运行控制台视图，允许；但 `当前` 详情用人话）。ETA 永远给**区间**不给单一数字。
+- 关系：本仪表盘是**全流程位置视图**；细粒度的 5 阶段心跳串（准备/想办法/查数据/审核/写报告）仍由 `ProgressReporter` 负责，作为 `当前` 详情的素材。
+
+**特化契约（每个专家 / 任务包）：** 被 dispatch 的专家在写报告期间，回报自己的 `current_detail` 一行——格式 `<专家名>(<角色>) <正在做什么> — <进度计数若有>`，例：`Bert(遗传) 解读 NGS — 3/20 专家完成`。主线程把它塞进主模板的 `当前` 行重渲染。完整契约见 [`prompts/render/terminal_dashboard.md`](prompts/render/terminal_dashboard.md)（被 `prompts/experts/expert_task_package.md` 与 `prompts/experts/_shared/persona_prefix.md` 引用）。
+
 ## Where patient data lives
 
 Patient records, run artefacts, memory ledger all live **outside** the skill repo (so the skill can be reinstalled / version-bumped without touching patient state):

@@ -6,6 +6,21 @@ from click.testing import CliRunner
 from opl_cancer.cli import main
 
 
+def test_cli_progress_renders_dashboard() -> None:
+    r = CliRunner().invoke(main, [
+        "progress", "--run-id", "run-x", "--phase", "Wave1 查证据",
+        "--detail", "Bert(遗传) 解读 NGS — 3/20", "--eta", "~12–18 min",
+    ])
+    assert r.exit_code == 0
+    assert "▶Wave1 查证据" in r.output and "4/9" in r.output
+    assert "Bert(遗传) 解读 NGS — 3/20" in r.output
+
+
+def test_cli_progress_rejects_unknown_phase() -> None:
+    r = CliRunner().invoke(main, ["progress", "--run-id", "r", "--phase", "zzz"])
+    assert r.exit_code != 0
+
+
 def test_cli_status_runs() -> None:
     r = CliRunner().invoke(main, ["status"])
     assert r.exit_code == 0

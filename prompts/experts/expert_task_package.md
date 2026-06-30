@@ -199,3 +199,7 @@ silent, evidence-free claim.
 - The data fields you emit feed deterministic Python gates whose verdicts you do
   NOT control — produce complete, well-formed fields so the gates can do their job
   rather than SKIP (a missing field makes a gate dead, which is itself a defect).
+- **Progress detail:** emit a one-line `current_detail` for the OPL run-console
+  dashboard (shared template `prompts/render/terminal_dashboard.md`):
+  `<name>(<角色>) <doing what> — <count if any>`. The main thread renders the
+  deterministic frame; you supply only this line. Lay language, no Gxx/Elo/token.

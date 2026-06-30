@@ -2285,5 +2285,26 @@ def generate_cancer_context(
         click.echo(payload)
 
 
+@main.command(help="Render the run-console progress dashboard (deterministic frame).")
+@click.option("--run-id", required=True, help="The run id shown in the header.")
+@click.option("--phase", required=True, help="Phase short label or substring (e.g. 'Wave1 查证据').")
+@click.option("--detail", default="", help="One-line `current_detail` (the active expert/step).")
+@click.option("--last", "last_detail", default="", help="One-line `刚完成 / done` detail.")
+@click.option("--eta", default="", help="ETA range string, e.g. '~12–18 min'.")
+def progress(run_id: str, phase: str, detail: str, last_detail: str, eta: str) -> None:
+    from opl_cancer.glue.progress_dashboard import phase_index, render
+    idx = phase_index(phase)
+    if idx < 0:
+        # tolerate a bare integer phase index too
+        try:
+            idx = int(phase)
+        except ValueError:
+            raise click.ClickException(
+                f"unknown phase {phase!r} — use a PHASES label/substring or an index"
+            )
+    click.echo(render(run_id=run_id, phase_idx=idx, current_detail=detail,
+                      last_detail=last_detail, eta=eta))
+
+
 if __name__ == "__main__":
     main()
