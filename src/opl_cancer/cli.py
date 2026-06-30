@@ -1679,6 +1679,48 @@ def run(
     _emit_run_result(wave, result, json_mode)
 
 
+@main.command(
+    name="claim-graph",
+    help=(
+        "Build a deterministic claim-level evidence graph from structured claims JSON. "
+        "This is an audit artifact, not a clinical judge."
+    ),
+)
+@click.option("--claims-json", type=click.Path(exists=True, dir_okay=False), required=True)
+@click.option("--out", type=click.Path(), help="Optional path to write the graph JSON.")
+@click.option("--json", "json_mode", is_flag=True)
+def claim_graph_cmd(claims_json: str, out: str | None, json_mode: bool) -> None:
+    from opl_cancer.delivery.claim_graph import (
+        build_claim_evidence_graph,
+        validate_claim_evidence_graph,
+        write_claim_evidence_graph,
+    )
+
+    raw = json.loads(Path(claims_json).read_text(encoding="utf-8"))
+    claims = raw.get("claims") if isinstance(raw, dict) else raw
+    if not isinstance(claims, list) or not all(isinstance(c, dict) for c in claims):
+        raise click.ClickException("--claims-json must be a list of claim objects or {claims:[...]}")
+
+    graph = build_claim_evidence_graph(claims)
+    validation = validate_claim_evidence_graph(graph)
+    payload: dict[str, Any] = {
+        "ok": validation["ok"],
+        "summary": validation["summary"],
+        "problems": validation["problems"],
+    }
+    if out:
+        payload["graph_path"] = str(write_claim_evidence_graph(graph, Path(out)))
+    else:
+        payload["graph"] = graph
+
+    if json_mode:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        _emit(payload, json_mode)
+    if not validation["ok"]:
+        raise click.exceptions.Exit(2)
+
+
 # ─── v2.7.0 ADR-0026 — delivery-integrity enforcement ─────────────────────
 #
 # Through v2.6.x `audit` and `render` were `mkdir + {"ok":true}` stubs that
