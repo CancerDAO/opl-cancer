@@ -4,7 +4,7 @@ description: "OPL for Cancer (CancerDAO) — a cancer patient's own AI scientist
 license: Apache-2.0
 metadata:
   author: CancerDAO Contributors
-  version: "2.13.0"
+  version: "2.14.0"
   tags: oncology precision-medicine ai-scientist-team founder-mode hypothesis-generation co-scientist robin bixbench meta-analysis clinical-trials evidence-grounded world-unknown-candidates kg-synergy undrugged-target-design trace-digest-evolution equipped-experts bio-skills msi tmb hrd acmg cpic survival-analysis wave6 manuscript n1a preprint n1arxiv submission preprint-platform pr-assembly cross-repo-submission compositional method-primitive role-taxonomy n=1 automl prognosis
 ---
 
@@ -21,7 +21,7 @@ Patient is sole decision authority. No human-in-the-loop external sign-off. Mode
 前者管生成、后者管验证，合起来是一个完整闭环——每个 Wave 都套这两层：
 
 - **第一性原理（管生成）** — 科研团队推理下一线方案 / 靶点协同 / hypothesis 时，从**该患者自己的底层事实**（分子谱、已用尽的治疗线、真实约束）重新推导，**不要类比套指南模板**。先问"这对*这位* N=1 患者真的成立吗"，再问"标准做法是什么"。把当前正在依赖、但尚未 grounding 的假设显式摊开。
-- **对抗式审查（管验证）** — `deliver` 前，以"假设这份 brief 有致命缺陷、我的任务是把它找出来"的对抗立场审一遍（剂量、禁忌、矛盾证据、过期数据、虚假希望、患者安全半径），**不 echo 团队的结论**。多 subagent 并发，各攻一个面，产出 P0/P1/P2 缺陷清单，清完才交付。（这一层与 Henry 审计、tournament 互补，不替代 42-gate 机械门。）
+- **对抗式审查（管验证）** — `deliver` 前，以"假设这份 brief 有致命缺陷、我的任务是把它找出来"的对抗立场审一遍（剂量、禁忌、矛盾证据、过期数据、虚假希望、患者安全半径），**不 echo 团队的结论**。多 subagent 并发，各攻一个面，产出 P0/P1/P2 缺陷清单，清完才交付。（这一层与 Henry 审计、tournament 互补，不替代 58 道机械门。）
 
 ## Operating contract (v2.7.0 — read before anything else)
 
@@ -42,7 +42,7 @@ These five rules are non-negotiable and **mechanically enforced** (gates G34–G
 OPL is two halves that hand off via artifacts on disk. Do not confuse them:
 
 - **You (the host agent) are the only reasoning brain.** The named experts, the planner's judgment, hypothesis generation, cross-expert review, and Henry's disagreement reasoning are all done by **you dispatching subagents** per `prompts/experts/expert_task_package.md` (+ `prompts/render/`, `prompts/auditor/`). Each subagent writes its report into `triggers/<run_id>/tasks/<task_id>/`. **There is no LLM inside the Python package — it never calls a model.**
-- **The `opl-cancer` CLI is a deterministic harness, not an executor.** `plan` / `wave1..4` / `run` / `audit` / `deliver` / `attest` scaffold the run, pre-fetch live integrator data, **validate the artifacts you wrote**, run the 42 gates (verdict = Python, `exit≠0` on violation), hash provenance, and assemble the brief. `opl-cancer wave1` and friends are *state-checks*: they confirm your dispatched reports exist and pass gates — they do **not** produce the reasoning.
+- **The `opl-cancer` CLI is a deterministic harness, not an executor.** `plan` / `wave1..4` / `run` / `audit` / `deliver` / `attest` scaffold the run, pre-fetch live integrator data, **validate the artifacts you wrote**, run the 58 mechanical gates (54 registry-swept + 4 delivery-only: G56–G58/G61; verdict = Python, `exit≠0` on violation), hash provenance, and assemble the brief. `opl-cancer wave1` and friends are *state-checks*: they confirm your dispatched reports exist and pass gates — they do **not** produce the reasoning.
 - So every wave is a **two-beat loop**: (1) you dispatch the experts as subagents → they write reports; (2) you run the matching CLI command → it validates + gates and tells you the next beat.
 - **Re-ground each beat (Arbor/HTR boundary, ADR-0041).** `opl-cancer observe` is a read-only, no-LLM re-projection of the run (goal · planned-vs-done waves · outstanding work · memory frontier · **falsified hypotheses across all of this patient's runs as negative constraints**). Re-read it at the start of every wave beat and at plan time so you re-ground on durable state, not your lossy memory of the conversation — this is the documented fix for the under-delivery drift that G37 only caught at the end. `opl-cancer validate` is its sibling invariant-checker (manifest/plan drift · attested-without-brief · delivered-without-ledger · under-delivery), run after `attest`. Both are state *readers* — they never execute a wave or write.
 - **Install consequence:** `pip install -e <skill_dir>` installs the *harness*. The patient path needs **no LLM provider key** — the reviewer is a second subagent of yours, not a Python API call. (Provider keys only feed the optional self-improvement engine, which is being extracted.)
@@ -125,7 +125,7 @@ After triggering, load exactly one workflow — the procedure is NOT inlined her
 - [`references/wave-lifecycle.md`](references/wave-lifecycle.md) — single-trigger-run state machine (PRD §4).
 - [`references/expert-roster.md`](references/expert-roster.md) — all 20 expert personas + archetype attribution + task-package portfolio (v1.x 18 + v2 Maya + Julius). Persona prompts live in `prompts/experts/<name>/persona.md`.
 - [`references/integrator-catalog.md`](references/integrator-catalog.md) — 29 integrators × API + cache TTL + auth requirements.
-- [`references/mechanical-gates.md`](references/mechanical-gates.md) — full 42-gate spec (G1–G43, G38 reserved) + failure-mode mapping (PRD §6.5 + §7).
+- [`references/mechanical-gates.md`](references/mechanical-gates.md) — full 58-gate spec (54 registry-swept G1–G37/G39–G43/G45–G55/G60 + 4 delivery-only G56–G58/G61; G38/G44/G59 reserved) + failure-mode mapping (PRD §6.5 + §7).
 - [`references/permission-levels.md`](references/permission-levels.md) — Level 0-4 boundaries + risk-card schema (PRD §8).
 - [`references/founder-mode-philosophy.md`](references/founder-mode-philosophy.md) — why no human-in-the-loop, why patient-as-sole-decider, why archetype-not-impersonation.
 - [`references/troubleshooting.md`](references/troubleshooting.md) — common failure modes + recovery.

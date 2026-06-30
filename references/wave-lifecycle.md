@@ -85,7 +85,9 @@
         ┌─── Henry (auditor, IRB substitute 4-layer) ────────────────┐
         │  inputs: 所有 expert outputs + reviewer verdicts + plan +  │
         │           profile                                          │
-        │  L1 mechanical (42 gates, G1-G43; G38 reserved)            │
+        │  L1 mechanical (58 gates: 54 registry-swept G1–G37,        │
+        │    G39–G43, G45–G55, G60 + 4 delivery-only G56–G58, G61;   │
+        │    G38/G44/G59 reserved)                                   │
         │  L2 disagreement (reviewer Δ confidence > 0.4 → 两视角)    │
         │  L3 permission gate (Level 0-4 per claim)                  │
         │  L4 rollback registry                                      │
@@ -129,7 +131,7 @@ Wave 1 + Wave 5 是 minimum viable path (no docker / no hypothesis tournament);W
 |---|---|---|
 | Executor 单次失败 (LLM API err / timeout) | 1 次 retry;仍失败 → 弃 claim + 写 audit log | `orchestrator/dispatch.py` |
 | Reviewer 失败 | 同上,但 reviewer-empty 不阻 Executor surface — Henry L2 标 "no reviewer" |
-| Mechanical gate block (G1-G43; G38 reserved) | 不静默 truncate;重 prompt + 重跑;仍 block → 弃 claim + audit log | `validators/mechanical_gates.py` |
+| Mechanical gate block (58 gates: G1–G37, G39–G43, G45–G55, G60 registry-swept + G56–G58, G61 delivery-only; G38/G44/G59 reserved) | 不静默 truncate;重 prompt + 重跑;仍 block → 弃 claim + audit log | `validators/mechanical_gates.py` |
 | Integrator API down (G11) | **必 raise,不静默 fallback**;Sid 告知 patient 哪个 source 不可达 | `integrators/base.py` |
 | Wave 超时 (per-wave budget) | abort run + 保留已完成 Wave 产物到 archives/ + 标 partial | `orchestrator/dispatch.py` wave timeout |
 | Patient 主动 cancel | 主线程 checkpoint → 保留已完成 Wave + 标 partial + **不渲 brief** | PRD §15 G6 |
@@ -150,7 +152,7 @@ v0.1:Sid 监听 wave 完成事件 → 增量告知患者进度 ("Wave 1 finished
 ## See also
 
 - [`architecture.md`](architecture.md) — 7-task-primitive + 8-layer validation
-- [`mechanical-gates.md`](mechanical-gates.md) — G1-G43 全规则 (42 gates,G38 reserved)
+- [`mechanical-gates.md`](mechanical-gates.md) — 全规则 (58 mechanical gates — 54 registry-swept G1–G37, G39–G43, G45–G55, G60 + 4 delivery-only G56–G58, G61;G38/G44/G59 reserved)
 - [`troubleshooting.md`](troubleshooting.md) — Wave-level failure 恢复
 - PRD §4 (lifecycle), §6.2 (parallelism + retry), §17.5 (P0/P1/P2 optimization)
 - `src/opl_cancer/orchestrator/dispatch.py`

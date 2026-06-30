@@ -1,31 +1,5 @@
 # Changelog
 
-## v2.11.0 — 2026-06-29 — citation-binding + floor + jurisdiction hardening (jessie-review-driven)
-
-Driven by an independent third-party review of run-opl-20260629 (driver-neg KEAP1
-NSCLC). Three root-cause fixes:
-
-- **PubMed full-abstract fetch (root defect).** `PubMedIntegrator._efetch` took only
-  the FIRST `<AbstractText>` of a structured abstract — dropping the RESULTS section
-  (i.e. the HRs/medians/ORR a citation is cited FOR). Now concatenates ALL labelled
-  sections via `itertext()`. Strengthens G36 entity matching and is the precondition
-  for G56. (REVEL abstract 309 → 2516 chars.)
-- **G56 value_source_binding (NEW, blocking).** A headline efficacy number (HR /
-  median months / response %) attributed to PMID(s) must appear in at least one of
-  those PMIDs' records, else BLOCK — catches "real number on real-but-wrong paper"
-  (伪精度). Wired into `_run_citation_gates`. Caught a mis-bound TROP2 number + 8
-  others on the originating run.
-- **G57 soc_floor_present (NEW, blocking).** A delivered brief must carry a
-  `[SOC-FLOOR]` anchor + stage statement — the stage-appropriate standard named
-  BEFORE the transcendence frontier (the run had skipped PACIFIC consolidation for
-  post-RT locoregional disease).
-- **G58 jurisdiction_availability (NEW, FLAG).** Mainland-CN patient → brief should
-  carry a `[CN-AVAIL]` section labelling options by China availability so an
-  unreachable US-trial option is not mistaken for a real choice.
-- **Planner mandate** (`prompts/pi/goal_backward_planner.md`): floor-before-frontier,
-  CN-availability labelling, and no-伪精度 are now explicit planner rules (3/4/5).
-
-
 All notable changes to **OPL for Cancer** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
@@ -38,6 +12,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [Unreleased]
+
+## [2.14.0] - 2026-06-30 — substance-gap hardening (first-principles audit + adversarial-review loop)
+
+Integrates the previously-uncommitted v2.11 citation-binding / floor / jurisdiction
+hardening with `main`, then closes substance + gate-truth gaps found by a
+first-principles architecture audit and a 4-subagent adversarial review.
+
+- **PubMed full-abstract fetch (root defect).** `PubMedIntegrator._efetch` took only
+  the FIRST `<AbstractText>` of a structured abstract — dropping the RESULTS section
+  (the HRs/medians/ORR a citation is cited FOR). Now concatenates ALL labelled
+  sections via `itertext()` (REVEL abstract 309 → 2516 chars). Precondition for G56.
+- **G56 value_source_binding (blocking) + field-read fix.** A headline efficacy
+  number attributed to PMID(s) must appear in at least one of those PMIDs' records,
+  else BLOCK (伪精度). Adversarial review found G56 read only `claim["claim_text"]`
+  while real claims carry prose in `text` → it SKIPped every real claim (silent
+  no-op). Now reads `("claim_text","text","statement","title")`; negative tests added.
+- **G57 soc_floor_present (blocking) — wired end-to-end.** A delivered brief must
+  carry a `[SOC-FLOOR]` anchor + stage statement (the stage-appropriate standard
+  named BEFORE the frontier). Adds `render_bridge.load_soc_floor` (G35-safe
+  multi-line: stage+`[[src:]]` / standard / PMID on separate lines), the template
+  `[SOC-FLOOR]` section, the Vince persona mandate (`soc_floor.json`), and a
+  real-path regression test (the prior fixture hand-wrote a safe brief and hid a
+  G35 self-block).
+- **G58 jurisdiction_availability (FLAG).** Mainland-CN patient → brief should carry
+  a `[CN-AVAIL]` section so an unreachable US-trial option is not mistaken for a
+  real choice.
+- **G61 wave3_substance_executed (NEW, blocking).** Wave-3 quantitative evidence
+  must be COMPUTED. A dry-run-only run writes non-empty metadata that passed the
+  hollow-run check, so a brief could present un-computed HR/CI/Cox/KM as measured.
+  G61 reads the persisted `analysis_mode` and BLOCKS. Numbered above G60 to avoid
+  the reserved G56–G59 value-source/CRC range.
+- **Gate-inventory truth.** Docs/comments corrected from "42 / 55 gates" to the
+  real **58** (54 registry-swept + 4 delivery-only G56–G58/G61; G38/G44/G59
+  reserved). Self-verifying `test_gate_inventory_truth.py` pins the count and
+  asserts every delivery-only gate is actually invoked (anti-orphan).
+- **Planner mandate** (`prompts/pi/goal_backward_planner.md`): floor-before-frontier,
+  CN-availability labelling, and no-伪精度 are explicit planner rules (3/4/5).
 
 ## [2.13.0] - 2026-06-29 — Close the four Arbor value-flow gaps (diagram-driven, adversarially reviewed)
 
@@ -176,8 +187,9 @@ forcing-function.) See [`docs/adr/0041-prompt-script-boundary-and-observe.md`](d
 
 ### Notes
 
-- No new numbered gate introduced; G56+ are reserved for the in-flight
-  value-source/CRC hardening on a separate branch (branch-purpose separation).
+- No new numbered gate introduced in this 2.11.0 (Arbor-boundary) release.
+  (Update: the value-source/CRC hardening — G56/G57/G58 — and the wave3-substance
+  gate G61 landed later, integrated in **[2.14.0]** above.)
 - Honest deferral (next ADR): make Arbor's highest-value lesson — insight
   *abstraction* upward as its own un-skippable judgment beat (G54 only checks a
   write happened) — a named forcing-function.

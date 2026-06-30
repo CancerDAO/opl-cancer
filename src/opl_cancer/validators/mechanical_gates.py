@@ -139,7 +139,7 @@ def all_gate_classes() -> list[type[Gate]]:
         G53NovelCandidatePresenceGate,  # D1/ADR-0034
         G54MemoryLedgerWrittenGate,  # A1/ADR-0027
         G55PlanFloorCoverageGate,  # D1/ADR-0034
-        G60InsightAbstractionWrittenGate,  # ADR-0042 (G56-G59 reserved: parallel value-source/CRC branch)
+        G60InsightAbstractionWrittenGate,  # ADR-0042. NOTE: G56/57/58 (value-source/SoC-floor/jurisdiction) + G61 (wave3-substance) are DELIVERY-ONLY gates wired in delivery_gate_runner, not in this registry sweep; G38/G44/G59 reserved. See test_gate_inventory_truth.py.
     )
 
     return [
@@ -196,5 +196,5 @@ def all_gate_classes() -> list[type[Gate]]:
         G53NovelCandidatePresenceGate,
         G54MemoryLedgerWrittenGate,
         G55PlanFloorCoverageGate,
-        G60InsightAbstractionWrittenGate,  # ADR-0042 (G56-G59 reserved for parallel branch)
+        G60InsightAbstractionWrittenGate,  # ADR-0042. Delivery-only G56/57/58/61 live in delivery_gate_runner (see test_gate_inventory_truth.py).
     ]

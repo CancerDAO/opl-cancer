@@ -14,7 +14,7 @@ finished removing the last keyword routers from Python). Reviewing OPL against
 cleanest published statement of where to draw the prompt/script line — confirmed
 OPL had independently converged on most of Arbor's "build logic":
 
-- **Boundary**: the 55 gates are all *structural* — they check that the producer
+- **Boundary**: the 58 gates are all *structural* — they check that the producer
   self-recorded the right fields coherently (e.g. G39, G43 carry an explicit
   "no-hardcoded-keyword-list" contract); the LLM makes every clinical judgment.
 - **Failures as negative constraints**: G52 persists falsified directions; the

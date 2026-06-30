@@ -22,7 +22,11 @@ import re
 from opl_cancer.validators.mechanical_gates import all_gate_classes
 
 
-EXPECTED_GATE_COUNT = 54  # v2.12: G1-G37 + G39-G43 + G45-G55 + G60 (G38, G44, G56-G59 reserved)
+EXPECTED_GATE_COUNT = 54  # registry-swept: G1-G37 + G39-G43 + G45-G55 + G60.
+# NOTE: total IMPLEMENTED gates = 58. The other 4 (G56/57/58 value-source/SoC-
+# floor/jurisdiction + G61 wave3-substance) are DELIVERY-ONLY — invoked directly
+# in delivery_gate_runner, not via this registry sweep. G38/G44/G59 reserved.
+# Full inventory is pinned by test_gate_inventory_truth.py.
 # Gate numbering may have intentional gaps. G38 reserved (citation-provenance
 # completeness covered by G1/G2/G36 via the delivery gate runner). G44 reserved
 # for the in-flight feat/deterministic-retrieval-standardization branch.
