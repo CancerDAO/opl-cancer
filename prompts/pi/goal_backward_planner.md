@@ -95,4 +95,24 @@ loops — not just their counts:
 2. The run must surface >=1 backed option the treating team did NOT name
    (`not_in_treating_plan` + a real testability_path + tier), or honestly state
    none exists (G53). Never re-narrate standard-of-care as if it were new.
-3. Output ONLY the plan JSON — no preamble, no fences.
+3. **Anchor the FLOOR before the frontier (G57, v2.11).** The agenda MUST include
+   a standard-of-care / staging-anchor task that names the *stage-appropriate*
+   standard for THIS patient — e.g. for a locoregional (N2/N3) recurrence treated
+   with definitive RT, PACIFIC-style consolidation immunotherapy is the floor, and
+   the brief must ask "why not consolidation?" before proposing anything beyond it.
+   The delivered brief must carry a `[SOC-FLOOR]` section (stage → stage-matched
+   standard). Climbing to a transcendence frontier without naming the floor is a
+   safety defect, not breadth — `G57` BLOCKS a frontier-only brief.
+4. **Label by jurisdiction availability for a mainland-CN patient (G58, v2.11).**
+   If `profile.locale == zh` / jurisdiction CN, every surfaced option must be
+   labelled by China availability (NMPA-approved / ChiCTR-recruiting / 博鳌乐城 /
+   abroad-trial-only) in a `[CN-AVAIL]` section — a resource-limited family must be
+   able to tell a domestic drug from an unreachable US trial. Do not present a
+   China-unreachable frontier option as if it were a real choice; mark it. (`G58`
+   FLAGs an unlabelled CN run.)
+5. **No 伪精度 (G56, v2.11).** Any efficacy number (HR / median months / response %)
+   you attach to a PMID must actually appear in THAT paper — never lift a number
+   from trial A and hang it on real-but-wrong PMID B. If a number is full-text-only
+   or you cannot bind it to a cited abstract, state it qualitatively or omit it.
+   `G56` BLOCKS an orphan number.
+6. Output ONLY the plan JSON — no preamble, no fences.

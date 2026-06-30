@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.11.0 — 2026-06-29 — citation-binding + floor + jurisdiction hardening (jessie-review-driven)
+
+Driven by an independent third-party review of run-opl-20260629 (driver-neg KEAP1
+NSCLC). Three root-cause fixes:
+
+- **PubMed full-abstract fetch (root defect).** `PubMedIntegrator._efetch` took only
+  the FIRST `<AbstractText>` of a structured abstract — dropping the RESULTS section
+  (i.e. the HRs/medians/ORR a citation is cited FOR). Now concatenates ALL labelled
+  sections via `itertext()`. Strengthens G36 entity matching and is the precondition
+  for G56. (REVEL abstract 309 → 2516 chars.)
+- **G56 value_source_binding (NEW, blocking).** A headline efficacy number (HR /
+  median months / response %) attributed to PMID(s) must appear in at least one of
+  those PMIDs' records, else BLOCK — catches "real number on real-but-wrong paper"
+  (伪精度). Wired into `_run_citation_gates`. Caught a mis-bound TROP2 number + 8
+  others on the originating run.
+- **G57 soc_floor_present (NEW, blocking).** A delivered brief must carry a
+  `[SOC-FLOOR]` anchor + stage statement — the stage-appropriate standard named
+  BEFORE the transcendence frontier (the run had skipped PACIFIC consolidation for
+  post-RT locoregional disease).
+- **G58 jurisdiction_availability (NEW, FLAG).** Mainland-CN patient → brief should
+  carry a `[CN-AVAIL]` section labelling options by China availability so an
+  unreachable US-trial option is not mistaken for a real choice.
+- **Planner mandate** (`prompts/pi/goal_backward_planner.md`): floor-before-frontier,
+  CN-availability labelling, and no-伪精度 are now explicit planner rules (3/4/5).
+
+
 All notable changes to **OPL for Cancer** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

@@ -77,12 +77,24 @@ class PubMedIntegrator(Integrator):
             if article is None:
                 raise IntegratorError(f"PubMed efetch: no PubmedArticle for PMID {pmid}")
             title_el = article.find(".//ArticleTitle")
-            abstract_el = article.find(".//Abstract/AbstractText")
+            # Structured abstracts hold MULTIPLE <AbstractText> elements
+            # (BACKGROUND / METHODS / RESULTS / CONCLUSIONS). The old
+            # `.find(...).text` took only the first section — dropping RESULTS,
+            # i.e. exactly the hazard ratios / median months / ORR a citation is
+            # usually cited FOR. Concatenate every section (with its Label) and
+            # use itertext() so nested markup (sup/sub/i) is captured. This is what
+            # lets G36 see real entities and G56 verify a cited number is in-source.
+            abstract_parts: list[str] = []
+            for at in article.findall(".//Abstract/AbstractText"):
+                label = (at.get("Label") or at.get("NlmCategory") or "").strip()
+                body = "".join(at.itertext()).strip()
+                if body:
+                    abstract_parts.append(f"{label}: {body}" if label else body)
             journal_el = article.find(".//Journal/Title")
             return {
                 "pmid": pmid,
-                "title": title_el.text if title_el is not None else "",
-                "abstract": abstract_el.text if abstract_el is not None else "",
+                "title": "".join(title_el.itertext()).strip() if title_el is not None else "",
+                "abstract": " ".join(abstract_parts),
                 "journal": journal_el.text if journal_el is not None else "",
             }
         except ET.ParseError as e:
