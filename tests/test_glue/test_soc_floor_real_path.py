@@ -95,6 +95,47 @@ def test_g57_blocks_hollow_marker_with_stage_word_elsewhere(tmp_path: Path) -> N
     assert g57.block is True
 
 
+def test_g57_blocks_long_gibberish_filler(tmp_path: Path) -> None:
+    # adversarial round-2: 25+ chars of filler + a stage word must NOT pass — a
+    # real floor must NAME a standard of care, not just be long.
+    out = tmp_path / "delivery"
+    out.mkdir(parents=True)
+    (out / "patient_brief.md").write_text(
+        "## Floor [SOC-FLOOR]\n"
+        "aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj. Stage IV.\n",
+        encoding="utf-8",
+    )
+    r = G57SoCFloorPresentGate().check({"out_dir": str(out)})
+    assert r.status.value == "fail" and r.block is True
+
+
+def test_g57_no_standard_chemotherapy_is_not_honest_none(tmp_path: Path) -> None:
+    # adversarial round-2: "no standard chemotherapy" must NOT trigger the
+    # no-SoC-remains ESCAPE. The reviewer's exact input has no stage, so the
+    # honest-none path was the only way it passed; with the tightened _NO_SOC it
+    # no longer matches → stage+substance required → BLOCK.
+    out = tmp_path / "delivery"
+    out.mkdir(parents=True)
+    (out / "patient_brief.md").write_text(
+        "## Floor [SOC-FLOOR]\n"
+        "For this rare disease, there is no standard chemotherapy regimen available.\n",
+        encoding="utf-8",
+    )
+    r = G57SoCFloorPresentGate().check({"out_dir": str(out)})
+    assert r.status.value == "fail" and r.block is True
+
+
+def test_g57_blocks_pending_placeholder(tmp_path: Path) -> None:
+    out = tmp_path / "delivery"
+    out.mkdir(parents=True)
+    (out / "patient_brief.md").write_text(
+        "## Floor [SOC-FLOOR]\nPENDING - to be filled by clinician. Stage IV metastatic.\n",
+        encoding="utf-8",
+    )
+    r = G57SoCFloorPresentGate().check({"out_dir": str(out)})
+    assert r.status.value == "fail" and r.block is True
+
+
 def test_g57_honest_no_standard_remains_passes(tmp_path: Path) -> None:
     # Honest escape: a genuine late-line patient with no remaining SoC can say so.
     out = tmp_path / "delivery"

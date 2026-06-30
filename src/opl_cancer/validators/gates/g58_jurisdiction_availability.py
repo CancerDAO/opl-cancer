@@ -32,19 +32,34 @@ _BRIEF_GLOBS = ("*brief.md", "*brief.html", "patient_brief.html")
 # or travel history — flipping G58 on for non-CN patients (adversarial review
 # 2026-06-30). Scope to location-bearing fields only.
 _LOCATION_KEY = re.compile(
-    r"locale|country|nation|国籍|residence|现居|居住|地址|address|jurisdiction|"
-    r"region|province|省|城市|city|treat.*location|就诊地",
+    r"locale|country|nation|国籍|residence|现居|居住|住址|现住址|户籍|籍贯|domicile|"
+    r"hometown|\blocation\b|地址|address|jurisdiction|region|province|省|城市|市|"
+    r"\bcity\b|treat.*location|就诊地",
     re.I,
 )
-_CN_VALUE = re.compile(r"中国|大陆|内地|mainland|\bPRC\b|\bCN\b", re.I)
+# China-residence signals. Bare "CN" is intentionally NOT here — it false-matched
+# record IDs (CN-001), copy-number ("CN gain"), etc. (adversarial review).
+_CN_VALUE = re.compile(
+    r"中国|中华人民共和国|大陆|内地|\bmainland\b|\bchina\b|\bP\.?R\.?C\.?\b", re.I
+)
+# Free-text keys whose values are narrative, not structured location — never
+# harvested for jurisdiction, so an ancestry/travel note under address does not
+# re-activate the FLAG (adversarial review B3).
+_FREETEXT_KEY = re.compile(
+    r"note|comment|remark|history|narrative|summary|description|free|备注|病史|描述|说明|主诉",
+    re.I,
+)
 
 
 def _collect_location_values(obj: Any, key_hit: bool = False) -> list[str]:
-    """Values living under a location-bearing key (recursively)."""
+    """Scalar values under a location-bearing key, skipping free-text subtrees."""
     out: list[str] = []
     if isinstance(obj, dict):
         for k, v in obj.items():
-            out += _collect_location_values(v, key_hit or bool(_LOCATION_KEY.search(str(k))))
+            ks = str(k)
+            if _FREETEXT_KEY.search(ks):
+                continue  # narrative field — not a structured jurisdiction signal
+            out += _collect_location_values(v, key_hit or bool(_LOCATION_KEY.search(ks)))
     elif isinstance(obj, list):
         for v in obj:
             out += _collect_location_values(v, key_hit)

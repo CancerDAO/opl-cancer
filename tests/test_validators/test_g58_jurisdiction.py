@@ -36,6 +36,33 @@ def test_locale_zh_flags(tmp_path: Path) -> None:
     assert r.block is False
 
 
+def test_cn_residence_under_location_key_flags(tmp_path: Path) -> None:
+    # B1: residence under the bare 'location' key (en-locale) must still FLAG.
+    out = _profile(tmp_path, {"locale": "en", "location": "Shanghai, China", "dx": "NSCLC"})
+    r = G58JurisdictionAvailabilityGate().check({"out_dir": str(out)})
+    assert r.status.value == "fail"
+    assert r.block is False
+
+
+def test_cn_token_in_record_id_does_not_activate(tmp_path: Path) -> None:
+    # B2: a record id like 'CN-001' / copy-number 'CN' must NOT trigger.
+    out = _profile(tmp_path, {"locale": "en", "country": "United States",
+                              "patient_id": "CN-001", "note": "copy number CN gain"})
+    r = G58JurisdictionAvailabilityGate().check({"out_dir": str(out)})
+    assert r.status.value == "skip", r.message
+
+
+def test_cn_freetext_note_under_location_key_does_not_activate(tmp_path: Path) -> None:
+    # B3: an ancestry/travel note nested under a location key must NOT re-activate.
+    out = _profile(tmp_path, {
+        "locale": "en",
+        "address": {"line1": "350 Memorial Dr, Cambridge MA",
+                    "note": "patient born in 中国, emigrated 1998"},
+    })
+    r = G58JurisdictionAvailabilityGate().check({"out_dir": str(out)})
+    assert r.status.value == "skip", r.message
+
+
 def test_non_cn_with_incidental_cn_freetext_does_not_activate(tmp_path: Path) -> None:
     # US patient whose record free-text mentions a Chinese hospital / ancestry —
     # must NOT activate G58 (the false-activation the review caught).

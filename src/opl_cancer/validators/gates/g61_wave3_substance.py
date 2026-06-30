@@ -39,9 +39,17 @@ from ..mechanical_gates import Gate, GateResult, GateStatus
 _DRY = "dry-run"
 
 
+# Allow-list, not a suffix test — "endswith('live')" matched "alive" etc.
+# (adversarial review 2026-06-30).
+_LIVE_MODES = frozenset({"live", "native-live"})
+
+
 def _is_live_mode(mode: str) -> bool:
-    m = (mode or "").strip().lower()
-    return m.endswith("live") and _DRY not in m
+    return (mode or "").strip().lower() in _LIVE_MODES
+
+
+def _is_dry_mode(mode: str) -> bool:
+    return _DRY in (mode or "").strip().lower()
 
 
 class G61Wave3SubstanceGate(Gate):
@@ -95,30 +103,37 @@ class G61Wave3SubstanceGate(Gate):
                         "quantitative to verify here.",
             )
 
-        # A top-level analysis_mode summary, if the runner wrote one, is the
-        # authoritative signal (e.g. native path executed live while bix was
-        # skipped) and overrides the per-run scan.
-        top_mode = str(payload.get("analysis_mode") or "").strip().lower()
-        if top_mode:
-            if _is_live_mode(top_mode):
-                return GateResult(
-                    gate=self.name, status=GateStatus.PASS,
-                    message=f"G61 OK — Wave-3 analysis_mode={top_mode} (executed).",
-                )
-            if _DRY in top_mode:
-                return self._block(runs, "analysis_mode=" + top_mode)
-
+        # Per-run modes are the GROUND TRUTH. The top-level analysis_mode summary
+        # is only cross-checked against them (defense-in-depth) — never trusted
+        # to override (adversarial review: a mislabelled analysis_mode=live while
+        # every run is dry-run must NOT pass). EVERY materialised run must be
+        # live: a partial run (some live, some dry) ships un-computed numbers
+        # alongside computed ones, so it blocks too.
         modes: list[str] = []
         for r in runs:
             br = (r or {}).get("bixbench_result") or {}
             modes.append(str(br.get("mode") or ""))
-        if any(_is_live_mode(m) for m in modes):
-            return GateResult(
-                gate=self.name, status=GateStatus.PASS,
-                message=f"G61 OK — {sum(_is_live_mode(m) for m in modes)}/{len(modes)} "
-                        "Wave-3 analysis run(s) executed live.",
+        live = [m for m in modes if _is_live_mode(m)]
+        dry = [m for m in modes if _is_dry_mode(m)]
+
+        top_mode = str(payload.get("analysis_mode") or "").strip().lower()
+        if top_mode and _is_live_mode(top_mode) and not live:
+            return self._block(
+                runs, f"analysis_mode={top_mode} but no run executed live (mislabel)"
             )
-        return self._block(runs, "all runs: " + ", ".join(m or "?" for m in modes))
+        if dry:
+            return self._block(
+                runs,
+                f"{len(dry)}/{len(modes)} run(s) dry-run: "
+                + ", ".join(m or "?" for m in modes),
+            )
+        if not live:
+            return self._block(runs, "no run executed live: "
+                               + ", ".join(m or "?" for m in modes))
+        return GateResult(
+            gate=self.name, status=GateStatus.PASS,
+            message=f"G61 OK — all {len(live)} Wave-3 analysis run(s) executed live.",
+        )
 
     def _block(self, runs: list[Any], detail: str) -> GateResult:
         return GateResult(

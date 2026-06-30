@@ -35,11 +35,28 @@ def test_all_dry_run_blocks(tmp_path: Path) -> None:
     assert "dry-run" in r.message.lower()
 
 
-def test_at_least_one_live_passes(tmp_path: Path) -> None:
-    _write_w3(tmp_path, ["native-dry-run", "live"])
+def test_all_live_passes(tmp_path: Path) -> None:
+    _write_w3(tmp_path, ["native-live", "live"])
     r = G61Wave3SubstanceGate().check({"run_dir": str(tmp_path)})
     assert r.status.value == "pass"
     assert r.block is False
+
+
+def test_partial_dry_run_blocks(tmp_path: Path) -> None:
+    # adversarial review C2: 1 live + 1 dry must BLOCK — the dry run's quantitative
+    # predictions would ship as 'measured' alongside the computed one.
+    _write_w3(tmp_path, ["native-dry-run", "live"])
+    r = G61Wave3SubstanceGate().check({"run_dir": str(tmp_path)})
+    assert r.status.value == "fail"
+    assert r.block is True
+
+
+def test_alive_token_not_treated_as_live(tmp_path: Path) -> None:
+    # C1-c: 'alive' must not be read as a live mode (allow-list, not endswith).
+    _write_w3(tmp_path, ["alive"])
+    r = G61Wave3SubstanceGate().check({"run_dir": str(tmp_path)})
+    assert r.status.value == "fail"
+    assert r.block is True
 
 
 def test_no_wave3_evidence_skips(tmp_path: Path) -> None:
@@ -59,8 +76,9 @@ def test_empty_analysis_runs_skips(tmp_path: Path) -> None:
     assert r.status.value == "skip"
 
 
-def test_top_level_analysis_mode_field_respected(tmp_path: Path) -> None:
-    # forward-compat: a top-level analysis_mode summary is honoured if present
+def test_top_level_live_mislabel_is_distrusted_and_blocks(tmp_path: Path) -> None:
+    # C1-a: a top-level analysis_mode='live' that contradicts per-run dry-run is
+    # a MISLABEL — the gate must distrust the summary and BLOCK, not pass.
     tmp_path.mkdir(parents=True, exist_ok=True)
     (tmp_path / "wave3_data_evidence.json").write_text(
         json.dumps({"run_id": "r1", "analysis_mode": "live",
@@ -68,5 +86,5 @@ def test_top_level_analysis_mode_field_respected(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     r = G61Wave3SubstanceGate().check({"run_dir": str(tmp_path)})
-    # top-level live overrides per-run dry-run (e.g. native path executed, bix skipped)
-    assert r.status.value == "pass"
+    assert r.status.value == "fail"
+    assert r.block is True

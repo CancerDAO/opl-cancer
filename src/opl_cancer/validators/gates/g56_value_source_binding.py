@@ -76,26 +76,38 @@ def _extract_efficacy_numbers(claim_text: str) -> list[str]:
     return [n for n in nums if ("." in n or len(n.split(".")[0]) >= 2)]
 
 
-# Confidence-interval spans — a point estimate (HR/OR/median) must NOT be
-# considered "present" just because it equals a CI bound. The real point
-# estimate sits OUTSIDE the CI parenthesis ("HR 0.49 (95% CI 0.31-0.70)"), so
-# stripping the CI span keeps true point estimates while removing bound numbers.
-# (adversarial review 2026-06-30: fabricated HR 0.49 passed against a 0.49 CI bound.)
-_CI_SPAN = re.compile(
-    r"[\(\[]\s*\d{0,2}\s*%?\s*(?:ci|confidence\s+interval)[^)\]]*[\)\]]",
+# A point estimate (HR/OR/median) must NOT count as "present" just because it
+# equals a CI BOUND. We do NOT strip whole CI parens (that also deletes a legit
+# point estimate sitting in the same paren, e.g. "(HR 0.49, 95% CI 0.31-0.70)").
+# Instead we count occurrences of the number and subtract the occurrences that
+# are CI bounds: the number is validly present iff it occurs somewhere that is
+# NOT a CI bound. Handles paren'd, combined, and no-paren CI forms.
+# (adversarial review 2026-06-30: span-strip under-stripped combined/no-paren CI
+# and over-stripped legit estimates.)
+_CI_BOUND = re.compile(
+    r"(?:95\s*%\s*)?(?:ci|confidence\s+interval)\s*[:,]?\s*"
+    r"(\d+(?:[.·]\d+)?)\s*(?:-|–|—|to|,|~|～)\s*(\d+(?:[.·]\d+)?)",
     re.I,
 )
 
 
-def _strip_ci_spans(haystack: str) -> str:
-    return _CI_SPAN.sub(" ", haystack)
+def _ci_bound_numbers(haystack: str) -> list[str]:
+    out: list[str] = []
+    for m in _CI_BOUND.finditer(haystack):
+        out.append(m.group(1).replace("·", "."))
+        out.append(m.group(2).replace("·", "."))
+    return out
 
 
 def _number_present(num: str, haystack: str) -> bool:
-    # token-boundaried so "8.3" doesn't match "18.3" or "8.30"... allow trailing
-    # zeros being absent: match the exact decimal token with non-digit boundaries.
-    # CI bounds are stripped first so a point estimate can't bind to a CI bound.
-    return bool(re.search(rf"(?<!\d){re.escape(num)}(?!\d)", _strip_ci_spans(haystack)))
+    # token-boundaried so "8.3" doesn't match "18.3" or "8.30".
+    occurrences = re.findall(rf"(?<!\d){re.escape(num)}(?!\d)", haystack)
+    if not occurrences:
+        return False
+    # subtract occurrences that are CI bounds — if every occurrence is a CI
+    # bound, the number is NOT validly reported as a point estimate.
+    ci_count = sum(1 for b in _ci_bound_numbers(haystack) if b == num)
+    return len(occurrences) > ci_count
 
 
 class G56ValueSourceBindingGate(Gate):
@@ -125,15 +137,15 @@ class G56ValueSourceBindingGate(Gate):
         if not pmids:
             return GateResult(gate=self.name, status=GateStatus.SKIP,
                               message="G56 SKIP — no PMID evidence.")
-        # Read the claim's prose from whichever key the pipeline used. The
-        # canonical wave-1 claim record carries it as ``text`` (wave1_runner
-        # _collect_claims); the brief-extracted fallback uses ``claim_text``.
-        # Reading only ``claim_text`` (the original bug) made G56 SKIP every
-        # real claim → the 伪精度 gate was a silent no-op on the live path.
-        claim_prose = next(
-            (str(claim[k]) for k in ("claim_text", "text", "statement", "title")
-             if claim.get(k)),
-            "",
+        # Scan EVERY prose field the pipeline might carry, COMBINED — the
+        # canonical wave-1 record renders prose as ``text`` while the brief
+        # fallback uses ``claim_text``. Reading only one field let a number in
+        # the OTHER (the one that actually ships) escape the binding check
+        # (adversarial review 2026-06-30: claim_text shadowed text). Reading only
+        # claim_text (the original bug) made G56 SKIP every real claim.
+        claim_prose = " ".join(
+            str(claim[k]) for k in ("claim_text", "text", "statement", "title")
+            if claim.get(k)
         )
         numbers = _extract_efficacy_numbers(claim_prose)
         if not numbers:

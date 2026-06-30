@@ -176,6 +176,12 @@ class Wave3Runner:
                 context=ba_context,
             )
             # bixbench dry-run (live only if OPL_BIXBENCH_LIVE=1)
+            # KNOWN SUBSTANCE GAP (first-principles audit 2026-06-30, finding
+            # C1-b): this writes an EMPTY notebook stub, so even a live run
+            # executes nothing real — G61 verifies the runner EXECUTED, not that
+            # the notebook was substantive. Closing this needs the analysis
+            # plan_out → executable-notebook wiring (host-LLM/Aviv's cells), a
+            # larger change than a gate patch. Tracked as a P1 follow-up.
             nb_path = run_dir / f"{hid}_analysis.ipynb"
             nb_path.write_text("{}", encoding="utf-8")
             bix_result = self.bixbench.run_notebook(
@@ -239,9 +245,14 @@ class Wave3Runner:
             str((r.get("bixbench_result") or {}).get("mode") or "")
             for r in analysis_runs
         ]
+        # "live" ONLY if EVERY run executed live — a partial run (some dry) ships
+        # un-computed numbers alongside computed ones (G61 blocks both).
+        def _live(m: str) -> bool:
+            return m.strip().lower() in ("live", "native-live")
         _analysis_mode = (
-            "live" if any(m.endswith("live") and "dry-run" not in m for m in _run_modes)
-            else ("dry-run" if _run_modes else "none")
+            "none" if not _run_modes
+            else "live" if all(_live(m) for m in _run_modes)
+            else "dry-run"
         )
         payload: dict[str, Any] = {
             "run_id": run_id,

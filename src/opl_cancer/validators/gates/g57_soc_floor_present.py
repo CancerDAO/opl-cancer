@@ -27,16 +27,36 @@ from ..mechanical_gates import Gate, GateResult, GateStatus
 _FLOOR_MARKER = re.compile(r"\[SOC-?FLOOR\]", re.I)
 _STAGE = re.compile(r"\b(?:stage|分期|IV|III|II|N[0-3]|M[01]|局部区域|locoregional|metastatic|转移)\b", re.I)
 _BRIEF_GLOBS = ("*brief.md", "*brief.html", "patient_brief.html")
-# Honest escape: the brief may declare that no standard of care remains for this
-# patient (a genuine late-line reality) instead of fabricating a floor.
+# Honest escape: the brief may declare that no STANDARD OF CARE remains for this
+# patient (a genuine late-line reality) instead of fabricating a floor. Tightened
+# to require "standard of care" / 标准治疗 specifically — "no standard chemotherapy"
+# is NOT a no-SoC declaration (adversarial review 2026-06-30).
 _NO_SOC = re.compile(
-    r"no\s+(?:remaining\s+)?standard(?:\s+of\s+care)?(?:\s+remains?)?"
+    r"no\s+(?:remaining\s+)?standard\s+of\s+care(?:\s+remains?)?"
     r"|standard\s+of\s+care\s+(?:is\s+)?exhausted"
-    r"|标准治疗(?:已)?(?:用尽|耗尽)|无(?:可用)?标准治疗|无标准方案",
+    r"|no\s+remaining\s+(?:standard\s+)?(?:treatment|therapy|guideline\s+option)"
+    r"|标准治疗(?:已)?(?:用尽|耗尽|无)|无(?:可用)?标准治疗|无标准(?:治疗)?方案",
     re.I,
 )
-# Unfinished-scaffold markers that must not count as a real floor.
-_PLACEHOLDER = re.compile(r"\bTBD\b|待填充|占位|<\s*insert|<\s*[^>]*>|XXX+|\.\.\.\s*$", re.I)
+# Unfinished-scaffold markers that must not count as a real floor. Note: HTML tags
+# are stripped BEFORE this runs (so <p>/<h2> don't read as placeholders); the
+# only angle-bracket token we treat as a placeholder is an explicit <insert ...>.
+_PLACEHOLDER = re.compile(
+    r"\bTBD\b|\bTODO\b|\bTK\b|\bPENDING\b|coming\s+soon|fill\s*[- ]?in|to\s+be\s+"
+    r"(?:filled|completed|determined|added)|待填充|待补|待定|占位|<\s*insert|XXX+|\.\.\.\s*$",
+    re.I,
+)
+# A real floor NAMES a standard of care — it must carry at least one treatment /
+# guideline content signal, not just 25 chars of filler (adversarial review:
+# "aaaa bbbb ... Stage IV" passed a length-only check).
+_SOC_CONTENT = re.compile(
+    r"standard\s+of\s+care|consolidation|maintenance|chemo(?:therapy)?|regimen|"
+    r"immunotherapy|radiation|radiotherapy|surgery|targeted|guideline|nccn|csco|"
+    r"esmo|first[- ]line|second[- ]line|\bSoC\b|[a-z]{4,}(?:mab|nib|tinib|platin|"
+    r"rubicin|lizumab)\b|化疗|放疗|靶向|免疫|手术|标准方案|标准治疗|指南|巩固|维持|一线|二线|三线",
+    re.I,
+)
+_HTML_TAG = re.compile(r"<[^>]+>")
 # Minimum real (whitespace-normalised) characters of floor content after the
 # marker for the section to count as substantive (not a bare heading).
 _MIN_FLOOR_CHARS = 25
@@ -108,13 +128,21 @@ class G57SoCFloorPresentGate(Gate):
                 continue
             for m in _FLOOR_MARKER.finditer(text):
                 window = _floor_window(text, m.start())
+                # strip HTML tags first so an HTML brief's <p>/<h2> neither read
+                # as placeholders nor pad the substance length.
+                window = _HTML_TAG.sub(" ", window)
                 stage_ok = bool(_STAGE.search(window))
                 honest_none = bool(_NO_SOC.search(window))
-                # substance = real content beyond marker/stage that is not a
-                # placeholder (TBD / 待填充 / <insert ...>).
+                # substance = real, NAMED standard-of-care content beyond the
+                # marker — not a placeholder and not 25 chars of filler. Requires
+                # an actual treatment/guideline signal (_SOC_CONTENT).
                 body = _FLOOR_MARKER.sub(" ", window)
                 placeholder = bool(_PLACEHOLDER.search(body))
-                substance_ok = (len(_norm(body)) >= _MIN_FLOOR_CHARS) and not placeholder
+                substance_ok = (
+                    len(_norm(body)) >= _MIN_FLOOR_CHARS
+                    and not placeholder
+                    and bool(_SOC_CONTENT.search(body))
+                )
                 cand = {"brief": bp.name, "stage_ok": stage_ok,
                         "honest_none": honest_none, "substance_ok": substance_ok,
                         "placeholder": placeholder}
